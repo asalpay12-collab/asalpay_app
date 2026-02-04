@@ -6,7 +6,7 @@ class TokenClass {
   late final Map<String, String> user;
   late final JWTCodec jwtCodec;
   final String key;
-  String? _currentToken; 
+  String? _currentToken;
 
   TokenClass()
       : key = dotenv.env['secretKey']?.toString() ?? '' {
@@ -38,6 +38,7 @@ class TokenClass {
       final decoded = jwtCodec.decode(token);
       final exp = decoded['exp'] as int;
       final expiryTime = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+      // Add 10-second buffer to prevent edge cases
       return expiryTime.isAfter(DateTime.now().add(const Duration(seconds: 10)));
     } catch (e) {
       print("❌ Token validation error: $e");

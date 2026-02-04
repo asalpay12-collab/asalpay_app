@@ -1,22 +1,21 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:io';
 import '../models/category.dart';
 import '../models/product.dart';
 import '../services/252pay_api_service.dart';
+import '../services/bnpl_api_service.dart';
+import '../services/api_urls.dart';
 import 'DiscountProductsDrawer.dart';
 import 'my_orders_screen.dart';
-import 'dart:io';
-
+import 'basket_screen.dart';
+import 'bnpl/bnpl_tracking_screen.dart';
+import 'bnpl/bnpl_application_screen.dart';
 import 'package:asalpay/widgets/commonBtn.dart';
-// import 'package:connectivity/connectivity.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_otp_text_field/flutter_otp_text_field.dart';
-import 'package:logo_n_spinner/logo_n_spinner.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../models/http_exception.dart';
 import '../providers/HomeSliderandTransaction.dart';
 import '../providers/auth.dart';
 
@@ -33,6 +32,7 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
   final Color bodyBg = Colors.white;
   final BorderRadius br12 = BorderRadius.circular(12);
   final api = ApiService();
+  final bnplApi = BnplApiService();
 
   List<Product> products = [];
   List<Category> subCategories = [];
@@ -56,18 +56,30 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
     _loadCategories();
   }
 
-
   Future<void> _loadCategories() async {
+    setState(() {
+      isLoading = true;
+    });
     try {
+      print(
+          "🔄 Loading categories from: ${ApiUrls.BASE_URL}wallet25Pay/mainCategories");
       final fetchedCategories = await api.fetchCategories();
       setState(() {
         categories = fetchedCategories;
         isLoading = false;
       });
+      print("✅ Loaded ${fetchedCategories.length} categories");
     } catch (e) {
-      _showError(e.toString());
+      print("❌ Error loading categories: $e");
+      setState(() {
+        isLoading = false;
+      });
+      if (mounted) {
+        _showError('Failed to load categories: ${e.toString()}');
+      }
     }
   }
+
   Future<void> _loadPaymentPolicy() async {
     try {
       final fetchedPolicy = await api.fetchPaymentPolicy();
@@ -91,6 +103,7 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
       _showError(e.toString());
     }
   }
+
   Future<void> _loadProducts(int categoryId) async {
     setState(() {
       isLoading = true;
@@ -117,83 +130,413 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
     ));
   }
 
-  void _showOrderDialog(Product product, double unitPrice,String remainingQuantity) {
+  void _showOrderDialog(
+      Product product, double unitPrice, String remainingQuantity) {
     final quantityController = TextEditingController(text: '1');
     final totalController =
-    TextEditingController(text: unitPrice.toStringAsFixed(2));
+        TextEditingController(text: unitPrice.toStringAsFixed(2));
+    double currentPrice = unitPrice;
+    bool isNegotiating = false;
 
     void updateTotal() {
       final qty = int.tryParse(quantityController.text) ?? 1;
-      final total = qty * unitPrice;
+      final total = qty * currentPrice;
       totalController.text = total.toStringAsFixed(2);
     }
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text(
-            'Order ${product.name}',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: quantityController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: InputDecoration(
-                    labelText: 'Quantity (Max: $remainingQuantity)',
-                    errorText: int.tryParse(quantityController.text) != null &&
-                        int.parse(quantityController.text) >  int.parse(remainingQuantity)
-                        ? 'Exceeds available quantity'
-                        : null,
-                  ),
-                  onChanged: (value) {
-                    final enteredQty = int.tryParse(value) ?? 1;
-                    if (enteredQty > int.parse(remainingQuantity)) {
-                      quantityController.text = remainingQuantity.toString();
-                      quantityController.selection = TextSelection.fromPosition(
-                        TextPosition(offset: quantityController.text.length),
-                      );
-                    }
-                    updateTotal();
-                  },
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(
+                'Order ${product.name}',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Price per unit with Negotiate button
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Price per unit'),
+                              const SizedBox(height: 4),
+                              Text(
+                                '\$${currentPrice.toStringAsFixed(2)}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: primaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (product.costPrice != null && product.costPrice! > 0)
+                          ElevatedButton.icon(
+                            onPressed: isNegotiating
+                                ? null
+                                : () async {
+                                    await _showNegotiatePriceDialog(
+                                      context,
+                                      product,
+                                      currentPrice,
+                                      (newPrice) {
+                                        setDialogState(() {
+                                          currentPrice = newPrice;
+                                          updateTotal();
+                                        });
+                                      },
+                                    );
+                                  },
+                            icon: const Icon(Icons.attach_money, size: 16),
+                            label: const Text('Negotiate'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Quantity – no availability limit; user can order any quantity
+                    TextField(
+                      controller: quantityController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: const InputDecoration(
+                        labelText: 'Quantity',
+                      ),
+                      onChanged: (value) {
+                        final qty = int.tryParse(value) ?? 1;
+                        if (qty < 1) {
+                          quantityController.text = '1';
+                          quantityController.selection =
+                              TextSelection.fromPosition(
+                            TextPosition(
+                                offset: quantityController.text.length),
+                          );
+                        }
+                        updateTotal();
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    // Total
+                    TextField(
+                      controller: totalController,
+                      decoration: const InputDecoration(labelText: 'Total:'),
+                      enabled: false,
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: primaryColor,
+                      ),
+                    ),
+                  ],
                 ),
-
-                const SizedBox(height: 12),
-                TextField(
-                  controller: totalController,
-                  decoration: const InputDecoration(labelText: 'Total Price'),
-                  enabled: false,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Cancel', style: TextStyle(color: primaryColor)),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final qty = int.tryParse(quantityController.text) ?? 1;
+                    setState(() {
+                      orderItems.add({
+                        "product_id": product.id,
+                        "quantity": qty,
+                        "unit_price": currentPrice,
+                        "name": product.name,
+                      });
+                      selectedProduct = null;
+                    });
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Added to basket'),
+                        backgroundColor: primaryColor,
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Add to Basket'),
                 ),
               ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showMessageDialog(
+    BuildContext context, {
+    required String title,
+    required String message,
+    bool isError = false,
+  }) async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline : Icons.info_outline,
+              color: isError ? Colors.red : primaryColor,
+              size: 24,
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final qty = int.tryParse(quantityController.text) ?? 1;
-                setState(() {
-                  orderItems.add({
-                    "product_id": product.id,
-                    "quantity": qty,
-                    "unit_price": unitPrice,
-                    "name": product.name,
-                  });
-                  selectedProduct = null;
-                });
-                Navigator.pop(context);
-              },
-              child: const Text('Confirm'),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 18,
+                ),
+              ),
             ),
           ],
+        ),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            message,
+            style: GoogleFonts.poppins(fontSize: 15, height: 1.4),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'OK',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                color: primaryColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showNegotiatePriceDialog(
+    BuildContext context,
+    Product product,
+    double originalPrice,
+    Function(double) onPriceUpdated,
+  ) async {
+    final requestedPriceController = TextEditingController();
+    final messageController = TextEditingController();
+    bool isSubmitting = false;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child:
+                        Icon(Icons.attach_money, color: primaryColor, size: 20),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Negotiate Price',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Original Price Card
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Original Price',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '\$${originalPrice.toStringAsFixed(2)}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Requested Price
+                    TextField(
+                      controller: requestedPriceController,
+                      keyboardType:
+                          TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: 'Your Requested Price *',
+                        prefixIcon:
+                            Icon(Icons.currency_exchange, color: primaryColor),
+                        hintText: 'Enter amount',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Message (Optional)
+                    TextField(
+                      controller: messageController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: 'Message (Optional)',
+                        prefixIcon: Icon(Icons.message, color: primaryColor),
+                        hintText: "e.g., 'This price is too high for me'",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Cancel', style: TextStyle(color: primaryColor)),
+                ),
+                ElevatedButton.icon(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final requestedPrice =
+                              double.tryParse(requestedPriceController.text);
+                          if (requestedPrice == null || requestedPrice <= 0) {
+                            await _showMessageDialog(
+                              context,
+                              title: 'Invalid Price',
+                              message: 'Please enter a valid price.',
+                              isError: true,
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => isSubmitting = true);
+
+                          try {
+                            final result = await bnplApi.negotiatePrice(
+                              productId: product.id,
+                              originalPrice: originalPrice,
+                              requestedPrice: requestedPrice,
+                              customerMessage:
+                                  messageController.text.trim().isEmpty
+                                      ? null
+                                      : messageController.text.trim(),
+                            );
+
+                            setDialogState(() => isSubmitting = false);
+                            if (!context.mounted) return;
+                            Navigator.pop(context); // Close negotiate dialog
+
+                            final msg =
+                                result['data']?['message']?.toString() ??
+                                    result['message']?.toString() ??
+                                    '';
+
+                            if (result['data']?['can_negotiate'] == true) {
+                              final counterOffer = result['data']
+                                  ?['counter_offer_price'] as double?;
+                              if (counterOffer != null) {
+                                onPriceUpdated(counterOffer);
+                              }
+                              final successMsg = msg.isNotEmpty
+                                  ? msg
+                                  : (counterOffer != null
+                                      ? 'Price negotiation successful. New price: \$${counterOffer.toStringAsFixed(2)}'
+                                      : 'Price negotiation successful.');
+                              await _showMessageDialog(
+                                context,
+                                title: 'Negotiation Result',
+                                message: successMsg,
+                                isError: false,
+                              );
+                            } else {
+                              await _showMessageDialog(
+                                context,
+                                title: 'Negotiation Result',
+                                message: msg.isNotEmpty
+                                    ? msg
+                                    : 'Price negotiation could not be completed.',
+                                isError: false,
+                              );
+                            }
+                          } catch (e) {
+                            setDialogState(() => isSubmitting = false);
+                            if (!context.mounted) return;
+                            Navigator.pop(context); // Close negotiate dialog
+                            await _showMessageDialog(
+                              context,
+                              title: 'Error',
+                              message:
+                                  e.toString().replaceFirst('Exception: ', ''),
+                              isError: true,
+                            );
+                          }
+                        },
+                  icon: const Icon(Icons.send, size: 18),
+                  label: const Text('Request'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -214,19 +557,18 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
   }) async {
     try {
       await api.submitOrder(
-        walletAccount: widget.wallet_accounts_id,
-        totalAmount: totalAmount,
-        status: status,
-        items: items,
-        addressId:addressId,
-        description: description,
+          walletAccount: widget.wallet_accounts_id,
+          totalAmount: totalAmount,
+          status: status,
+          items: items,
+          addressId: addressId,
+          description: description,
           phone: phone,
-        merchantAccount: merchantAccount,
-        currencyFromId: currencyFromId,
-        currencyToId: currencyToId,
-        amountFrom: amountFrom,
-        amountTo: amountTo
-      );
+          merchantAccount: merchantAccount,
+          currencyFromId: currencyFromId,
+          currencyToId: currencyToId,
+          amountFrom: amountFrom,
+          amountTo: amountTo);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Order submitted successfully')),
       );
@@ -279,7 +621,8 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                 builder: (context, constraints) {
                   return ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxHeight: constraints.maxHeight * 0.95, // Responsive limit
+                      maxHeight:
+                          constraints.maxHeight * 0.95, // Responsive limit
                     ),
                     child: Padding(
                       padding: MediaQuery.of(context).viewInsets,
@@ -309,23 +652,55 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                               // Address Dropdown
                               const Text("Select Delivery Address"),
                               const SizedBox(height: 5),
-                              DropdownButtonFormField<int>(
-                                isExpanded: true,
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                hint: const Text("Choose address"),
-                                value: selectedAddressId,
-                                items: customerAddresses.map((address) {
-                                  return DropdownMenuItem<int>(
-                                    value: int.tryParse(address['adress_id'].toString()),
-                                    child: Text(address['district_name'] ?? 'Unknown District'),
+                              Builder(
+                                builder: (context) {
+                                  final addressItems = <int, String>{};
+                                  for (final address in customerAddresses) {
+                                    final rawId = address['adress_id'] ??
+                                        address['address_id'] ??
+                                        address['district_id'] ??
+                                        address['id'];
+                                    final id = rawId is int
+                                        ? rawId
+                                        : int.tryParse(rawId?.toString() ?? '');
+                                    if (id != null) {
+                                      final name = address['district_name'] ??
+                                          address['name'] ??
+                                          'Unknown District';
+                                      addressItems[id] =
+                                          name.toString().trim().isEmpty
+                                              ? 'Address #$id'
+                                              : name.toString();
+                                    }
+                                  }
+                                  final validIds = addressItems.keys.toList();
+                                  final dropdownValue = selectedAddressId !=
+                                              null &&
+                                          validIds.contains(selectedAddressId)
+                                      ? selectedAddressId
+                                      : null;
+                                  return DropdownButtonFormField<int>(
+                                    isExpanded: true,
+                                    decoration: InputDecoration(
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    hint: const Text("Choose address"),
+                                    value: dropdownValue,
+                                    items: validIds
+                                        .map((id) => DropdownMenuItem<int>(
+                                              value: id,
+                                              child:
+                                                  Text(addressItems[id] ?? ''),
+                                            ))
+                                        .toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        selectedAddressId = value;
+                                      });
+                                    },
                                   );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() => selectedAddressId = value);
                                 },
                               ),
                               const SizedBox(height: 12),
@@ -388,25 +763,32 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
                                   TextButton(
-                                    onPressed: () => Navigator.of(context).pop(),
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(),
                                     child: const Text('Cancel'),
                                   ),
                                   const SizedBox(width: 12),
                                   ElevatedButton.icon(
                                     onPressed: () async {
                                       if (selectedAddressId == null) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
                                           const SnackBar(
-                                            content: Text('🚫 Please select a delivery address.'),
+                                            content: Text(
+                                                '🚫 Please select a delivery address.'),
                                           ),
                                         );
                                         return;
                                       }
 
-                                      if (descriptionController.text.trim().isEmpty) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                      if (descriptionController.text
+                                          .trim()
+                                          .isEmpty) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
                                           const SnackBar(
-                                            content: Text('📝 Please enter a delivery description.'),
+                                            content: Text(
+                                                '📝 Please enter a delivery description.'),
                                           ),
                                         );
                                         return;
@@ -420,22 +802,23 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                                         currencyToId: currencyToId,
                                         amountTo: amountTo,
                                         merchantAccount: merchantaccount,
-                                        walletAccount: widget.wallet_accounts_id,
+                                        walletAccount:
+                                            widget.wallet_accounts_id,
                                       );
 
                                       _submitOrder(
-                                        totalAmount: totalAmount,
-                                        status: 'Paid',
-                                        items: items,
-                                        addressId: selectedAddressId!,
-                                        description: descriptionController.text.trim(),
-                                        phone: phoneController.text.trim(),
-                                        merchantAccount: merchantaccount,
-                                        currencyFromId: currencyFromId,
-                                        currencyToId: currencyToId,
-                                        amountFrom: amountFrom,
-                                        amountTo: amountTo
-                                      );
+                                          totalAmount: totalAmount,
+                                          status: 'Paid',
+                                          items: items,
+                                          addressId: selectedAddressId!,
+                                          description:
+                                              descriptionController.text.trim(),
+                                          phone: phoneController.text.trim(),
+                                          merchantAccount: merchantaccount,
+                                          currencyFromId: currencyFromId,
+                                          currencyToId: currencyToId,
+                                          amountFrom: amountFrom,
+                                          amountTo: amountTo);
                                     },
                                     icon: const Icon(Icons.check),
                                     label: const Text('Pay'),
@@ -461,12 +844,7 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
         );
       },
     );
-
   }
-
-
-
-
 
   bool isloading1 = false;
   bool _submitted1 = false;
@@ -480,7 +858,8 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
     var errorMessage = 'Successfully Sent!';
     try {
       final auth = Provider.of<Auth>(context, listen: false);
-      await Provider.of<HomeSliderAndTransaction>(context, listen: false).LoginPIN(
+      await Provider.of<HomeSliderAndTransaction>(context, listen: false)
+          .LoginPIN(
         auth.phone!,
         pinNumber,
       );
@@ -552,8 +931,10 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
             }
 
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -562,8 +943,12 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                     children: [
                       Text(
                         "Confirmation Pin",
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 20) ??
-                            const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        style: Theme.of(context)
+                                .textTheme
+                                .bodyLarge
+                                ?.copyWith(fontSize: 20) ??
+                            const TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
@@ -573,7 +958,8 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                             color: Colors.grey.withOpacity(0.3),
                           ),
                           padding: const EdgeInsets.all(4),
-                          child: Icon(Icons.close, color: primaryColor, size: 20),
+                          child:
+                              Icon(Icons.close, color: primaryColor, size: 20),
                         ),
                       ),
                     ],
@@ -582,7 +968,8 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                   Text(
                     "Enter 4-digit Pin To Send Money and Subtract from Your Wallet",
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium ?? const TextStyle(fontSize: 16),
+                    style: Theme.of(context).textTheme.bodyMedium ??
+                        const TextStyle(fontSize: 16),
                   ),
                   const SizedBox(height: 20),
                   OtpTextField(
@@ -597,7 +984,8 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                     },
                     onSubmit: (String code) async {
                       currentPin = code;
-                      await verifyPin(code); // Also trigger check on keyboard done
+                      await verifyPin(
+                          code); // Also trigger check on keyboard done
                     },
                   ),
                   const SizedBox(height: 10),
@@ -608,18 +996,18 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                   child: isloading1
                       ? const CircularProgressIndicator()
                       : InkWell(
-                    onTap: () async {
-                      FocusScope.of(context).unfocus();
+                          onTap: () async {
+                            FocusScope.of(context).unfocus();
 
-                      if (currentPin.length != 4) {
-                        _showErrorDialog("Please enter a 4-digit PIN.");
-                        return;
-                      }
+                            if (currentPin.length != 4) {
+                              _showErrorDialog("Please enter a 4-digit PIN.");
+                              return;
+                            }
 
-                      await verifyPin(currentPin);
-                    },
-                    child: const CommonBtn(txt: "Confirm Pin"),
-                  ),
+                            await verifyPin(currentPin);
+                          },
+                          child: const CommonBtn(txt: "Confirm Pin"),
+                        ),
                 ),
               ],
             );
@@ -631,16 +1019,25 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
     return result;
   }
 
-
-
-
-  Future<void> submitPayNowOrder(double totalAmount, List<Map<String, dynamic>> items) async {
+  void _dismissLoadingIfOpen() {
+    if (!mounted) return;
     try {
-      // Step 1: Ask for pin and verify it
-      bool pinVerified = await _showMyDialogConfirmPin();
-      if (!pinVerified) return; // Cancel the process if verification fails
+      Navigator.of(context).pop();
+    } catch (_) {}
+  }
 
-      // Step 2: Show loading dialog
+  Future<void> submitPayNowOrder(
+      double totalAmount, List<Map<String, dynamic>> items) async {
+    if (!mounted) return;
+    try {
+      // Step 1: PIN dialog – verify before continuing (shows on top of basket)
+      bool pinVerified = await _showMyDialogConfirmPin();
+      if (!pinVerified || !mounted) return;
+
+      // Close basket so loading and rest of flow show on ProductPurchaseScreen
+      if (mounted) Navigator.of(context).pop();
+
+      // Step 2: Loading
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -650,37 +1047,64 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
       final response = await api.getAcountInfo(widget.wallet_accounts_id);
       final merchantAccount = await api.fetchmerchantAccount();
 
+      if (!mounted) return;
       accountInfo = List<Map<String, dynamic>>.from(response);
       merchnataccountInfo = List<Map<String, dynamic>>.from(merchantAccount);
-      final account = merchnataccountInfo.first;
-      final responseMerchant = await api.getMerchantInfo(account['merchant_account']);
 
+      if (accountInfo.isEmpty) {
+        _dismissLoadingIfOpen();
+        _showError("Could not load wallet account.");
+        return;
+      }
+      if (merchnataccountInfo.isEmpty) {
+        _dismissLoadingIfOpen();
+        _showError("Could not load merchant account.");
+        return;
+      }
+
+      final account = merchnataccountInfo.first;
+      final merchantAccountId = account['merchant_account']?.toString();
+      if (merchantAccountId == null || merchantAccountId.isEmpty) {
+        _dismissLoadingIfOpen();
+        _showError("Invalid merchant account.");
+        return;
+      }
+
+      final responseMerchant = await api.getMerchantInfo(merchantAccountId);
+      if (!mounted) return;
       merchantInfo = List<Map<String, dynamic>>.from(responseMerchant);
+      if (merchantInfo.isEmpty) {
+        _dismissLoadingIfOpen();
+        _showError("Could not load merchant info.");
+        return;
+      }
 
       final user = accountInfo.first;
       final merchant = merchantInfo.first;
 
       final double balance = double.tryParse(user['balance'].toString()) ?? 0.0;
-      final double paymentAmount = double.tryParse(totalAmount.toString()) ?? 0.0;
+      final double paymentAmount =
+          double.tryParse(totalAmount.toString()) ?? 0.0;
 
-      final String walletCurrency = user['currency_name'];
-      final String merchantCurrency = merchant['currency_name'];
-      final String merchantcurrency_id = merchant['currency_id'];
-      final String walletcurrency_id = user['currency_id'];
+      final String walletCurrency = user['currency_name']?.toString() ?? '';
+      final String merchantCurrency =
+          merchant['currency_name']?.toString() ?? '';
+      final String merchantcurrency_id =
+          merchant['currency_id']?.toString() ?? '';
+      final String walletcurrency_id = user['currency_id']?.toString() ?? '';
 
-      // Balance checks
       if (balance == 0.0) {
-        Navigator.of(context).pop(); // Close loading
+        _dismissLoadingIfOpen();
         _showError("Your wallet balance is zero. Insufficient balance.");
         return;
-      } else if (balance < paymentAmount) {
-        Navigator.of(context).pop(); // Close loading
+      }
+      if (balance < paymentAmount) {
+        _dismissLoadingIfOpen();
         _showError("Your balance is less than the amount to be paid.");
         return;
       }
 
-      // Dismiss loading before showing bottom sheet
-      Navigator.of(context).pop();
+      _dismissLoadingIfOpen();
 
       if (walletCurrency == merchantCurrency) {
         await showPaymentConfirmationBottomSheet(
@@ -689,17 +1113,18 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           currencyFromId: walletcurrency_id,
           currencyToId: merchantcurrency_id,
           merchantCurrency: merchantCurrency,
-          merchantaccount: account['merchant_account'],
+          merchantaccount: merchantAccountId,
           walletCurrency: walletCurrency,
           totalAmount: totalAmount,
           items: items,
         );
       } else {
-        // Show loading again for exchange API
+        if (!mounted) return;
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => const Center(child: CircularProgressIndicator()),
+          builder: (context) =>
+              const Center(child: CircularProgressIndicator()),
         );
 
         final exchangeData = await api.getExchangeInfo(
@@ -708,9 +1133,11 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           paymentAmount,
         );
 
-        Navigator.of(context).pop(); // Close loading dialog
+        if (!mounted) return;
+        _dismissLoadingIfOpen();
 
-        final double amountchanges = double.tryParse(exchangeData['amount_to'].toString()) ?? 0.0;
+        final double amountchanges =
+            double.tryParse(exchangeData['amount_to']?.toString() ?? '') ?? 0.0;
 
         if (balance < amountchanges) {
           _showError("Your balance is less than the amount to be paid.");
@@ -723,19 +1150,22 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           currencyFromId: walletcurrency_id,
           currencyToId: merchantcurrency_id,
           merchantCurrency: merchantCurrency,
-          merchantaccount: account['merchant_account'],
+          merchantaccount: merchantAccountId,
           walletCurrency: walletCurrency,
           totalAmount: totalAmount,
           items: items,
         );
       }
     } catch (e) {
-      Navigator.of(context).pop(); // Ensure dialog is closed
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
+      _dismissLoadingIfOpen();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
     }
   }
+
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
@@ -745,7 +1175,6 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           "Enter a valid pin",
           textAlign: TextAlign.center,
         ),
-
         actions: <Widget>[
           TextButton(
             child: Text('Okay', style: TextStyle(color: primaryColor)),
@@ -758,42 +1187,132 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
     );
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: bodyBg,
-        appBar: AppBar(
-          elevation: 2,
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
-          title: Text(
+      appBar: AppBar(
+        elevation: 2,
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        title: PopupMenuButton<String>(
+          child: Text(
             '252pay',
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w600,
               fontSize: 20,
+              color: Colors.white,
             ),
           ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              setState(() {
-                if (selectedProduct != null) {
-                  selectedProduct = null;
-                } else if (selectedSubCategory != null) {
-                  selectedSubCategory = null;
-                } else if (selectedCategory != null) {
-                  selectedCategory = null;
-                } else {
-                  Navigator.pop(context);
-                }
-              });
-            },
+          offset: const Offset(0, 50),
+          onSelected: (value) {
+            if (value == 'my_bnpl_applications') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BnplTrackingScreen(
+                    walletAccountId: widget.wallet_accounts_id ?? '',
+                  ),
+                ),
+              );
+            }
+          },
+          itemBuilder: (BuildContext context) => [
+            PopupMenuItem<String>(
+              value: 'my_bnpl_applications',
+              child: Row(
+                children: [
+                  Icon(Icons.credit_card, color: primaryColor),
+                  const SizedBox(width: 12),
+                  Text(
+                    'My BNPL Applications',
+                    style: GoogleFonts.poppins(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            setState(() {
+              if (selectedProduct != null) {
+                selectedProduct = null;
+              } else if (selectedSubCategory != null) {
+                selectedSubCategory = null;
+              } else if (selectedCategory != null) {
+                selectedCategory = null;
+              } else {
+                Navigator.pop(context);
+              }
+            });
+          },
+        ),
+        actions: [
+          // Basket Icon with Badge
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.shopping_bag, color: Colors.white),
+                onPressed: () {
+                  if (orderItems.isNotEmpty) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BasketScreen(
+                          walletAccountId: widget.wallet_accounts_id,
+                          basketItems: orderItems,
+                          onBasketUpdated: (updatedItems) {
+                            setState(() {
+                              orderItems = updatedItems;
+                            });
+                          },
+                          onPayNow: (totalAmount, items) {
+                            submitPayNowOrder(totalAmount, items);
+                          },
+                        ),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Your basket is empty')),
+                    );
+                  }
+                },
+              ),
+              if (orderItems.isNotEmpty)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      '${orderItems.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          actions: [
-            TextButton.icon(
-              onPressed: () {
+          // Menu Icon (Three Dots)
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onSelected: (value) {
+              if (value == 'my_orders') {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -802,31 +1321,74 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                     ),
                   ),
                 );
-              },
-              icon: const Icon(Icons.receipt_long, color: Colors.white, size: 20),
-              label: Text(
-                'View Orders',
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
+              } else if (value == 'draft_applications') {
+                _handleDraftApplications();
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              PopupMenuItem<String>(
+                value: 'my_orders',
+                child: Row(
+                  children: [
+                    Icon(Icons.receipt_long, color: primaryColor),
+                    const SizedBox(width: 12),
+                    Text(
+                      'My Orders',
+                      style: GoogleFonts.poppins(),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-          ],
-        ),
-
+              PopupMenuItem<String>(
+                value: 'draft_applications',
+                child: Row(
+                  children: [
+                    Icon(Icons.drafts, color: primaryColor),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Draft Applications',
+                      style: GoogleFonts.poppins(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
             : selectedCategory == null
-            ? _buildCategoryGrid()
-            : selectedSubCategory == null
-            ? _buildSubCategoryGrid()
-            : selectedProduct == null
-            ? _buildProductGrid()
-            : _buildPaymentPlaceholder(),
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildBnplApplicationsCard(),
+                      const SizedBox(height: 20),
+                      Expanded(child: _buildCategoryGrid()),
+                    ],
+                  )
+                : selectedSubCategory == null
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildMainCategoriesBar(),
+                          Expanded(
+                            child: _buildSubCategoryGrid(),
+                          ),
+                        ],
+                      )
+                    : selectedProduct == null
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildSubCategoriesBar(),
+                              Expanded(child: _buildProductGrid()),
+                            ],
+                          )
+                        : _buildPaymentPlaceholder(),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
@@ -836,7 +1398,8 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => DiscountProductPurchaseScreen(wallet_accounts_id: widget.wallet_accounts_id),
+                  builder: (_) => DiscountProductPurchaseScreen(
+                      wallet_accounts_id: widget.wallet_accounts_id),
                 ),
               );
             },
@@ -853,13 +1416,272 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           ),
         ),
       ),
-
-
-
     );
-
   }
 
+  IconData _getIconForCategory(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('cloth')) return Icons.checkroom;
+    if (lower.contains('electronic')) return Icons.electrical_services;
+    return Icons.category;
+  }
+
+  Widget _buildMainCategoriesBar() {
+    if (categories.isEmpty) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Main Categories',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 48,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: categories.length,
+              itemBuilder: (context, index) {
+                final cat = categories[index];
+                final isSelected =
+                    selectedCategory?.categoryId == cat.categoryId;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: InkWell(
+                    onTap: () async {
+                      await _loadSubCategories(cat.categoryId);
+                      setState(() {
+                        selectedCategory = cat;
+                        selectedSubCategory = null;
+                        selectedProduct = null;
+                      });
+                    },
+                    borderRadius: br12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? primaryColor : cardBg,
+                        borderRadius: br12,
+                        border: Border.all(
+                          color:
+                              isSelected ? primaryColor : Colors.grey.shade300,
+                          width: 1.5,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: primaryColor.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (cat.productImage.isNotEmpty)
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: Colors.white,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  '$baseUrl/${cat.productImage}',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Icon(
+                                    _getIconForCategory(cat.categoryName),
+                                    size: 20,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : primaryColor,
+                                  ),
+                                  loadingBuilder: (context, child, progress) =>
+                                      progress == null
+                                          ? child
+                                          : SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                            Color>(
+                                                        isSelected
+                                                            ? Colors.white
+                                                            : primaryColor),
+                                              ),
+                                            ),
+                                ),
+                              ),
+                            ),
+                          if (cat.productImage.isNotEmpty)
+                            const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              cat.categoryName,
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                                color: isSelected ? Colors.white : primaryColor,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubCategoriesBar() {
+    if (subCategories.isEmpty) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Sub Categories',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 48,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: subCategories.length,
+              itemBuilder: (context, index) {
+                final subcat = subCategories[index];
+                final isSelected =
+                    selectedSubCategory?.subCategoryId == subcat.subCategoryId;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: InkWell(
+                    onTap: () async {
+                      await _loadProducts(subcat.subCategoryId);
+                      setState(() {
+                        selectedSubCategory = subcat;
+                        selectedProduct = null;
+                      });
+                    },
+                    borderRadius: br12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? primaryColor : cardBg,
+                        borderRadius: br12,
+                        border: Border.all(
+                          color:
+                              isSelected ? primaryColor : Colors.grey.shade300,
+                          width: 1.5,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: primaryColor.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (subcat.imagePath.isNotEmpty)
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: Colors.white,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  '$baseUrl/${subcat.imagePath}',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Icon(
+                                    Icons.category,
+                                    size: 20,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : primaryColor,
+                                  ),
+                                  loadingBuilder: (context, child, progress) =>
+                                      progress == null
+                                          ? child
+                                          : SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                            Color>(
+                                                        isSelected
+                                                            ? Colors.white
+                                                            : primaryColor),
+                                              ),
+                                            ),
+                                ),
+                              ),
+                            ),
+                          if (subcat.imagePath.isNotEmpty)
+                            const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              subcat.subCategoryName,
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                                color: isSelected ? Colors.white : primaryColor,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildSubCategoryGrid() {
     final width = MediaQuery.of(context).size.width;
@@ -910,9 +1732,13 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                   child: Image.network(
                     '$baseUrl/${subcat.imagePath}',
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 40, color: Colors.grey),
-                    loadingBuilder: (context, child, progress) =>
-                    progress == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image,
+                        size: 40, color: Colors.grey),
+                    loadingBuilder: (context, child, progress) => progress ==
+                            null
+                        ? child
+                        : const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2)),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -935,6 +1761,82 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
     );
   }
 
+  Widget _buildBnplApplicationsCard() {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BnplTrackingScreen(
+              walletAccountId: widget.wallet_accounts_id ?? '',
+            ),
+          ),
+        );
+      },
+      borderRadius: br12,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: primaryColor,
+          borderRadius: br12,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.credit_card,
+                color: Colors.white,
+                size: 32,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'My BNPL Applications',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'View and manage your applications',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.white,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCategoryGrid() {
     final width = MediaQuery.of(context).size.width;
     final crossAxisCount = width < 600 ? 2 : 3;
@@ -945,17 +1847,6 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
         ),
       );
-    }
-
-    IconData getIconForCategory(String name) {
-      final lower = name.toLowerCase();
-      if (lower.contains('cloth')) {
-        return Icons.checkroom; // clothes icon
-      } else if (lower.contains('electronic')) {
-        return Icons.electrical_services; // electronics icon
-      } else {
-        return Icons.category; // default icon
-      }
     }
 
     return GridView.builder(
@@ -994,10 +1885,16 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
             child: Column(
               children: [
                 Expanded(
-                  child: Icon(
-                    getIconForCategory(cat.categoryName),
-                    size: 60,  // adjust size as needed
-                    color: primaryColor,
+                  child: Image.network(
+                    '$baseUrl/${cat.productImage}',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image,
+                        size: 40, color: Colors.grey),
+                    loadingBuilder: (context, child, progress) => progress ==
+                            null
+                        ? child
+                        : const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2)),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1020,7 +1917,6 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
     );
   }
 
-
   Widget _buildProductGrid() {
     int crossAxisCount = MediaQuery.of(context).size.width < 600 ? 2 : 3;
     if (products.isEmpty) {
@@ -1040,7 +1936,6 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
@@ -1052,7 +1947,6 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                     ),
                   ),
                 ),
-
                 GridView.builder(
                   padding: const EdgeInsets.only(bottom: 16),
                   shrinkWrap: true,
@@ -1068,7 +1962,6 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                     final product = products[idx];
                     final unitPrice = double.tryParse(product.unitPrice) ?? 0.0;
                     final remainingQuantity = product.remainingQuantity;
-
 
                     return InkWell(
                       borderRadius: br12,
@@ -1092,10 +1985,16 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                               child: Image.network(
                                 '$baseUrl/${product.imagePath}',
                                 fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 40, color: Colors.grey),
-                                loadingBuilder: (context, child, loadingProgress) {
+                                errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.broken_image,
+                                    size: 40,
+                                    color: Colors.grey),
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
                                   if (loadingProgress == null) return child;
-                                  return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+                                  return const Center(
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2));
                                 },
                               ),
                             ),
@@ -1120,50 +2019,43 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                                 color: Colors.black87,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'available: $remainingQuantity',
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black87,
-                              ),
-                            ),
-
                             const SizedBox(height: 6),
                             SizedBox(
                               height: 32,
                               width: double.infinity,
                               child: ElevatedButton(
                                 onPressed: () {
-                                  _showOrderDialog(product, unitPrice, remainingQuantity);
+                                  _showOrderDialog(
+                                      product, unitPrice, remainingQuantity);
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 8),
                                   backgroundColor: primaryColor,
-                                  shape: RoundedRectangleBorder(borderRadius: br12),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: br12),
                                 ),
-                                child: const Text('Order', style: TextStyle(fontSize: 12)),
+                                child: const Text('Order',
+                                    style: TextStyle(fontSize: 12)),
                               ),
                             ),
                             const SizedBox(height: 4),
 
-                            /// 🔹 "See Details" text button
-                            GestureDetector(
-                              onTap: () {
-                                _showPaymentPolicySheet(product);
-                              },
-                              child: Text(
-                                "See Details",
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.blue,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ),
-
+                            // See Details – commented out for now; uncomment when needed
+                            // GestureDetector(
+                            //   onTap: () {
+                            //     _showPaymentPolicySheet(product);
+                            //   },
+                            //   child: Text(
+                            //     "See Details",
+                            //     style: GoogleFonts.poppins(
+                            //       fontSize: 12,
+                            //       fontWeight: FontWeight.w500,
+                            //       color: Colors.blue,
+                            //       decoration: TextDecoration.underline,
+                            //     ),
+                            //   ),
+                            // ),
                           ],
                         ),
                       ),
@@ -1175,177 +2067,85 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           ),
         ),
 
+        // Basket Button at Bottom
         if (orderItems.isNotEmpty)
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 12), // Ensure space from bottom
-              child: orderItems.isNotEmpty
-                  ? Container(
+              padding: const EdgeInsets.all(12),
+              child: SizedBox(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: br12,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Selected Items',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                          color: primaryColor,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      /// Constrained ListView inside SizedBox
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(context).size.height * 0.3, // 30% of screen
-                        ),
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: orderItems.length,
-                          itemBuilder: (_, i) {
-                            final item = orderItems[i];
-                            return Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    '${item['name']} x${item['quantity']}',
-                                    style: GoogleFonts.poppins(fontSize: 14),
-                                  ),
-                                ),
-                                Text(
-                                  '\$${(item['unit_price'] * item['quantity']).toStringAsFixed(2)}',
-                                  style: GoogleFonts.poppins(fontSize: 14),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () {
-                                    setState(() => orderItems.removeAt(i));
-                                  },
-                                ),
-                              ],
-                            );
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BasketScreen(
+                          walletAccountId: widget.wallet_accounts_id,
+                          basketItems: orderItems,
+                          onBasketUpdated: (updatedItems) {
+                            setState(() {
+                              orderItems = updatedItems;
+                            });
+                          },
+                          onPayNow: (totalAmount, items) {
+                            submitPayNowOrder(totalAmount, items);
                           },
                         ),
                       ),
-
-
-                      const SizedBox(height: 12),
-
-                      /// Button row
-                      Row(
-                        children: [
-                          /// Pay Now
-                          Expanded(
-                            child: SizedBox(
-                              height: 48,
-                              child: ElevatedButton.icon(
-                                onPressed: () {
-                                  final total = orderItems.fold<double>(0.0, (sum, item) {
-                                    return sum + ((item['quantity'] as int) * (item['unit_price'] as double));
-                                  });
-                                   submitPayNowOrder(total, orderItems);
-                                },
-                                icon: const Icon(Icons.payment, size: 18),
-                                label: Text(
-                                  'Pay Now',
-                                  style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: primaryColor,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
+                    );
+                  },
+                  icon: Stack(
+                    children: [
+                      const Icon(Icons.shopping_bag, size: 24),
+                      if (orderItems.isNotEmpty)
+                        Positioned(
+                          right: -4,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
                             ),
-                          ),
-
-                          /// Divider Text
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                            constraints: const BoxConstraints(
+                              minWidth: 18,
+                              minHeight: 18,
+                            ),
                             child: Text(
-                              "or",
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
+                              '${orderItems.length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ),
-
-                          /// Pay Later
-                          Expanded(
-                            child: SizedBox(
-                              height: 48,
-                              child: ElevatedButton.icon(
-                                onPressed: () {
-                                  final total = orderItems.fold<double>(0.0, (sum, item) {
-                                    return sum + ((item['quantity'] as int) * (item['unit_price'] as double));
-                                  });
-                                  _submitOrder(
-                                    totalAmount: total,
-                                    status: 'pending',
-                                    items: orderItems,
-                                    addressId: 0,
-                                    description: '',
-                                    phone: '',
-
-                                  );
-                                },
-                                icon: const Icon(Icons.send, size: 18),
-                                label: Text(
-                                  'Pay later',
-                                  style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: primaryColor,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
                     ],
                   ),
+                  label: Text(
+                    'View Basket (${orderItems.length} items)',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
-              )
-                  : const SizedBox.shrink(), // Nothing if no items
+              ),
             ),
-          )
-
-        ,
+          ),
       ],
     );
   }
-
 
   Widget _buildPaymentPlaceholder() {
     return Center(
@@ -1387,7 +2187,7 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                 backgroundColor: primaryColor,
                 foregroundColor: Colors.white,
                 padding:
-                const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                    const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: br12),
                 textStyle: GoogleFonts.poppins(
                     fontWeight: FontWeight.w700, fontSize: 16),
@@ -1435,6 +2235,7 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
       ),
     );
   }
+
   void _showPaymentPolicySheet(dynamic product) async {
     // Load policies if not loaded
     if (PaymentPolicy.isEmpty) {
@@ -1489,7 +2290,8 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                   color: primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                 child: Row(
                   children: [
                     Expanded(
@@ -1546,64 +2348,66 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                 child: PaymentPolicy.isEmpty
                     ? const Center(child: CircularProgressIndicator())
                     : ListView.builder(
-                  itemCount: PaymentPolicy.length,
-                  itemBuilder: (context, index) {
-                    final policy = PaymentPolicy[index];
-                    final months =
-                        int.tryParse(policy['months_interval'].toString()) ?? 1;
-                    final price =
-                        double.tryParse(product.unitPrice.toString()) ?? 0.0;
-                    final perMonth = price / months;
+                        itemCount: PaymentPolicy.length,
+                        itemBuilder: (context, index) {
+                          final policy = PaymentPolicy[index];
+                          final months = int.tryParse(
+                                  policy['months_interval'].toString()) ??
+                              1;
+                          final price =
+                              double.tryParse(product.unitPrice.toString()) ??
+                                  0.0;
+                          final perMonth = price / months;
 
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                          return Card(
+                            margin: const EdgeInsets.symmetric(vertical: 6),
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12, horizontal: 8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      policy['policy_name'] ?? '',
+                                      style: GoogleFonts.poppins(fontSize: 13),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      months.toString(),
+                                      style: GoogleFonts.poppins(fontSize: 13),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      "\$${price.toStringAsFixed(2)}",
+                                      style: GoogleFonts.poppins(fontSize: 13),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      "\$${perMonth.toStringAsFixed(2)}",
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.green.shade700,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 12, horizontal: 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                policy['policy_name'] ?? '',
-                                style: GoogleFonts.poppins(fontSize: 13),
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                months.toString(),
-                                style: GoogleFonts.poppins(fontSize: 13),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                "\$${price.toStringAsFixed(2)}",
-                                style: GoogleFonts.poppins(fontSize: 13),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                "\$${perMonth.toStringAsFixed(2)}",
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.green.shade700,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
               ),
             ],
           ),
@@ -1612,6 +2416,85 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
     );
   }
 
+  Future<void> _handleDraftApplications() async {
+    if (widget.wallet_accounts_id == null ||
+        widget.wallet_accounts_id!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Wallet account ID is required'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
+    try {
+      // Check for draft application
+      final draft = await api.getApplicationDraft(widget.wallet_accounts_id!);
 
+      if (draft != null && draft['application_id'] != null) {
+        // Draft exists, navigate to application screen
+        // The application screen will automatically load the draft data and determine the step
+        // Extract order items from draft if available, otherwise use empty list
+        List<Map<String, dynamic>> draftOrderItems = [];
+        double draftTotalAmount = 0.0;
+
+        if (draft['product_price'] != null) {
+          draftTotalAmount = (draft['product_price'] is num)
+              ? draft['product_price'].toDouble()
+              : double.tryParse(draft['product_price'].toString()) ?? 0.0;
+        }
+
+        // Try to get order items from draft
+        if (draft['order_items'] != null && draft['order_items'] is List) {
+          draftOrderItems =
+              List<Map<String, dynamic>>.from(draft['order_items']);
+        } else if (draft['product_id'] != null) {
+          // If single product, create order item
+          draftOrderItems = [
+            {
+              'product_id': draft['product_id'],
+              'quantity': 1,
+              'subtotal': draftTotalAmount,
+            }
+          ];
+        }
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BnplApplicationScreen(
+              walletAccountId: widget.wallet_accounts_id!,
+              totalOrderAmount: draftTotalAmount,
+              orderItems: draftOrderItems,
+              initialStep:
+                  null, // Will be determined by draft progress automatically
+            ),
+          ),
+        );
+      } else {
+        // No draft found
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'No draft applications found. Start a new application to create a draft.',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Error loading draft: ${e.toString()}',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 }

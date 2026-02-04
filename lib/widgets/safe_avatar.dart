@@ -74,15 +74,23 @@ class SafeAvatar extends StatelessWidget {
     Key? key,
     required this.imagePath,
     this.size = 42,
-    this.borderRadius, required int radius, required String imageUrl,
+    this.borderRadius,
+    required int radius,
+    required String imageUrl,
   }) : super(key: key);
+
+  /// Widget shown when there is no user image (icon instead of broken image).
+  static Widget _buildPlaceholderIcon(double size) {
+    return Icon(
+      Icons.person,
+      size: size * 0.6,
+      color: Colors.white70,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final safeUrl = sanitizeImageUrl(imagePath);
-
-    // debug print so you can verify at runtime:
-    debugPrint('🔗 SafeAvatar sanitized URL: $safeUrl');
 
     Widget img;
     if (safeUrl != null) {
@@ -90,13 +98,11 @@ class SafeAvatar extends StatelessWidget {
         safeUrl,
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) {
-          // any network error → fallback asset
-          return Image.asset(_fallbackAssetPath, fit: BoxFit.cover);
+          return _buildPlaceholderIcon(size);
         },
       );
     } else {
-      // no valid URL → fallback asset immediately
-      img = Image.asset(_fallbackAssetPath, fit: BoxFit.cover);
+      img = _buildPlaceholderIcon(size);
     }
 
     return SizedBox(

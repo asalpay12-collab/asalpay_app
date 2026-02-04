@@ -488,6 +488,7 @@ class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
     ModelErrorMessage = "";
     return true;
   }
+
   Future<bool> _showMyDialogConfirmPin() async {
     bool result = false;
     String currentPin = "";
@@ -701,6 +702,7 @@ class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
       );
     }
   }
+
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
@@ -1197,7 +1199,7 @@ class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
     if (PaymentPolicy.isEmpty) {
       await _loadPaymentPolicy();
     }
-  
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -1208,7 +1210,7 @@ class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
       builder: (context) {
         final screenHeight = MediaQuery.of(context).size.height;
         final screenWidth = MediaQuery.of(context).size.width;
-  
+
         return Container(
           padding: const EdgeInsets.all(16),
           constraints: BoxConstraints(
@@ -1227,7 +1229,7 @@ class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-  
+
               /// Title
               Text(
                 "Payment Plans for ${product.name}",
@@ -1239,7 +1241,7 @@ class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-  
+
               /// Table Header
               Container(
                 decoration: BoxDecoration(
@@ -1297,7 +1299,7 @@ class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-  
+
               /// Table Data
               Expanded(
                 child: PaymentPolicy.isEmpty
@@ -1311,7 +1313,7 @@ class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
                     final price =
                         double.tryParse(product.unitPrice.toString()) ?? 0.0;
                     final perMonth = price / months;
-  
+
                     return Card(
                       margin: const EdgeInsets.symmetric(vertical: 6),
                       elevation: 2,

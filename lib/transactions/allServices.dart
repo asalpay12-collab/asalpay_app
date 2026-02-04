@@ -2,10 +2,10 @@ import 'package:asalpay/PayBills/PayBills.dart';
 import 'package:asalpay/constants/Constant.dart' as ConstantColors;
 import 'package:asalpay/transactions/ProductPurchaseScreen.dart';
 import 'package:asalpay/transactions/SeeAllTransactions.dart';
+import 'package:asalpay/transactions/qows_kaab/qows_kaab_products_screen.dart';
 import 'package:asalpay/widgets/mostusedservices.dart';
 import 'package:flutter/material.dart';
 import 'package:quickalert/quickalert.dart';
-
 
 class AllServices extends StatefulWidget {
   final String? wallet_accounts_id;
@@ -98,40 +98,54 @@ class _AllServicesState extends State<AllServices> {
               crossAxisCount: 3,
               childAspectRatio: 0.9,
               children: <Widget>[
-              InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => ProductPurchaseScreen(wallet_accounts_id: widget.wallet_accounts_id )),
-                  );
-                },
-                // child: card2(Icons.devices_other, ConstantColors.primaryColor, "252PAY"),
-
-                child: card2(Icons.devices_other, ConstantColors.pureWhite, "252PAY"),
-
-              ),
-
-
-              InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ServicePaymentScreen(
-                        walletAccountsId: widget.wallet_accounts_id!,
-                      ),
-                    ),
-                  );
-                },
-                child: card2(Icons.payments_outlined,ConstantColors.pureWhite, "PayBill"),
-              ),
                 InkWell(
-                  onTap: () {                   
-                     ShowUpcomingAlert1();
-
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => ProductPurchaseScreen(
+                              wallet_accounts_id: widget.wallet_accounts_id)),
+                    );
                   },
+                  // child: card2(Icons.devices_other, ConstantColors.primaryColor, "252PAY"),
+
                   child: card2(
-                      Icons.account_balance,ConstantColors.pureWhite, "Bank ACC"),
+                      Icons.devices_other, ConstantColors.pureWhite, "252PAY"),
+                ),
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => QowsKaabProductsScreen(
+                          walletAccountId: widget.wallet_accounts_id ?? '',
+                        ),
+                      ),
+                    );
+                  },
+                  child: card2(Icons.shopping_basket, ConstantColors.pureWhite,
+                      "QOWS KAAB"),
+                ),
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ServicePaymentScreen(
+                          walletAccountsId: widget.wallet_accounts_id!,
+                        ),
+                      ),
+                    );
+                  },
+                  child: card2(Icons.payments_outlined,
+                      ConstantColors.pureWhite, "PayBill"),
+                ),
+                InkWell(
+                  onTap: () {
+                    ShowUpcomingAlert1();
+                  },
+                  child: card2(Icons.account_balance, ConstantColors.pureWhite,
+                      "Bank ACC"),
                 ),
                 InkWell(
                   onTap: () {
@@ -147,66 +161,68 @@ class _AllServicesState extends State<AllServices> {
                   onTap: () {
                     ShowUpcomingAlert1();
                   },
-                  child: card2(Icons.electrical_services, ConstantColors.pureWhite,
-                      "BuyGoods and Services"),
+                  child: card2(Icons.electrical_services,
+                      ConstantColors.pureWhite, "BuyGoods and Services"),
                 ),
                 InkWell(
                   onTap: () {
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (context) => const Transfer()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const Transfer()));
 
-                      // MaterialPageRoute(builder: (context) => Transfer(walletAccountsId: widget.wallet_accounts_id!,)));
-
+                    // MaterialPageRoute(builder: (context) => Transfer(walletAccountsId: widget.wallet_accounts_id!,)));
                   },
-                  child: card2(Icons.move_to_inbox_outlined, ConstantColors.pureWhite,
-                      "Transactions"),
+                  child: card2(Icons.move_to_inbox_outlined,
+                      ConstantColors.pureWhite, "Transactions"),
+                ),
+                InkWell(
+                  onTap: () {
+                    ShowUpcomingAlert1();
+                  },
+                  child: card2(Icons.view_column_outlined,
+                      ConstantColors.pureWhite, "Voucher"),
                 ),
                 InkWell(
                   onTap: () {
                     ShowUpcomingAlert1();
                   },
                   child: card2(
-                      Icons.view_column_outlined, ConstantColors.pureWhite, "Voucher"),
+                      Icons.pie_chart, ConstantColors.pureWhite, "Status"),
                 ),
                 InkWell(
                   onTap: () {
                     ShowUpcomingAlert1();
                   },
-                  child: card2(Icons.pie_chart, ConstantColors.pureWhite, "Status"),
+                  child: card2(Icons.apartment_outlined,
+                      ConstantColors.pureWhite, "Find ATM"),
                 ),
                 InkWell(
                   onTap: () {
                     ShowUpcomingAlert1();
                   },
                   child: card2(
-                      Icons.apartment_outlined, ConstantColors.pureWhite, "Find ATM"),
-                ),
-                InkWell(
-                  onTap: () {
-                    ShowUpcomingAlert1();
-                  },
-                  child:
-                      card2(Icons.call_received, ConstantColors.pureWhite, "Receive"),
+                      Icons.call_received, ConstantColors.pureWhite, "Receive"),
                 ),
                 InkWell(
                   onTap: () {
                     ShowUpcomingAlert1();
                   },
                   child: card3(const AssetImage("assets/asalicon.png"),
-                      "Asalpay Advantages",ConstantColors.pureWhite),
+                      "Asalpay Advantages", ConstantColors.pureWhite),
                 ),
                 InkWell(
                     onTap: () {
                       ShowUpcomingAlert1();
                     },
-                    child: card2(Icons.credit_card_rounded, ConstantColors.pureWhite,
-                        " MyCards")),
+                    child: card2(Icons.credit_card_rounded,
+                        ConstantColors.pureWhite, " MyCards")),
                 InkWell(
                   onTap: () {
                     ShowUpcomingAlert1();
                   },
-                  child: card2(
-                      Icons.microwave_outlined, ConstantColors.pureWhite, "Apply MFi"),
+                  child: card2(Icons.microwave_outlined,
+                      ConstantColors.pureWhite, "Apply MFi"),
                 ),
               ],
             ),
@@ -223,9 +239,7 @@ class _AllServicesState extends State<AllServices> {
       padding: const EdgeInsets.all(4),
       child: Card(
         elevation: 4,
-
         color: ConstantColors.secondryColor,
-
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),
@@ -233,7 +247,7 @@ class _AllServicesState extends State<AllServices> {
           // width: 90,
           // height: 90,
           width: cardWidth,
-          height: cardHeight+20,
+          height: cardHeight + 20,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             color: ConstantColors.primaryColor.withOpacity(0.01),
@@ -254,10 +268,12 @@ class _AllServicesState extends State<AllServices> {
               ),
               Text(
                 txt,
-                style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: cardHeight * 0.25),
+                style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                      fontSize: cardHeight * 0.25,
+                      color: Colors.white,
+                    ),
                 textAlign: TextAlign.center,
               ),
-
             ],
           ),
         ),
@@ -272,10 +288,7 @@ class _AllServicesState extends State<AllServices> {
       padding: const EdgeInsets.all(4),
       child: Card(
         elevation: 4,
-
         color: ConstantColors.secondryColor,
-
-
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),
@@ -283,7 +296,7 @@ class _AllServicesState extends State<AllServices> {
           // width: 90,
           // height: 90,
           width: cardWidth,
-          height: cardHeight+20,
+          height: cardHeight + 20,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             color: ConstantColors.primaryColor.withOpacity(0.01),
@@ -293,10 +306,12 @@ class _AllServicesState extends State<AllServices> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Image(image: sawir, width: cardHeight * 0.7, color: clr),
-
               Text(
                 txt,
-                style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: cardHeight * 0.25),
+                style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                      fontSize: cardHeight * 0.25,
+                      color: Colors.white,
+                    ),
                 textAlign: TextAlign.center,
               ),
             ],

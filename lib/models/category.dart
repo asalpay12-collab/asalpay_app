@@ -2,7 +2,8 @@ class Category {
   final int subCategoryId;       // subcategory ID
   final int categoryId;          // main category ID
   final String subCategoryName;  // subcategory name
-  final String categoryName;     // main category name
+  final String categoryName;    // main category name
+  final String productImage;    // main category image
   final String imagePath;        // image URL or path
 
   Category({
@@ -11,6 +12,7 @@ class Category {
     required this.subCategoryName,
     required this.categoryName,
     required this.imagePath,
+    required this.productImage
   });
 
   // Helper method to safely parse integers
@@ -30,6 +32,7 @@ class Category {
       subCategoryName: json['sub_category_name'] ?? '',
       categoryName: json['category_name'] ?? '',
       imagePath: json['image'] ?? '',
+        productImage:json['product_image']?? ''
     );
   }
 }
