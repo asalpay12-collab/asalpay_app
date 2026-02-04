@@ -1,0 +1,61 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VSCode (optional)
+.vscode/
+
+# Flutter/Dart/Pub related
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+*.lock
+
+# Flutter build output
+**/build/
+**/ios/Flutter/.last_build_id
+**/ios/.symlinks
+**/ios/Pods/
+**/ios/.flutter-plugins
+**/ios/.flutter-plugins-dependencies
+**/ios/Flutter/Generated.xcconfig
+
+# Android
+android/app/.cxx/
+android/.gradle/
+android/app/build/
+android/local.properties
+
+# Obfuscation/Symbols
+app.*.symbols
+app.*.map.json
+
+# Others
+*.apk
+*.ipa
+*.jks
+.env
+
+# Firebase / Google Services (optional: ignore if you don’t want to commit them)
+# android/app/google-services.json
+# ios/Runner/GoogleService-Info.plist

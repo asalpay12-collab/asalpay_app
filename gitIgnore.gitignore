@@ -1,0 +1,68 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+.pub-cache/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-versions
+generated_plugin_registrant.dart
+
+# Android
+android/.gradle/
+android/app/key.properties
+android/local.properties
+*.iml
+*.apk
+*.aar
+
+# iOS
+ios/Pods/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/App.framework
+ios/Flutter/engine/
+
+# macOS
+macos/Pods/
+macos/Flutter/Flutter.framework
+macos/Flutter/Flutter.podspec
+macos/Flutter/App.framework
+macos/Flutter/ephemeral/
+
+# Xcode
+*.xcworkspace
+*.xcuserstate
+*.xcuserdata/
+DerivedData/
+.idea/
+
+# VS Code
+.vscode/
+
+# JetBrains IDEs
+.idea/
+*.iml
+
+# Environment / Secrets
+.env
+.env.*
+*.key
+*.keystore
+*.jks
+
+# Logs
+*.log
+
+# Others
+pubspec.lock
+
+# Ignore build outputs
+build/
+*.apk
+*.aab
+*.bin
+*.dex
+*.class
+*.log
+
