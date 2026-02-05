@@ -6,8 +6,6 @@ import '../providers/HomeSliderandTransaction.dart';
 import '../services/api_urls.dart';
 
 class Transfer extends StatefulWidget {
-
-
   const Transfer({super.key});
 
   @override
@@ -15,11 +13,29 @@ class Transfer extends StatefulWidget {
 }
 
 class _TransferState extends State<Transfer> {
+  bool _didFetch = false;
+  bool _isLoading = true;
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didFetch) {
+      _didFetch = true;
+      Future.microtask(() async {
+        try {
+          await Provider.of<HomeSliderAndTransaction>(context, listen: false)
+              .fetchAndSetAllTr();
+        } catch (_) {}
+        if (mounted) setState(() => _isLoading = false);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final listPaths = Provider.of<HomeSliderAndTransaction>(context, listen: false);
+    final listPaths =
+        Provider.of<HomeSliderAndTransaction>(context, listen: true);
+    final transactions = listPaths.AllTransactions;
 
     return Scaffold(
       body: Padding(
@@ -28,62 +44,68 @@ class _TransferState extends State<Transfer> {
           left: 15,
           right: 15,
         ),
-
-        
-  child: Container(
-      color: const Color.fromARGB(255, 226, 225, 225),
-    
-        child: Column(
-          children: [
-            Row(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Icon(
-                    Icons.arrow_back_ios_new,
-                    color: primaryColor, 
-                  ),
-                ),
-                const SizedBox(width: 15),
-                const Text(
-                  "Transactions",
-                  style: TextStyle(
-                    fontSize: 22,
-                  //  color: secondryColor, 
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 17),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
+        child: Container(
+          color: const Color.fromARGB(255, 226, 225, 225),
+          child: Column(
+            children: [
+              Row(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (var transaction in listPaths.AllTransactions)
-                        AllTransactions(
-                          image: '${ApiUrls.BASE_URL}${transaction.image}',
-                          wallet_accounts_id: transaction.wallet_accounts_id,
-                          description: transaction.description,
-                          amount: transaction.tag == 'in' 
-                              ? '+ ${transaction.currency_name} ${transaction.amount}'
-                              : '- ${transaction.currency_name} ${transaction.amount}',
-                          date: transaction.trx_date,
-                          currencyName: transaction.currency_name,
-                          tag: transaction.tag,
-                        ),
-                    ],
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Icon(
+                      Icons.arrow_back_ios_new,
+                      color: primaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  const Text(
+                    "Transactions",
+                    style: TextStyle(
+                      fontSize: 22,
+                    ),
                   ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 17),
+              Expanded(
+                child: _isLoading && transactions.isEmpty
+                    ? const Center(
+                        child: CircularProgressIndicator(),
+                      )
+                    : transactions.isEmpty
+                        ? const Center(
+                            child: Text('No transactions yet'),
+                          )
+                        : ListView(
+                            padding: EdgeInsets.zero,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  for (var transaction in transactions)
+                                    AllTransactions(
+                                      image:
+                                          '${ApiUrls.BASE_URL}${transaction.image}',
+                                      wallet_accounts_id:
+                                          transaction.wallet_accounts_id,
+                                      description: transaction.description,
+                                      amount: transaction.tag == 'in'
+                                          ? '+ ${transaction.currency_name} ${transaction.amount}'
+                                          : '- ${transaction.currency_name} ${transaction.amount}',
+                                      date: transaction.trx_date,
+                                      currencyName: transaction.currency_name,
+                                      tag: transaction.tag,
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -113,7 +135,8 @@ class AllTransactions extends StatefulWidget {
   _AllTransactionsState createState() => _AllTransactionsState();
 }
 
-class _AllTransactionsState extends State<AllTransactions> with SingleTickerProviderStateMixin {
+class _AllTransactionsState extends State<AllTransactions>
+    with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
   late AnimationController _controller;
   late Animation<double> _expandAnimation;
@@ -121,8 +144,10 @@ class _AllTransactionsState extends State<AllTransactions> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-    _expandAnimation = CurvedAnimation(parent: _controller, curve: Curves.fastOutSlowIn);
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 300));
+    _expandAnimation =
+        CurvedAnimation(parent: _controller, curve: Curves.fastOutSlowIn);
   }
 
   @override
@@ -145,9 +170,12 @@ class _AllTransactionsState extends State<AllTransactions> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     bool isPositive = widget.tag.startsWith('in');
-    Color textColor = isPositive ? const Color.fromARGB(255, 2, 247, 10) : const Color.fromARGB(248, 247, 1, 21);
-    Color secondaryTextColor = const Color(0xFF005653);  
-    String formattedDate = DateFormat('dd/MM/yyyy').format(DateTime.parse(widget.date));
+    Color textColor = isPositive
+        ? const Color.fromARGB(255, 2, 247, 10)
+        : const Color.fromARGB(248, 247, 1, 21);
+    Color secondaryTextColor = const Color(0xFF005653);
+    String formattedDate =
+        DateFormat('dd/MM/yyyy').format(DateTime.parse(widget.date));
 
     return GestureDetector(
       onTap: _toggleExpand,
@@ -163,7 +191,7 @@ class _AllTransactionsState extends State<AllTransactions> with SingleTickerProv
             children: [
               Row(
                 children: [
-                  if (widget.image != null) 
+                  if (widget.image != null)
                     Padding(
                       padding: const EdgeInsets.only(right: 10, left: 0),
                       child: Container(
@@ -174,13 +202,13 @@ class _AllTransactionsState extends State<AllTransactions> with SingleTickerProv
                           shape: BoxShape.circle,
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(21.0), 
+                          borderRadius: BorderRadius.circular(21.0),
                           child: Image.network(
                             widget.image!,
-                            width: 42.0, 
-                            height: 42.0, 
+                            width: 42.0,
+                            height: 42.0,
                             //fit: BoxFit.contain,
-                            alignment: Alignment.topLeft, 
+                            alignment: Alignment.topLeft,
                           ),
                         ),
                       ),
@@ -188,7 +216,10 @@ class _AllTransactionsState extends State<AllTransactions> with SingleTickerProv
                   Expanded(
                     child: Text(
                       widget.wallet_accounts_id,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                      style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black),
                     ),
                   ),
                   Column(
@@ -199,12 +230,13 @@ class _AllTransactionsState extends State<AllTransactions> with SingleTickerProv
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: textColor,  
+                          color: textColor,
                         ),
                       ),
                       Text(
                         formattedDate,
-                        style: const TextStyle(fontSize: 13, color: Colors.black),
+                        style:
+                            const TextStyle(fontSize: 13, color: Colors.black),
                       ),
                     ],
                   ),

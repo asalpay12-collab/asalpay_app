@@ -696,14 +696,15 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     final list = <Map<String, dynamic>>[];
     for (final item in widget.orderItems) {
       final pid = item['product_id'];
-      final productId = pid is int
-          ? pid
-          : int.tryParse(pid?.toString() ?? '');
+      final productId = pid is int ? pid : int.tryParse(pid?.toString() ?? '');
       if (productId == null) continue;
       final qty = item['quantity'];
-      final quantity = qty is int ? qty : int.tryParse(qty?.toString() ?? '1') ?? 1;
+      final quantity =
+          qty is int ? qty : int.tryParse(qty?.toString() ?? '1') ?? 1;
       final up = item['unit_price'];
-      final price = (up is num) ? up.toDouble() : (double.tryParse(up?.toString() ?? '0') ?? 0.0);
+      final price = (up is num)
+          ? up.toDouble()
+          : (double.tryParse(up?.toString() ?? '0') ?? 0.0);
       list.add({
         'product_id': productId,
         'quantity': quantity,
@@ -897,9 +898,8 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
       if (mounted) {
         setState(() {
           final appId = result['application_id'];
-          draftApplicationId = appId is int
-              ? appId
-              : int.tryParse(appId?.toString() ?? '');
+          draftApplicationId =
+              appId is int ? appId : int.tryParse(appId?.toString() ?? '');
         });
         api.appLog(
             "✅ Draft saved successfully: ${result['application_number']}");
@@ -2216,14 +2216,14 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                 fontSize: 18,
               ),
             ),
-            if (draftApplicationId != null)
-              Text(
-                'Draft Saved',
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  color: Colors.white.withOpacity(0.8),
-                ),
-              ),
+            // if (draftApplicationId != null)
+            //   Text(
+            //     'Draft Saved',
+            //     style: GoogleFonts.poppins(
+            //       fontSize: 11,
+            //       color: Colors.white.withOpacity(0.8),
+            //     ),
+            //   ),
           ],
         ),
         bottom: PreferredSize(
