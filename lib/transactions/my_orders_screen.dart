@@ -107,145 +107,145 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
             : groupedList.isEmpty
-            ? Center(
-          child: Text(
-            "No orders found",
-            style: GoogleFonts.poppins(fontSize: 16),
-          ),
-        )
-            : ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          itemCount: groupedList.length,
-          itemBuilder: (context, index) {
-            final entry = groupedList[index];
-            final items = entry.value;
+                ? Center(
+                    child: Text(
+                      "No orders found",
+                      style: GoogleFonts.poppins(fontSize: 16),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    itemCount: groupedList.length,
+                    itemBuilder: (context, index) {
+                      final entry = groupedList[index];
+                      final items = entry.value;
 
-            final orderDate = items.first['order_date'];
-            final status = items.first['status'];
-            final orderId = items.first['order_id'];
-            final totalAmount = double.tryParse(
-                items.first['total_amount'].toString()) ??
-                0.0;
+                      final orderDate = items.first['order_date'];
+                      final status = items.first['status'];
+                      final orderId = items.first['order_id'];
+                      final totalAmount = double.tryParse(
+                              items.first['total_amount'].toString()) ??
+                          0.0;
 
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Card(
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      /// Header row with Order # and Cancel button
-                      Row(
-                        mainAxisAlignment:
-                        MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "Order #${index + 1}",
-                            style: GoogleFonts.poppins(
-                              fontSize: 16 * textScale,
-                              fontWeight: FontWeight.w700,
-                              color: primaryColor,
-                            ),
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Card(
+                          elevation: 3,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          if (status.toString().toLowerCase() ==
-                              'pending' ||
-                              status.toString().toLowerCase() ==
-                                  'processing' ||
-                              status.toString().toLowerCase() ==
-                                  'accepted')
-                            ElevatedButton(
-                              onPressed: () =>
-                                  showConfirmDialog(orderId),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.teal,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                  BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                /// Header row with Order # and Cancel button
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      "Order #${index + 1}",
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 16 * textScale,
+                                        fontWeight: FontWeight.w700,
+                                        color: primaryColor,
+                                      ),
+                                    ),
+                                    if (status.toString().toLowerCase() ==
+                                            'pending' ||
+                                        status.toString().toLowerCase() ==
+                                            'processing' ||
+                                        status.toString().toLowerCase() ==
+                                            'accepted')
+                                      ElevatedButton(
+                                        onPressed: () =>
+                                            showConfirmDialog(orderId),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.teal,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 16, vertical: 8),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          elevation: 2,
+                                        ),
+                                        child: const Text(
+                                          'Cancel',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                                elevation: 2,
-                              ),
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+
+                                const SizedBox(height: 6),
+
+                                /// Order meta info
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text("Date: $orderDate",
+                                        style: GoogleFonts.poppins()),
+                                    Text("Status: $status",
+                                        style: GoogleFonts.poppins()),
+                                    Text(
+                                      "Total: \$${totalAmount.toStringAsFixed(2)}",
+                                      style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
+
+                                const SizedBox(height: 12),
+
+                                /// Table of order items
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      minWidth: screenSize.width - 24,
+                                    ),
+                                    child: DataTable(
+                                      columnSpacing: 16,
+                                      headingRowColor:
+                                          MaterialStateProperty.all(
+                                              Colors.grey.shade200),
+                                      columns: const [
+                                        DataColumn(label: Text("Name")),
+                                        DataColumn(label: Text("Qty")),
+                                        DataColumn(label: Text("Unit Price")),
+                                        DataColumn(label: Text("Subtotal")),
+                                      ],
+                                      rows: items.map((item) {
+                                        return DataRow(
+                                          cells: [
+                                            DataCell(
+                                                Text(item['name'].toString())),
+                                            DataCell(Text(
+                                                item['quantity'].toString())),
+                                            DataCell(Text(
+                                                "\$${item['unit_price']}")),
+                                            DataCell(
+                                                Text("\$${item['subtotal']}")),
+                                          ],
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 6),
-
-                      /// Order meta info
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Date: $orderDate",
-                              style: GoogleFonts.poppins()),
-                          Text("Status: $status",
-                              style: GoogleFonts.poppins()),
-                          Text(
-                            "Total: \$${totalAmount.toStringAsFixed(2)}",
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      /// Table of order items
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minWidth: screenSize.width - 24,
-                          ),
-                          child: DataTable(
-                            columnSpacing: 16,
-                            headingRowColor:
-                            MaterialStateProperty.all(
-                                Colors.grey.shade200),
-                            columns: const [
-                              DataColumn(label: Text("Name")),
-                              DataColumn(label: Text("Qty")),
-                              DataColumn(label: Text("Unit Price")),
-                              DataColumn(label: Text("Subtotal")),
-                            ],
-                            rows: items.map((item) {
-                              return DataRow(
-                                cells: [
-                                  DataCell(Text(
-                                      item['name'].toString())),
-                                  DataCell(Text(
-                                      item['quantity'].toString())),
-                                  DataCell(Text(
-                                      "\$${item['unit_price']}")),
-                                  DataCell(Text(
-                                      "\$${item['subtotal']}")),
-                                ],
-                              );
-                            }).toList(),
                           ),
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
-                ),
-              ),
-            );
-          },
-        ),
       ),
     );
   }
