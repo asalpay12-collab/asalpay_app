@@ -40,7 +40,8 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
 
   // Products & basket (same for both modes)
   List<QowsKaabProduct> availableProducts = [];
-  List<Map<String, dynamic>> selectedProducts = []; // product_id, product_name, quantity, unit_price
+  List<Map<String, dynamic>> selectedProducts =
+      []; // product_id, product_name, quantity, unit_price
   double totalAmount = 0.0;
   bool isLoadingProducts = false;
 
@@ -51,6 +52,7 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
   final TextEditingController monthlyIncomeController = TextEditingController();
   String? usageType;
   bool isSubmitting = false;
+
   /// Min/max amount from tbl_qows_kaab_usage_type_limits for current usage_type + service_model
   double? _limitMin;
   double? _limitMax;
@@ -95,14 +97,18 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       if (!mounted) return;
       if (!dataFound || customer == null) return;
       final Map<String, dynamic> c = Map<String, dynamic>.from(customer);
-      if (c['full_name'] != null && c['full_name'].toString().trim().isNotEmpty) {
+      if (c['full_name'] != null &&
+          c['full_name'].toString().trim().isNotEmpty) {
         if (mounted) {
-          setState(() => fullNameController.text = c['full_name'].toString().trim());
+          setState(
+              () => fullNameController.text = c['full_name'].toString().trim());
         }
       }
-      if (c['phone_number'] != null && c['phone_number'].toString().trim().isNotEmpty) {
+      if (c['phone_number'] != null &&
+          c['phone_number'].toString().trim().isNotEmpty) {
         if (mounted) {
-          setState(() => phoneNumberController.text = c['phone_number'].toString().trim());
+          setState(() =>
+              phoneNumberController.text = c['phone_number'].toString().trim());
         }
       }
       if (c['monthly_income'] != null) {
@@ -117,7 +123,8 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       final regionId = c['region_id'];
       final districtId = c['district_id'];
       if (regionId != null && mounted) {
-        final rId = regionId is int ? regionId : int.tryParse(regionId.toString());
+        final rId =
+            regionId is int ? regionId : int.tryParse(regionId.toString());
         if (rId != null) {
           await _loadDistricts(rId);
           if (!mounted) return;
@@ -197,7 +204,8 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
     }
   }
 
-  void _showAddToBasketDialog(QowsKaabProduct product) {
+  void _showAddToBasketDialog(QowsKaabProduct product,
+      {VoidCallback? onAdded}) {
     final quantityController = TextEditingController(text: '1');
     showDialog(
       context: context,
@@ -246,7 +254,8 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
               _addToBasket(product, qty);
             },
             style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
-            child: Text('Add to basket', style: GoogleFonts.poppins(color: Colors.white)),
+            child: Text('Add to basket',
+                style: GoogleFonts.poppins(color: Colors.white)),
           ),
         ],
       ),
@@ -256,89 +265,453 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
   void _addToBasket(QowsKaabProduct product, int quantity) {
     final unitPrice = product.price ?? 0.0;
     final unitLabel = product.unitSymbol ?? product.unitName ?? '';
+    final productId = product.productId ?? product.id;
     setState(() {
-      selectedProducts.add({
-        'product_id': product.productId ?? product.id,
-        'product_name': product.name ?? 'Product',
-        'quantity': quantity,
-        'unit_price': unitPrice,
-        'unit': unitLabel,
-      });
+      final existingIndex =
+          selectedProducts.indexWhere((p) => (p['product_id']) == productId);
+      if (existingIndex >= 0) {
+        selectedProducts[existingIndex]['quantity'] =
+            (selectedProducts[existingIndex]['quantity'] as int) + quantity;
+      } else {
+        selectedProducts.add({
+          'product_id': productId,
+          'product_name': product.name ?? 'Product',
+          'quantity': quantity,
+          'unit_price': unitPrice,
+          'unit': unitLabel,
+        });
+      }
       _calculateTotal();
     });
   }
 
+  void _updateBasketQuantity(int index, int delta) {
+    setState(() {
+      final qty = (selectedProducts[index]['quantity'] as int) + delta;
+      if (qty < 1) {
+        selectedProducts.removeAt(index);
+      } else {
+        selectedProducts[index]['quantity'] = qty;
+      }
+      _calculateTotal();
+    });
+  }
+
+  bool _basketSheetShowAddMore = false;
+
   void _showBasketSheet() {
+    _basketSheetShowAddMore = false;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.3,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (_, scrollController) => Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
-              ),
-              const SizedBox(height: 16),
-              Text('Basket', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: primaryColor)),
-              const SizedBox(height: 12),
-              if (selectedProducts.isEmpty)
-                Expanded(
-                  child: Center(
-                    child: Text('No items in basket. Tap a product and "Add to basket".', style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade600)),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return DraggableScrollableSheet(
+            initialChildSize: 0.6,
+            minChildSize: 0.4,
+            maxChildSize: 0.95,
+            expand: false,
+            builder: (_, scrollController) => Padding(
+              padding: EdgeInsets.fromLTRB(
+                  20, 12, 20, 20 + MediaQuery.of(context).padding.bottom + 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(2))),
                   ),
-                )
-              else
-                Expanded(
-                  child: ListView.builder(
-                    controller: scrollController,
-                    itemCount: selectedProducts.length + 1,
-                    itemBuilder: (_, index) {
-                      if (index == selectedProducts.length) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 16),
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(color: primaryColor.withOpacity(0.1), borderRadius: br12),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Basket',
+                          style: GoogleFonts.poppins(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: primaryColor)),
+                      if (selectedProducts.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                              color: primaryColor.withOpacity(0.15),
+                              borderRadius: br12),
+                          child: Text(
+                              '${selectedProducts.length} item${selectedProducts.length == 1 ? '' : 's'}',
+                              style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: primaryColor)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      padding: EdgeInsets.only(
+                          bottom: MediaQuery.of(context).padding.bottom + 48),
+                      children: [
+                        if (selectedProducts.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 40),
+                            child: Column(
                               children: [
-                                Text('Total:', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600)),
-                                Text(totalAmount.toStringAsFixed(2), style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold, color: primaryColor)),
+                                Icon(Icons.shopping_bag_outlined,
+                                    size: 56, color: Colors.grey.shade400),
+                                const SizedBox(height: 12),
+                                Text('No items in basket',
+                                    style: GoogleFonts.poppins(
+                                        fontSize: 16,
+                                        color: Colors.grey.shade600)),
+                                const SizedBox(height: 6),
+                                Text(
+                                    'Tap "Add more products" below to add items',
+                                    style: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade500)),
+                              ],
+                            ),
+                          )
+                        else ...[
+                          ...selectedProducts.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final item = entry.value;
+                            final unit = item['unit'] as String? ?? '';
+                            final qty = item['quantity'] as int;
+                            final unitPrice =
+                                (item['unit_price'] as num).toDouble();
+                            final subtotal = qty * unitPrice;
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: cardBg,
+                                borderRadius: br12,
+                                border: Border.all(
+                                    color: primaryColor.withOpacity(0.15)),
+                                boxShadow: [
+                                  BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2))
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                            item['product_name'] as String? ??
+                                                '',
+                                            style: GoogleFonts.poppins(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600)),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                            '\$${unitPrice.toStringAsFixed(2)} each${unit.isNotEmpty ? ' / $unit' : ''}',
+                                            style: GoogleFonts.poppins(
+                                                fontSize: 11,
+                                                color: Colors.grey.shade600)),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                              color:
+                                                  primaryColor.withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                  color: primaryColor
+                                                      .withOpacity(0.3))),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                  icon: const Icon(Icons.remove,
+                                                      size: 18),
+                                                  onPressed: () {
+                                                    _updateBasketQuantity(
+                                                        index, -1);
+                                                    setModalState(() {});
+                                                  },
+                                                  padding:
+                                                      const EdgeInsets.all(4),
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                          minWidth: 28,
+                                                          minHeight: 28),
+                                                  style: IconButton.styleFrom(
+                                                      foregroundColor:
+                                                          primaryColor)),
+                                              SizedBox(
+                                                  width: 28,
+                                                  child: Text('$qty',
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style: GoogleFonts.poppins(
+                                                          fontSize: 13,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color:
+                                                              primaryColor))),
+                                              IconButton(
+                                                  icon: const Icon(Icons.add,
+                                                      size: 18),
+                                                  onPressed: () {
+                                                    _updateBasketQuantity(
+                                                        index, 1);
+                                                    setModalState(() {});
+                                                  },
+                                                  padding:
+                                                      const EdgeInsets.all(4),
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                          minWidth: 28,
+                                                          minHeight: 28),
+                                                  style: IconButton.styleFrom(
+                                                      foregroundColor:
+                                                          primaryColor)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text('\$${subtotal.toStringAsFixed(2)}',
+                                          style: GoogleFonts.poppins(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700,
+                                              color: primaryColor)),
+                                      const SizedBox(height: 6),
+                                      InkWell(
+                                        onTap: () {
+                                          _removeFromBasket(index);
+                                          setModalState(() {});
+                                        },
+                                        child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.delete_outline,
+                                                  size: 16,
+                                                  color: Colors.red.shade400),
+                                              const SizedBox(width: 4),
+                                              Text('Remove',
+                                                  style: GoogleFonts.poppins(
+                                                      fontSize: 11,
+                                                      color:
+                                                          Colors.red.shade400))
+                                            ]),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                                color: primaryColor.withOpacity(0.1),
+                                borderRadius: br12,
+                                border: Border.all(
+                                    color: primaryColor.withOpacity(0.2))),
+                            child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Total:',
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600)),
+                                  Text('\$${totalAmount.toStringAsFixed(2)}',
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: primaryColor)),
+                                ]),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                        InkWell(
+                          onTap: () => setModalState(() =>
+                              _basketSheetShowAddMore =
+                                  !_basketSheetShowAddMore),
+                          borderRadius: br12,
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                                color: primaryColor.withOpacity(0.08),
+                                borderRadius: br12,
+                                border: Border.all(
+                                    color: primaryColor.withOpacity(0.2))),
+                            child: Row(
+                              children: [
+                                Icon(Icons.add_shopping_cart,
+                                    color: primaryColor, size: 24),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                    child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                      Text('Add more products',
+                                          style: GoogleFonts.poppins(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                              color: primaryColor)),
+                                      Text('Browse and add without leaving',
+                                          style: GoogleFonts.poppins(
+                                              fontSize: 11,
+                                              color: Colors.grey.shade600))
+                                    ])),
+                                Icon(
+                                    _basketSheetShowAddMore
+                                        ? Icons.expand_less
+                                        : Icons.expand_more,
+                                    color: primaryColor),
                               ],
                             ),
                           ),
-                        );
-                      }
-                      final item = selectedProducts[index];
-                      final unit = item['unit'] as String? ?? '';
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          title: Text(item['product_name'] as String? ?? ''),
-                          subtitle: Text('Qty: ${item['quantity']} × ${(item['unit_price'] as double).toStringAsFixed(2)}${unit.isNotEmpty ? ' / $unit' : ''}'),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () {
-                              _removeFromBasket(index);
-                              Navigator.pop(ctx);
+                        ),
+                        if (_basketSheetShowAddMore) ...[
+                          const SizedBox(height: 12),
+                          Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text('Select a product to add',
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade700))),
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 0.65,
+                            ),
+                            itemCount: availableProducts.length,
+                            itemBuilder: (context, idx) {
+                              final product = availableProducts[idx];
+                              final pid = product.productId ?? product.id;
+                              final isInBasket = selectedProducts
+                                  .any((p) => p['product_id'] == pid);
+                              return Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: isInBasket
+                                      ? null
+                                      : () {
+                                          _showAddToBasketDialog(product,
+                                              onAdded: () =>
+                                                  setModalState(() {}));
+                                        },
+                                  borderRadius: br12,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                        color: cardBg,
+                                        borderRadius: br12,
+                                        border: Border.all(
+                                            color: primaryColor
+                                                .withOpacity(0.12))),
+                                    child: Column(
+                                      children: [
+                                        Expanded(
+                                          child: (product.imagePath != null &&
+                                                  product.imagePath!.isNotEmpty)
+                                              ? ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  child: Image.network(
+                                                      '${ApiService.baseUrl}${product.imagePath}',
+                                                      fit: BoxFit.cover,
+                                                      width: double.infinity,
+                                                      errorBuilder:
+                                                          (_, __, ___) => Icon(
+                                                              Icons
+                                                                  .shopping_basket,
+                                                              size: 32,
+                                                              color:
+                                                                  primaryColor)))
+                                              : Icon(Icons.shopping_basket,
+                                                  size: 32,
+                                                  color: primaryColor),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(product.name ?? '',
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            textAlign: TextAlign.center,
+                                            style: GoogleFonts.poppins(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600)),
+                                        Text(
+                                            '\$${(product.price ?? 0).toStringAsFixed(2)}',
+                                            style: GoogleFonts.poppins(
+                                                fontSize: 11,
+                                                color: primaryColor)),
+                                        const SizedBox(height: 4),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          height: 28,
+                                          child: ElevatedButton(
+                                            onPressed: isInBasket
+                                                ? null
+                                                : () {
+                                                    _showAddToBasketDialog(
+                                                        product,
+                                                        onAdded: () =>
+                                                            setModalState(
+                                                                () {}));
+                                                  },
+                                            style: ElevatedButton.styleFrom(
+                                                backgroundColor: primaryColor,
+                                                padding: EdgeInsets.zero,
+                                                shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            6))),
+                                            child: Text(
+                                                isInBasket
+                                                    ? 'In basket'
+                                                    : 'Add',
+                                                style: GoogleFonts.poppins(
+                                                    fontSize: 11)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
                             },
                           ),
-                        ),
-                      );
-                    },
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-            ],
-          ),
-        ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -353,7 +726,8 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
   void _calculateTotal() {
     totalAmount = selectedProducts.fold<double>(
       0.0,
-      (sum, item) => sum + ((item['quantity'] as int) * (item['unit_price'] as double)),
+      (sum, item) =>
+          sum + ((item['quantity'] as int) * (item['unit_price'] as double)),
     );
   }
 
@@ -371,7 +745,11 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         _limitMax = (data['max_amount'] as num?)?.toDouble();
       });
     } catch (_) {
-      if (mounted) setState(() { _limitMin = null; _limitMax = null; });
+      if (mounted)
+        setState(() {
+          _limitMin = null;
+          _limitMax = null;
+        });
     }
   }
 
@@ -402,7 +780,8 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
 
     // Usage type is required to validate amount against tbl_qows_kaab_usage_type_limits
     if (usageType == null || usageType!.isEmpty) {
-      _showError('Please select Usage Type (household or business) to validate your amount.');
+      _showError(
+          'Please select Usage Type (household or business) to validate your amount.');
       return;
     }
 
@@ -416,32 +795,43 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
           serviceModel: widget.serviceModel,
         );
         minAllowed = (data['min_amount'] as num?)?.toDouble() ?? 0;
-        maxAllowed = (data['max_amount'] as num?)?.toDouble() ?? double.infinity;
-        if (mounted) setState(() { _limitMin = minAllowed; _limitMax = maxAllowed; });
+        maxAllowed =
+            (data['max_amount'] as num?)?.toDouble() ?? double.infinity;
+        if (mounted)
+          setState(() {
+            _limitMin = minAllowed;
+            _limitMax = maxAllowed;
+          });
       } catch (e) {
         _showError('Could not load amount limits. Please try again.');
         return;
       }
     }
     if (totalAmount < minAllowed) {
-      _showError('Total amount is too low. Minimum for ${usageType} ${widget.serviceModel == 'monthly_pack' ? 'Monthly Pack' : 'Daily Credit'}: \$${minAllowed.toStringAsFixed(2)}. Your total: \$${totalAmount.toStringAsFixed(2)}');
+      _showError(
+          'Total amount is too low. Minimum for ${usageType} ${widget.serviceModel == 'monthly_pack' ? 'Monthly Pack' : 'Daily Credit'}: \$${minAllowed.toStringAsFixed(2)}. Your total: \$${totalAmount.toStringAsFixed(2)}');
       return;
     }
     if (totalAmount > maxAllowed) {
-      _showError('Total amount is too high. Maximum for ${usageType} ${widget.serviceModel == 'monthly_pack' ? 'Monthly Pack' : 'Daily Credit'}: \$${maxAllowed.toStringAsFixed(2)}. Your total: \$${totalAmount.toStringAsFixed(2)}');
+      _showError(
+          'Total amount is too high. Maximum for ${usageType} ${widget.serviceModel == 'monthly_pack' ? 'Monthly Pack' : 'Daily Credit'}: \$${maxAllowed.toStringAsFixed(2)}. Your total: \$${totalAmount.toStringAsFixed(2)}');
       return;
     }
 
-    final monthlyPackItems = selectedProducts.map((e) => {
-      'product_id': e['product_id'],
-      'quantity': e['quantity'],
-      'unit_price': e['unit_price'],
-    }).toList();
+    final monthlyPackItems = selectedProducts
+        .map((e) => {
+              'product_id': e['product_id'],
+              'quantity': e['quantity'],
+              'unit_price': e['unit_price'],
+            })
+        .toList();
 
     final applicationFormData = {
       'wallet_account': widget.walletAccountId,
       'full_name': fullName,
-      'phone_number': phoneNumberController.text.trim().isEmpty ? null : phoneNumberController.text.trim(),
+      'phone_number': phoneNumberController.text.trim().isEmpty
+          ? null
+          : phoneNumberController.text.trim(),
       'service_model': widget.serviceModel,
       'region_id': selectedRegionId,
       'district_id': selectedDistrictId,
@@ -503,10 +893,13 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
           children: [
             Text(
               isMonthlyPack ? 'Monthly Pack' : 'Daily Credit',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 18),
+              style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600, fontSize: 18),
             ),
             Text(
-              _currentStep == 0 ? 'Step 1: Select products' : 'Step 2: Your details',
+              _currentStep == 0
+                  ? 'Step 1: Select products'
+                  : 'Step 2: Your details',
               style: GoogleFonts.poppins(fontSize: 12, color: Colors.white70),
             ),
           ],
@@ -524,8 +917,10 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
                   top: 8,
                   child: Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    decoration: const BoxDecoration(
+                        color: Colors.red, shape: BoxShape.circle),
+                    constraints:
+                        const BoxConstraints(minWidth: 18, minHeight: 18),
                     child: Text(
                       '${selectedProducts.length}',
                       style: const TextStyle(color: Colors.white, fontSize: 11),
@@ -539,10 +934,13 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).padding.bottom),
+          padding: EdgeInsets.fromLTRB(
+              20, 20, 20, 20 + MediaQuery.of(context).padding.bottom),
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: _currentStep == 0 ? _buildProductsStepContent() : _buildFormFieldsStepContent(),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: _currentStep == 0
+                ? _buildProductsStepContent()
+                : _buildFormFieldsStepContent(),
           ),
         ),
       ),
@@ -562,15 +960,21 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
             ),
             child: Text(
               'Step 1 of 2',
-              style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: primaryColor),
+              style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: primaryColor),
             ),
           ),
         ],
       ),
       const SizedBox(height: 12),
       Text(
-        isMonthlyPack ? 'Select Products for Monthly Pack' : 'Select Products for Daily Credit',
-        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700, color: primaryColor),
+        isMonthlyPack
+            ? 'Select Products for Monthly Pack'
+            : 'Select Products for Daily Credit',
+        style: GoogleFonts.poppins(
+            fontSize: 18, fontWeight: FontWeight.w700, color: primaryColor),
       ),
       const SizedBox(height: 6),
       Text(
@@ -605,26 +1009,31 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
                   children: [
                     Expanded(
                       flex: 3,
-                      child: product.imagePath != null && product.imagePath!.isNotEmpty
+                      child: product.imagePath != null &&
+                              product.imagePath!.isNotEmpty
                           ? Image.network(
                               '${ApiService.baseUrl}${product.imagePath}',
                               fit: BoxFit.cover,
                               width: double.infinity,
                               errorBuilder: (_, __, ___) => Container(
                                 color: cardBg,
-                                child: Icon(Icons.shopping_basket, size: 48, color: primaryColor),
+                                child: Icon(Icons.shopping_basket,
+                                    size: 48, color: primaryColor),
                               ),
                             )
                           : Container(
                               color: cardBg,
-                              child: Icon(Icons.shopping_basket, size: 48, color: primaryColor),
+                              child: Icon(Icons.shopping_basket,
+                                  size: 48, color: primaryColor),
                             ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
                       child: Text(
                         product.name ?? 'Product',
-                        style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),
+                        style: GoogleFonts.poppins(
+                            fontSize: 13, fontWeight: FontWeight.w500),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
@@ -634,7 +1043,10 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
                         '\$${(product.price ?? 0).toStringAsFixed(2)}${(product.unitSymbol ?? product.unitName ?? '').isNotEmpty ? ' / ${product.unitSymbol ?? product.unitName}' : ''}',
-                        style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: primaryColor),
+                        style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: primaryColor),
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -664,7 +1076,10 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
               const SizedBox(width: 10),
               Text(
                 'Next',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.white),
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: Colors.white),
               ),
             ],
           ),
@@ -672,6 +1087,8 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       ),
     ];
   }
+
+  bool _formStepShowAddMore = false;
 
   /// Step 2: Basic Info + other input fields + Back + Next (→ documents screen)
   List<Widget> _buildFormFieldsStepContent() {
@@ -692,7 +1109,10 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
             ),
             child: Text(
               'Step 2 of 2',
-              style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: primaryColor),
+              style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: primaryColor),
             ),
           ),
         ],
@@ -700,7 +1120,8 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       const SizedBox(height: 8),
       Text(
         'Basic Information',
-        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700, color: primaryColor),
+        style: GoogleFonts.poppins(
+            fontSize: 18, fontWeight: FontWeight.w700, color: primaryColor),
       ),
       const SizedBox(height: 6),
       Text(
@@ -708,7 +1129,9 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade600),
       ),
       const SizedBox(height: 12),
-      Text('Customer Name *', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
+      Text('Customer Name *',
+          style: GoogleFonts.poppins(
+              fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
       const SizedBox(height: 8),
       TextField(
         controller: fullNameController,
@@ -721,7 +1144,9 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         ),
       ),
       const SizedBox(height: 16),
-      Text('Phone Number (Optional if no mobile)', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
+      Text('Phone Number (Optional if no mobile)',
+          style: GoogleFonts.poppins(
+              fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
       const SizedBox(height: 8),
       TextField(
         controller: phoneNumberController,
@@ -735,7 +1160,9 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         ),
       ),
       const SizedBox(height: 24),
-      Text('Monthly Income (USD) *', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
+      Text('Monthly Income (USD) *',
+          style: GoogleFonts.poppins(
+              fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
       const SizedBox(height: 8),
       TextField(
         controller: monthlyIncomeController,
@@ -754,28 +1181,34 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
       ),
       const SizedBox(height: 24),
-      Text('Region (Required)', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
+      Text('Region (Required)',
+          style: GoogleFonts.poppins(
+              fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
       const SizedBox(height: 8),
       isLoadingRegions
           ? const Center(child: CircularProgressIndicator())
           : DropdownButtonFormField<int>(
-                    isExpanded: true,
-                    value: selectedRegionId,
-                    decoration: InputDecoration(
-                      hintText: 'Select region',
-                      prefixIcon: const Icon(Icons.map),
-                      border: OutlineInputBorder(borderRadius: br12),
-                      filled: true,
-                      fillColor: cardBg,
-                    ),
-                    items: regions.map((r) {
-                      final id = r['region_id'] ?? r['id'];
-                      final name = r['region_name'] ?? r['name'] ?? '${id ?? ""}';
-                      return DropdownMenuItem<int>(
-                        value: id != null ? int.tryParse(id.toString()) : null,
-                        child: Text(name.toString(), overflow: TextOverflow.ellipsis),
-                      );
-                    }).where((e) => e.value != null).toList(),
+              isExpanded: true,
+              value: selectedRegionId,
+              decoration: InputDecoration(
+                hintText: 'Select region',
+                prefixIcon: const Icon(Icons.map),
+                border: OutlineInputBorder(borderRadius: br12),
+                filled: true,
+                fillColor: cardBg,
+              ),
+              items: regions
+                  .map((r) {
+                    final id = r['region_id'] ?? r['id'];
+                    final name = r['region_name'] ?? r['name'] ?? '${id ?? ""}';
+                    return DropdownMenuItem<int>(
+                      value: id != null ? int.tryParse(id.toString()) : null,
+                      child: Text(name.toString(),
+                          overflow: TextOverflow.ellipsis),
+                    );
+                  })
+                  .where((e) => e.value != null)
+                  .toList(),
               onChanged: (v) {
                 setState(() {
                   selectedRegionId = v;
@@ -784,32 +1217,43 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
               },
             ),
       const SizedBox(height: 16),
-      Text('District (Required)', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
+      Text('District (Required)',
+          style: GoogleFonts.poppins(
+              fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
       const SizedBox(height: 8),
       isLoadingDistricts
           ? const Center(child: CircularProgressIndicator())
           : DropdownButtonFormField<int>(
-                    isExpanded: true,
-                    value: selectedDistrictId,
-                    decoration: InputDecoration(
-                      hintText: 'Select district',
-                      prefixIcon: const Icon(Icons.location_on),
-                      border: OutlineInputBorder(borderRadius: br12),
-                      filled: true,
-                      fillColor: cardBg,
-                    ),
-                    items: districts.map((d) {
-                      final id = d['district_id'] ?? d['address_id'] ?? d['id'];
-                      final name = d['district_name'] ?? d['name'] ?? '${id ?? ""}';
-                      return DropdownMenuItem<int>(
-                        value: id != null ? int.tryParse(id.toString()) : null,
-                        child: Text(name.toString(), overflow: TextOverflow.ellipsis),
-                      );
-                    }).where((e) => e.value != null).toList(),
-              onChanged: selectedRegionId == null ? null : (v) => setState(() => selectedDistrictId = v),
+              isExpanded: true,
+              value: selectedDistrictId,
+              decoration: InputDecoration(
+                hintText: 'Select district',
+                prefixIcon: const Icon(Icons.location_on),
+                border: OutlineInputBorder(borderRadius: br12),
+                filled: true,
+                fillColor: cardBg,
+              ),
+              items: districts
+                  .map((d) {
+                    final id = d['district_id'] ?? d['address_id'] ?? d['id'];
+                    final name =
+                        d['district_name'] ?? d['name'] ?? '${id ?? ""}';
+                    return DropdownMenuItem<int>(
+                      value: id != null ? int.tryParse(id.toString()) : null,
+                      child: Text(name.toString(),
+                          overflow: TextOverflow.ellipsis),
+                    );
+                  })
+                  .where((e) => e.value != null)
+                  .toList(),
+              onChanged: selectedRegionId == null
+                  ? null
+                  : (v) => setState(() => selectedDistrictId = v),
             ),
       const SizedBox(height: 16),
-      Text('Family Size (Optional)', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
+      Text('Family Size (Optional)',
+          style: GoogleFonts.poppins(
+              fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
       const SizedBox(height: 8),
       TextField(
         controller: familySizeController,
@@ -827,121 +1271,354 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         selectedProducts.isNotEmpty
             ? 'Usage Type (Required – for amount limits)'
             : 'Usage Type (Optional)',
-        style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor),
+        style: GoogleFonts.poppins(
+            fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor),
       ),
       const SizedBox(height: 8),
       DropdownButtonFormField<String>(
-              isExpanded: true,
-              value: usageType,
-              decoration: InputDecoration(
-                hintText: 'Select usage type (household or business)',
-                prefixIcon: const Icon(Icons.home),
-                border: OutlineInputBorder(borderRadius: br12),
-                filled: true,
-                fillColor: cardBg,
-              ),
-              items: ['household', 'business'].map((type) => DropdownMenuItem(value: type, child: Text(type.toUpperCase(), overflow: TextOverflow.ellipsis))).toList(),
-              onChanged: (v) {
-                setState(() {
-                  usageType = v;
-                  _limitMin = null;
-                  _limitMax = null;
-                });
-        if (v != null && widget.serviceModel.isNotEmpty) _loadUsageTypeLimits();
-      },
-    ),
-    if (_limitMin != null && _limitMax != null) ...[
-      const SizedBox(height: 8),
-      Text(
-        'Allowed amount: \$${_limitMin!.toStringAsFixed(2)} - \$${_limitMax!.toStringAsFixed(2)}',
-        style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade700),
+        isExpanded: true,
+        value: usageType,
+        decoration: InputDecoration(
+          hintText: 'Select usage type (household or business)',
+          prefixIcon: const Icon(Icons.home),
+          border: OutlineInputBorder(borderRadius: br12),
+          filled: true,
+          fillColor: cardBg,
+        ),
+        items: ['household', 'business']
+            .map((type) => DropdownMenuItem(
+                value: type,
+                child:
+                    Text(type.toUpperCase(), overflow: TextOverflow.ellipsis)))
+            .toList(),
+        onChanged: (v) {
+          setState(() {
+            usageType = v;
+            _limitMin = null;
+            _limitMax = null;
+          });
+          if (v != null && widget.serviceModel.isNotEmpty)
+            _loadUsageTypeLimits();
+        },
       ),
-    ],
-    const SizedBox(height: 24),
-    if (selectedProducts.isNotEmpty) ...[
-      Text('Basket', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700, color: primaryColor)),
+      if (_limitMin != null && _limitMax != null) ...[
+        const SizedBox(height: 8),
+        Text(
+          'Allowed amount: \$${_limitMin!.toStringAsFixed(2)} - \$${_limitMax!.toStringAsFixed(2)}',
+          style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade700),
+        ),
+      ],
+      const SizedBox(height: 24),
+      Text('Selected Products',
+          style: GoogleFonts.poppins(
+              fontSize: 18, fontWeight: FontWeight.w700, color: primaryColor)),
+      const SizedBox(height: 6),
+      Text('Products below your form. Adjust quantity or add more.',
+          style:
+              GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade600)),
       const SizedBox(height: 12),
-      ...selectedProducts.asMap().entries.map((entry) {
-        final index = entry.key;
-        final item = entry.value;
-        final unit = item['unit'] as String? ?? '';
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            title: Text(
-              item['product_name'] as String? ?? '',
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-            subtitle: Text(
-              'Qty: ${item['quantity']} × ${(item['unit_price'] as double).toStringAsFixed(2)}${unit.isNotEmpty ? ' / $unit' : ''}',
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _removeFromBasket(index),
-            ),
+      if (selectedProducts.isEmpty)
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: br12,
+              border: Border.all(color: Colors.amber.shade200)),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.amber.shade700, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Text(
+                      'No products yet. Tap "Add more products" below to add items.',
+                      style: GoogleFonts.poppins(
+                          fontSize: 13, color: Colors.amber.shade900))),
+            ],
           ),
-        );
-      }),
-      const SizedBox(height: 8),
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: primaryColor.withOpacity(0.1),
-          borderRadius: br12,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Total:', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600)),
-            Flexible(
-              child: Text(
-                totalAmount.toStringAsFixed(2),
-                style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold, color: primaryColor),
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ],
-    const SizedBox(height: 32),
-    Text(
-      'After Next you will upload your documents.',
-      style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
-    ),
-    const SizedBox(height: 8),
-    SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: isSubmitting ? null : _goToNextStep,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor,
-          shape: RoundedRectangleBorder(borderRadius: br12),
-        ),
-        child: isSubmitting
-            ? const CircularProgressIndicator(color: Colors.white)
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 22),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Text(
-                      'Next → Upload documents',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.white),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+        )
+      else ...[
+        ...selectedProducts.asMap().entries.map((entry) {
+          final index = entry.key;
+          final item = entry.value;
+          final unit = item['unit'] as String? ?? '';
+          final qty = item['quantity'] as int;
+          final unitPrice = (item['unit_price'] as num).toDouble();
+          final subtotal = qty * unitPrice;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: br12,
+                border: Border.all(color: primaryColor.withOpacity(0.15)),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2))
+                ]),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(item['product_name'] as String? ?? '',
+                          style: GoogleFonts.poppins(
+                              fontSize: 14, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 4),
+                      Text(
+                          '\$${unitPrice.toStringAsFixed(2)} each${unit.isNotEmpty ? ' / $unit' : ''}',
+                          style: GoogleFonts.poppins(
+                              fontSize: 11, color: Colors.grey.shade600)),
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: primaryColor.withOpacity(0.3))),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                                icon: const Icon(Icons.remove, size: 18),
+                                onPressed: () =>
+                                    _updateBasketQuantity(index, -1),
+                                padding: const EdgeInsets.all(4),
+                                constraints: const BoxConstraints(
+                                    minWidth: 28, minHeight: 28),
+                                style: IconButton.styleFrom(
+                                    foregroundColor: primaryColor)),
+                            SizedBox(
+                                width: 28,
+                                child: Text('$qty',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: primaryColor))),
+                            IconButton(
+                                icon: const Icon(Icons.add, size: 18),
+                                onPressed: () =>
+                                    _updateBasketQuantity(index, 1),
+                                padding: const EdgeInsets.all(4),
+                                constraints: const BoxConstraints(
+                                    minWidth: 28, minHeight: 28),
+                                style: IconButton.styleFrom(
+                                    foregroundColor: primaryColor)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('\$${subtotal.toStringAsFixed(2)}',
+                        style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: primaryColor)),
+                    const SizedBox(height: 6),
+                    InkWell(
+                        onTap: () => _removeFromBasket(index),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.delete_outline,
+                              size: 16, color: Colors.red.shade400),
+                          const SizedBox(width: 4),
+                          Text('Remove',
+                              style: GoogleFonts.poppins(
+                                  fontSize: 11, color: Colors.red.shade400))
+                        ])),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+              color: primaryColor.withOpacity(0.1),
+              borderRadius: br12,
+              border: Border.all(color: primaryColor.withOpacity(0.2))),
+          child:
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text('Total:',
+                style: GoogleFonts.poppins(
+                    fontSize: 18, fontWeight: FontWeight.w600)),
+            Text('\$${totalAmount.toStringAsFixed(2)}',
+                style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: primaryColor)),
+          ]),
+        ),
+      ],
+      const SizedBox(height: 16),
+      InkWell(
+        onTap: () =>
+            setState(() => _formStepShowAddMore = !_formStepShowAddMore),
+        borderRadius: br12,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+              color: primaryColor.withOpacity(0.08),
+              borderRadius: br12,
+              border: Border.all(color: primaryColor.withOpacity(0.2))),
+          child: Row(
+            children: [
+              Icon(Icons.add_shopping_cart, color: primaryColor, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text('Add more products',
+                        style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: primaryColor)),
+                    Text('Browse and add without going back',
+                        style: GoogleFonts.poppins(
+                            fontSize: 11, color: Colors.grey.shade600))
+                  ])),
+              Icon(_formStepShowAddMore ? Icons.expand_less : Icons.expand_more,
+                  color: primaryColor),
+            ],
+          ),
+        ),
       ),
-    ),
+      if (_formStepShowAddMore) ...[
+        const SizedBox(height: 12),
+        Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text('Select a product to add',
+                style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700))),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 0.78),
+          itemCount: availableProducts.length,
+          itemBuilder: (context, idx) {
+            final product = availableProducts[idx];
+            final pid = product.productId ?? product.id;
+            final isInBasket =
+                selectedProducts.any((p) => p['product_id'] == pid);
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap:
+                    isInBasket ? null : () => _showAddToBasketDialog(product),
+                borderRadius: br12,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: br12,
+                      border:
+                          Border.all(color: primaryColor.withOpacity(0.12))),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: (product.imagePath != null &&
+                                product.imagePath!.isNotEmpty)
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                    '${ApiService.baseUrl}${product.imagePath}',
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    errorBuilder: (_, __, ___) => Icon(
+                                        Icons.shopping_basket,
+                                        size: 32,
+                                        color: primaryColor)))
+                            : Icon(Icons.shopping_basket,
+                                size: 32, color: primaryColor),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(product.name ?? '',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                              fontSize: 11, fontWeight: FontWeight.w600)),
+                      Text('\$${(product.price ?? 0).toStringAsFixed(2)}',
+                          style: GoogleFonts.poppins(
+                              fontSize: 11, color: primaryColor)),
+                      const SizedBox(height: 4),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 28,
+                        child: ElevatedButton(
+                          onPressed: isInBasket
+                              ? null
+                              : () => _showAddToBasketDialog(product),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6))),
+                          child: Text(isInBasket ? 'In basket' : 'Add',
+                              style: GoogleFonts.poppins(fontSize: 11)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+      const SizedBox(height: 32),
+      Text(
+        'After Next you will upload your documents.',
+        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
+      ),
+      const SizedBox(height: 8),
+      SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: ElevatedButton(
+          onPressed: isSubmitting ? null : _goToNextStep,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primaryColor,
+            shape: RoundedRectangleBorder(borderRadius: br12),
+          ),
+          child: isSubmitting
+              ? const CircularProgressIndicator(color: Colors.white)
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.arrow_forward_rounded,
+                        color: Colors.white, size: 22),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        'Next → Upload documents',
+                        style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: Colors.white),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
     ];
   }
 }

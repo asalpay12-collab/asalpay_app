@@ -1,3 +1,4 @@
+import 'package:asalpay/FundMoving/FundMoving.dart';
 import 'package:asalpay/PayBills/PayBills.dart';
 import 'package:asalpay/constants/Constant.dart' as ConstantColors;
 import 'package:asalpay/transactions/ProductPurchaseScreen.dart';
@@ -5,7 +6,6 @@ import 'package:asalpay/transactions/SeeAllTransactions.dart';
 import 'package:asalpay/transactions/qows_kaab/qows_kaab_products_screen.dart';
 import 'package:asalpay/widgets/mostusedservices.dart';
 import 'package:flutter/material.dart';
-import 'package:quickalert/quickalert.dart';
 
 class AllServices extends StatefulWidget {
   final String? wallet_accounts_id;
@@ -15,28 +15,6 @@ class AllServices extends StatefulWidget {
 }
 
 class _AllServicesState extends State<AllServices> {
-  void ShowUpcomingAlert1() {
-    QuickAlert.show(
-      context: context,
-      type: QuickAlertType.info,
-      title: "Upcoming",
-      text: "New Service Coming Soon!",
-      confirmBtnText: "Please wait",
-      // backgroundColor: secondryColor.withOpacity(0.1),
-      barrierDismissible: true,
-      onConfirmBtnTap: () => Navigator.pop(context),
-      textColor: ConstantColors.primaryColor,
-      confirmBtnColor: ConstantColors.primaryColor,
-      titleColor: ConstantColors.secondryColor,
-
-      confirmBtnTextStyle: const TextStyle(
-        fontSize: 18,
-        color: Colors.white,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -142,27 +120,17 @@ class _AllServicesState extends State<AllServices> {
                 ),
                 InkWell(
                   onTap: () {
-                    ShowUpcomingAlert1();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FundMoving(
+                          wallet_accounts_id: widget.wallet_accounts_id,
+                        ),
+                      ),
+                    );
                   },
-                  child: card2(Icons.account_balance, ConstantColors.pureWhite,
-                      "Bank ACC"),
-                ),
-                InkWell(
-                  onTap: () {
-                    ShowUpcomingAlert1();
-                  },
-                  child: card2(
-                    Icons.draw,
-                    ConstantColors.pureWhite,
-                    "Withdraw",
-                  ),
-                ),
-                InkWell(
-                  onTap: () {
-                    ShowUpcomingAlert1();
-                  },
-                  child: card2(Icons.electrical_services,
-                      ConstantColors.pureWhite, "BuyGoods and Services"),
+                  child: card2(Icons.receipt_long_outlined,
+                      ConstantColors.pureWhite, "Funds transfer"),
                 ),
                 InkWell(
                   onTap: () {
@@ -175,54 +143,6 @@ class _AllServicesState extends State<AllServices> {
                   },
                   child: card2(Icons.move_to_inbox_outlined,
                       ConstantColors.pureWhite, "Transactions"),
-                ),
-                InkWell(
-                  onTap: () {
-                    ShowUpcomingAlert1();
-                  },
-                  child: card2(Icons.view_column_outlined,
-                      ConstantColors.pureWhite, "Voucher"),
-                ),
-                InkWell(
-                  onTap: () {
-                    ShowUpcomingAlert1();
-                  },
-                  child: card2(
-                      Icons.pie_chart, ConstantColors.pureWhite, "Status"),
-                ),
-                InkWell(
-                  onTap: () {
-                    ShowUpcomingAlert1();
-                  },
-                  child: card2(Icons.apartment_outlined,
-                      ConstantColors.pureWhite, "Find ATM"),
-                ),
-                InkWell(
-                  onTap: () {
-                    ShowUpcomingAlert1();
-                  },
-                  child: card2(
-                      Icons.call_received, ConstantColors.pureWhite, "Receive"),
-                ),
-                InkWell(
-                  onTap: () {
-                    ShowUpcomingAlert1();
-                  },
-                  child: card3(const AssetImage("assets/asalicon.png"),
-                      "Asalpay Advantages", ConstantColors.pureWhite),
-                ),
-                InkWell(
-                    onTap: () {
-                      ShowUpcomingAlert1();
-                    },
-                    child: card2(Icons.credit_card_rounded,
-                        ConstantColors.pureWhite, " MyCards")),
-                InkWell(
-                  onTap: () {
-                    ShowUpcomingAlert1();
-                  },
-                  child: card2(Icons.microwave_outlined,
-                      ConstantColors.pureWhite, "Apply MFi"),
                 ),
               ],
             ),
@@ -266,46 +186,6 @@ class _AllServicesState extends State<AllServices> {
                 height: cardHeight * 0.2,
                 // height: 10,
               ),
-              Text(
-                txt,
-                style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                      fontSize: cardHeight * 0.25,
-                      color: Colors.white,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget card3(AssetImage sawir, String txt, Color clr) {
-    final double cardWidth = MediaQuery.of(context).size.width * 0.2;
-    final double cardHeight = MediaQuery.of(context).size.height * 0.07;
-    return Padding(
-      padding: const EdgeInsets.all(4),
-      child: Card(
-        elevation: 4,
-        color: ConstantColors.secondryColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Container(
-          // width: 90,
-          // height: 90,
-          width: cardWidth,
-          height: cardHeight + 20,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            color: ConstantColors.primaryColor.withOpacity(0.01),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image(image: sawir, width: cardHeight * 0.7, color: clr),
               Text(
                 txt,
                 style: Theme.of(context).textTheme.bodyMedium!.copyWith(

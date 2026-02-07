@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:ui' show ImageFilter;
 
 import 'package:android_intent_plus/android_intent.dart';
-import 'package:asalpay/FundMoving/FundMoving.dart';
+import 'package:asalpay/transactions/qows_kaab/qows_kaab_products_screen.dart';
 import 'package:asalpay/PayBills/PayBills.dart';
 import 'package:asalpay/SettingPage/Setting.dart';
 import 'package:asalpay/constants/Constant.dart';
@@ -1066,18 +1066,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                       },
                                     ),
                                     _QuickActionCardV(
-                                      icon: Icons.receipt_long_outlined,
-                                      label: 'Funds transfer',
+                                      icon: Icons.shopping_basket,
+                                      label: 'Qows Kaab',
                                       accent: primaryColor,
                                       compact: true,
                                       onTap: () {
                                         Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => FundMoving(
-                                                  wallet_accounts_id: widget
-                                                      .wallet_accounts_id),
-                                            ));
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => QowsKaabProductsScreen(
+                                              walletAccountId: widget.wallet_accounts_id,
+                                            ),
+                                          ),
+                                        );
                                       },
                                     ),
                                     _QuickActionCardV(

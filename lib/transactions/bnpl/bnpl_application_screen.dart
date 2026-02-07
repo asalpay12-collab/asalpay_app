@@ -112,6 +112,8 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
   Map<String, String?> documentNumbers = {}; // Document numbers
   Map<String, bool> existingDocuments = {}; // Track existing documents
   String? selectedDocumentType; // Selected document type from dropdown
+  bool?
+      hasBankStatementNow; // null=not answered, true=have it, false=will upload later
   final TextEditingController expirationDateController =
       TextEditingController(); // Expiration date input
   final TextEditingController documentNumberController =
@@ -624,6 +626,12 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
       }
     }
 
+    // Load bank statement choice from draft
+    if (draft['has_bank_statement_now'] != null) {
+      final v = draft['has_bank_statement_now'];
+      hasBankStatementNow = v == true || v == 1;
+    }
+
     // Resume at the step the user left (backend current_step is 1-based)
     final stepFromDraft = draft['current_step'];
     final draftStep = stepFromDraft is int
@@ -799,6 +807,8 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                       'document_number': e.value,
                     }),
           ],
+        if (hasBankStatementNow != null)
+          'has_bank_statement_now': hasBankStatementNow,
       };
 
       // Map eligibility checklist to draft fields using dynamic keys
@@ -1759,16 +1769,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         }
         return true;
       case 6:
-        // Require at least 1 income proof (e.g. income statement) + 1 ID (NIRA, Passport, etc.)
-        // Consider "have" if existingDocuments[key] == true OR documents[key] != null
-        const incomeDocKeys = [
-          'has_income_proof',
-          'income_proof',
-          'income_statement',
-          'salary_slip',
-          'employment_id',
-          'bank_statement',
-        ];
+        // Require BOTH: 1) Valid ID (NIRA, Passport, etc.) AND 2) Bank Statement
         const idDocKeys = [
           'has_valid_id',
           'nira',
@@ -1776,24 +1777,31 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
           'driving_license',
           'national_id',
         ];
-        bool hasIncomeDoc = false;
+        const bankStatementKey = 'bank_statement';
         bool hasIdDoc = false;
+        bool hasBankStatement = false;
         for (var docType in documentTypes) {
           final key = docType['document_type_key']?.toString();
           if (key == null) continue;
           final hasDoc =
               existingDocuments[key] == true || documents[key] != null;
-          if (incomeDocKeys.contains(key) && hasDoc) hasIncomeDoc = true;
           if (idDocKeys.contains(key) && hasDoc) hasIdDoc = true;
+          if (key == bankStatementKey && hasDoc) hasBankStatement = true;
         }
-        if (!hasIncomeDoc) {
-          _showError(
-              'Please provide proof of income (e.g. salary slip or business document).');
-          return false;
+        // Also check documents map directly for bank_statement (in case not in documentTypes)
+        if (!hasBankStatement &&
+            (existingDocuments[bankStatementKey] == true ||
+                documents[bankStatementKey] != null)) {
+          hasBankStatement = true;
         }
         if (!hasIdDoc) {
           _showError(
-              'Please provide a valid ID (NIRA, Passport, or Driving License).');
+              'Please upload a valid ID document (NIRA, Passport, or Driving License).');
+          return false;
+        }
+        if (!hasBankStatement) {
+          _showError(
+              'Bank Statement is required. Please upload your bank statement to continue.');
           return false;
         }
         return true;
@@ -3032,6 +3040,54 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     );
   }
 
+  static const _idDocKeys = [
+    'nira',
+    'passport',
+    'driving_license',
+    'national_id',
+    'has_valid_id'
+  ];
+  static const _bankStatementKey = 'bank_statement';
+
+  Widget _buildDocRequirementRow(int number, String label, bool isComplete) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: isComplete ? Colors.green : primaryColor.withOpacity(0.2),
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: isComplete
+                ? const Icon(Icons.check, color: Colors.white, size: 16)
+                : Text(
+                    '$number',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: primaryColor,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: isComplete ? FontWeight.w600 : FontWeight.w500,
+              color: isComplete ? Colors.green.shade700 : Colors.grey.shade800,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildStep7Documents() {
     // Filter document types based on risk level
     final availableDocumentTypes = documentTypes.where((docType) {
@@ -3042,6 +3098,15 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
       }
       return requiredForRisk == 'all';
     }).toList();
+
+    // Split into ID docs (NIRA, Passport, etc.) and Bank Statement
+    final idDocTypes = availableDocumentTypes
+        .where((d) => _idDocKeys.contains(d['document_type_key']?.toString()))
+        .toList();
+    // Ensure bank_statement exists in documents map
+    if (!documents.containsKey(_bankStatementKey)) {
+      documents[_bankStatementKey] = null;
+    }
 
     // Get selected document type details
     Map<String, dynamic>? selectedDocTypeDetails;
@@ -3075,11 +3140,95 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Select a document type and upload the required file:',
+            'You need 2 documents to complete your application:',
             style:
                 GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade700),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+
+          // Info banner - both documents required (always visible)
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  primaryColor.withOpacity(0.15),
+                  primaryColor.withOpacity(0.06)
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border:
+                  Border.all(color: primaryColor.withOpacity(0.4), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: primaryColor.withOpacity(0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child:
+                          Icon(Icons.assignment, color: primaryColor, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Both documents are required',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: primaryColor,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Both documents are mandatory. Bank statement must be uploaded—no exceptions.',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildDocRequirementRow(
+                  1,
+                  'Valid ID (NIRA, Passport, or Driving License)',
+                  (existingDocuments.entries
+                          .any((e) => _idDocKeys.contains(e.key) && e.value) ||
+                      documents.entries.any((e) =>
+                          _idDocKeys.contains(e.key) && e.value != null)),
+                ),
+                const SizedBox(height: 10),
+                _buildDocRequirementRow(
+                  2,
+                  'Bank Statement (always required)',
+                  existingDocuments[_bankStatementKey] == true ||
+                      documents[_bankStatementKey] != null,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
 
           // Check for existing documents
           FutureBuilder<Map<String, dynamic>>(
@@ -3176,12 +3325,33 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
               ),
             )
           else ...[
-            // Document Type Dropdown
-            _buildDocumentTypeDropdown(availableDocumentTypes),
-            const SizedBox(height: 24),
+            // ========== SECTION 1: ID Document (NIRA, Passport, etc.) ==========
+            Text(
+              '1. ID Document',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: primaryColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Upload a valid ID: NIRA, Passport, or Driving License',
+              style: GoogleFonts.poppins(
+                  fontSize: 13, color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 12),
+            _buildDocumentTypeDropdown(idDocTypes.isNotEmpty
+                ? idDocTypes
+                : availableDocumentTypes
+                    .where((d) =>
+                        d['document_type_key']?.toString() != _bankStatementKey)
+                    .toList()),
+            const SizedBox(height: 20),
 
-            // Upload Section (only shown when document type is selected)
-            if (selectedDocumentType != null) ...[
+            // Upload Section for ID (only shown when document type is selected)
+            if (selectedDocumentType != null &&
+                _idDocKeys.contains(selectedDocumentType)) ...[
               if (existingDocuments[selectedDocumentType!] == true)
                 Container(
                   margin: const EdgeInsets.only(bottom: 16),
@@ -3480,6 +3650,128 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                 ),
               ),
             ],
+
+            // ========== Bank Statement (always required, inside same card) ==========
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: primaryColor.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: primaryColor.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.account_balance,
+                          color: primaryColor, size: 22),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Upload Bank Statement',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: primaryColor,
+                        ),
+                      ),
+                      if (existingDocuments[_bankStatementKey] == true ||
+                          documents[_bankStatementKey] != null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Icon(Icons.check_circle,
+                              color: Colors.green.shade700, size: 20),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (existingDocuments[_bankStatementKey] == true)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle,
+                              color: Colors.blue.shade700, size: 18),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'You already have a bank statement on file. You can skip or upload a new one.',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.blue.shade800,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _pickDocument(_bankStatementKey),
+                      icon: documents[_bankStatementKey] != null
+                          ? const Icon(Icons.check_circle, size: 20)
+                          : const Icon(Icons.upload_file, size: 20),
+                      label: Text(
+                        documents[_bankStatementKey] != null
+                            ? 'Change Bank Statement'
+                            : 'Upload Bank Statement',
+                        style: GoogleFonts.poppins(
+                            fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 14, horizontal: 20),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (documents[_bankStatementKey] != null) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle,
+                              color: Colors.green.shade700, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              documents[_bankStatementKey]!
+                                  .path
+                                  .split('/')
+                                  .last,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.green.shade800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
 
             // List of uploaded documents
             if (documents.entries.any((e) => e.value != null)) ...[

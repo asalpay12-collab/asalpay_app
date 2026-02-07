@@ -6,7 +6,7 @@ import 'bnpl_application_screen.dart';
 
 class BnplProductsScreen extends StatefulWidget {
   final String? walletAccountId;
-  
+
   const BnplProductsScreen({
     super.key,
     required this.walletAccountId,
@@ -52,7 +52,8 @@ class _BnplProductsScreenState extends State<BnplProductsScreen> {
 
   void _toggleProduct(Map<String, dynamic> product) {
     setState(() {
-      final index = _selectedProducts.indexWhere((p) => p['id'] == product['id']);
+      final index =
+          _selectedProducts.indexWhere((p) => p['id'] == product['id']);
       if (index >= 0) {
         _selectedProducts.removeAt(index);
       } else {
@@ -84,7 +85,8 @@ class _BnplProductsScreenState extends State<BnplProductsScreen> {
         totalOrderAmount: _totalAmount,
       );
 
-      if (eligibility['status'] == true && eligibility['data']['eligible'] == true) {
+      if (eligibility['status'] == true &&
+          eligibility['data']['eligible'] == true) {
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -98,7 +100,8 @@ class _BnplProductsScreenState extends State<BnplProductsScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(eligibility['message'] ?? 'You are not eligible for BNPL'),
+            content:
+                Text(eligibility['message'] ?? 'You are not eligible for BNPL'),
             backgroundColor: Colors.red,
           ),
         );
@@ -147,11 +150,14 @@ class _BnplProductsScreenState extends State<BnplProductsScreen> {
                           );
                           final price = (product['price'] ?? 0.0) is double
                               ? product['price'] as double
-                              : double.tryParse(product['price'].toString()) ?? 0.0;
+                              : double.tryParse(product['price'].toString()) ??
+                                  0.0;
 
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
-                            color: isSelected ? primaryColor.withOpacity(0.1) : pureWhite,
+                            color: isSelected
+                                ? primaryColor.withOpacity(0.1)
+                                : pureWhite,
                             child: ListTile(
                               leading: product['image'] != null
                                   ? CachedNetworkImage(
@@ -159,21 +165,27 @@ class _BnplProductsScreenState extends State<BnplProductsScreen> {
                                       width: 60,
                                       height: 60,
                                       fit: BoxFit.cover,
-                                      placeholder: (context, url) => const CircularProgressIndicator(),
-                                      errorWidget: (context, url, error) => const Icon(Icons.image),
+                                      placeholder: (context, url) =>
+                                          const CircularProgressIndicator(),
+                                      errorWidget: (context, url, error) =>
+                                          const Icon(Icons.image),
                                     )
                                   : const Icon(Icons.image, size: 60),
                               title: Text(
-                                product['name']?.toString() ?? 'Unknown Product',
+                                product['name']?.toString() ??
+                                    'Unknown Product',
                                 style: TextStyle(
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
                               ),
                               subtitle: Text(
                                 'Price: \$${price.toStringAsFixed(2)}',
                               ),
                               trailing: isSelected
-                                  ? const Icon(Icons.check_circle, color: primaryColor)
+                                  ? const Icon(Icons.check_circle,
+                                      color: primaryColor)
                                   : const Icon(Icons.circle_outlined),
                               onTap: () => _toggleProduct(product),
                             ),
@@ -200,7 +212,8 @@ class _BnplProductsScreenState extends State<BnplProductsScreen> {
                             children: [
                               const Text(
                                 'Total Amount:',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.bold),
                               ),
                               Text(
                                 '\$${_totalAmount.toStringAsFixed(2)}',
@@ -220,7 +233,8 @@ class _BnplProductsScreenState extends State<BnplProductsScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: primaryColor,
                                 foregroundColor: pureWhite,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                               ),
                               child: const Text(
                                 'Apply for BNPL',
