@@ -90,8 +90,8 @@ class _BnplProductsScreenState extends State<BnplProductsScreen> {
           MaterialPageRoute(
             builder: (context) => BnplApplicationScreen(
               walletAccountId: widget.walletAccountId,
-              selectedProducts: _selectedProducts,
-              totalAmount: _totalAmount,
+              orderItems: _selectedProducts,
+              totalOrderAmount: _totalAmount,
             ),
           ),
         );
