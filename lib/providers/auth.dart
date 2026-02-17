@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:asalpay/globals.dart';
 import 'package:asalpay/login/login.dart';
 import 'package:asalpay/services/tokens.dart';
 import 'package:asalpay/splash/SplashScrn1.dart';
@@ -322,9 +323,10 @@ Future<void> logout([BuildContext? context]) async {
   final prefs = await SharedPreferences.getInstance();
   prefs.clear();
 
-  if (context != null) {
-    Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const SplashScreen1()),
+  final ctx = context ?? navigatorKey.currentContext;
+  if (ctx != null && ctx.mounted) {
+    Navigator.of(ctx).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const SplashScreen1()),
           (route) => false,
         );
   }

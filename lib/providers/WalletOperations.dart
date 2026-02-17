@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:asalpay/services/tokens.dart';
+import 'package:asalpay/utils/session_handler.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 import '../services/api_urls.dart';
@@ -264,6 +265,7 @@ final String? token;
           });
      
       print(response.body);
+      if (checkAndHandleSessionExpiry(response.statusCode, response.body)) return _CusAccountCurrencyFC;
       if (response.statusCode == 200) {
         final List<WalletOperationModel> loadedCusAccountCurrencyFT = [];
         final extractedData = json.decode(response.body);
@@ -317,6 +319,7 @@ final String? token;
       print("Inside body");
 
       print(response.body);
+      if (checkAndHandleSessionExpiry(response.statusCode, response.body)) return _CusAccountCurrencyRC;
       if (response.statusCode == 200) {
         final List<WalletOperationModel> loadedCusAccountCurrencyRC = [];
         final extractedData = json.decode(response.body);
@@ -408,6 +411,7 @@ final String? token;
       });
       
       print(response.body);
+      if (checkAndHandleSessionExpiry(response.statusCode, response.body)) return [];
       if (response.statusCode == 200) {
         final List<WalletOperationModel> loadedFillTopupAccount = [];
         final extractedData = json.decode(response.body);
@@ -469,6 +473,7 @@ final String? token;
         }),
       );
 
+      if (checkAndHandleSessionExpiry(response.statusCode, response.body)) return;
       final responseData = json.decode(response.body);
       if (responseData['status']!= "True") {
         // throw HttpException(responseData['messages']);
@@ -510,6 +515,7 @@ final String? token;
       // final response = await http.get(Uri.parse(url));
       // _province.clear();
       print(response.body);
+      if (checkAndHandleSessionExpiry(response.statusCode, response.body)) return [];
       if (response.statusCode == 200) {
         final List<WalletOperationModel> loadedFundMovingFillCustomerCurrency =
             [];
@@ -570,6 +576,7 @@ final String? token;
       // final response = await http.get(Uri.parse(url));
       // _province.clear();
       print(response.body);
+      if (checkAndHandleSessionExpiry(response.statusCode, response.body)) return [];
       if (response.statusCode == 200) {
         final List<WalletOperationModel>
             loadedFundMovingFillFundMovingAccountSaving = [];
@@ -636,6 +643,7 @@ final String? token;
           "currency_fro_id": saveFundMovingRegistration.currency_fro_id,
         }),
       );
+      if (checkAndHandleSessionExpiry(response.statusCode, response.body)) return;
       final responseData = json.decode(response.body);
       if (responseData['status'] != "True") {
         // throw HttpException(responseData['messages']);
@@ -866,6 +874,7 @@ final String? token;
       // final response = await http.get(Uri.parse(url));
       // _province.clear();
       print(response.body);
+      if (checkAndHandleSessionExpiry(response.statusCode, response.body)) return [];
       if (response.statusCode == 200) {
         final List<WalletOperationModel> FillmerchantInfo = [];
         final extractedData = json.decode(response.body);
@@ -920,6 +929,7 @@ final String? token;
       // final response = await http.get(Uri.parse(url));
       // _province.clear();
       print(response.body);
+      if (checkAndHandleSessionExpiry(response.statusCode, response.body)) return [];
       if (response.statusCode == 200) {
         final List<WalletOperationModel> loadedMerchangtCusAccountCurrencyFT = [];
         final extractedData = json.decode(response.body);

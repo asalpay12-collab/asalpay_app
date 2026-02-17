@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-
+import 'package:asalpay/globals.dart';
 import 'package:asalpay/PinPopUp.dart';
 import 'package:asalpay/chat/chat_message.dart';
 import 'package:asalpay/chat/chat_message.g.dart';
@@ -11,7 +11,6 @@ import 'package:asalpay/firebase/pin_cache_store.dart';
 import 'package:asalpay/firebase/test_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:asalpay/firebase/firebase_messaging_setup.dart';
-
 import 'package:asalpay/home/homescreen.dart';
 import 'package:asalpay/login/login.dart';
 import 'package:asalpay/pageview/pageviewscr.dart';
@@ -85,14 +84,7 @@ const AndroidNotificationChannel chatChannel = AndroidNotificationChannel(
 
 
 
-// Initialize the FlutterLocalNotificationsPlugin
-
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
-
-
-
-// Single plugin instance
+// Single plugin instance (flutterLocalNotificationsPlugin moved to globals.dart)
 
 
   class MyHttpOverrides extends HttpOverrides {
@@ -111,9 +103,6 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     return client;
   }
 }
-
-
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 
 Future<void> _requestNotificationPermission() async {

@@ -11,7 +11,7 @@ import 'package:asalpay/firebase/fcm_token_manager.dart';
 import 'package:asalpay/firebase/fcm_command_cache.dart';
 import 'package:asalpay/firebase/pin_cache_store.dart';
 import 'package:asalpay/PinPopUp.dart';
-import 'package:asalpay/main.dart'  show navigatorKey, flutterLocalNotificationsPlugin;
+import 'package:asalpay/globals.dart' show navigatorKey, flutterLocalNotificationsPlugin;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';

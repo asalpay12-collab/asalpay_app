@@ -131,7 +131,11 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
   }
 
   void _showOrderDialog(
-      Product product, double unitPrice, String remainingQuantity) {
+    Product product,
+    double unitPrice,
+    String remainingQuantity, {
+    void Function(Map<String, dynamic> item)? onItemAdded,
+  }) {
     final quantityController = TextEditingController(text: '1');
     final totalController =
         TextEditingController(text: unitPrice.toStringAsFixed(2));
@@ -251,15 +255,20 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                 ElevatedButton(
                   onPressed: () {
                     final qty = int.tryParse(quantityController.text) ?? 1;
-                    setState(() {
-                      orderItems.add({
-                        "product_id": product.id,
-                        "quantity": qty,
-                        "unit_price": currentPrice,
-                        "name": product.name,
+                    final item = {
+                      "product_id": product.id,
+                      "quantity": qty,
+                      "unit_price": currentPrice,
+                      "name": product.name,
+                    };
+                    if (onItemAdded != null) {
+                      onItemAdded(item);
+                    } else {
+                      setState(() {
+                        orderItems.add(item);
+                        selectedProduct = null;
                       });
-                      selectedProduct = null;
-                    });
+                    }
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -1271,6 +1280,19 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                           onPayNow: (totalAmount, items) {
                             submitPayNowOrder(totalAmount, items);
                           },
+                          products: products,
+                          onAddProduct: products.isNotEmpty
+                              ? (Product product,
+                                  void Function(Map<String, dynamic> item)
+                                      onItemAdded) {
+                                  _showOrderDialog(
+                                    product,
+                                    double.tryParse(product.unitPrice) ?? 0.0,
+                                    product.remainingQuantity,
+                                    onItemAdded: onItemAdded,
+                                  );
+                                }
+                              : null,
                         ),
                       ),
                     );
@@ -2090,6 +2112,17 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                           },
                           onPayNow: (totalAmount, items) {
                             submitPayNowOrder(totalAmount, items);
+                          },
+                          products: products,
+                          onAddProduct: (Product product,
+                              void Function(Map<String, dynamic> item)
+                                  onItemAdded) {
+                            _showOrderDialog(
+                              product,
+                              double.tryParse(product.unitPrice) ?? 0.0,
+                              product.remainingQuantity,
+                              onItemAdded: onItemAdded,
+                            );
                           },
                         ),
                       ),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:asalpay/services/tokens.dart';
 import 'package:asalpay/services/api_urls.dart';
+import 'package:asalpay/services/252pay_api_service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 
@@ -9,7 +10,12 @@ class BnplApiService {
   final TokenClass tokenClass = TokenClass();
 
   // Base URL for local testing (eligibility endpoint exists on local, not dev2)
-  static const String localBaseUrl = 'http://192.168.1.83/asalexpress_252pay/';
+
+  static String get _baseUrl {
+    String b = ApiService.baseUrl;
+    if (b.endsWith('/')) return b;
+    return '$b/';
+  }
 
   void appLog(String message) {
     debugPrint("🟢[BNPL] $message");
@@ -17,7 +23,7 @@ class BnplApiService {
 
   /// Helper method to build URL correctly for local endpoints
   String _buildLocalUrl(String endpoint) {
-    String base = localBaseUrl;
+    String base = _baseUrl;
     if (base.endsWith('/')) {
       base = base.substring(0, base.length - 1);
     }
