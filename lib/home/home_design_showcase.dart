@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -7,7 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:asalpay/constants/Constant.dart';
 import 'package:asalpay/services/api_urls.dart';
 import 'package:asalpay/widgets/safe_avatar.dart';
-import 'package:asalpay/transactions/SeeAllTransactions.dart' as SeeAllTransactionsFile;
+import 'package:asalpay/transactions/SeeAllTransactions.dart'
+    as SeeAllTransactionsFile;
 import 'package:asalpay/transactions/allServices.dart';
 import 'package:asalpay/sendMoney/searchpage.dart';
 import 'package:asalpay/topup/TopUp.dart';
@@ -17,13 +17,13 @@ import 'package:asalpay/providers/Walletremit.dart';
 
 import 'dart:ui' show ImageFilter;
 
-
 class HomeDesignShowcaseScreen extends StatefulWidget {
   final String wallet_accounts_id;
   const HomeDesignShowcaseScreen({super.key, required this.wallet_accounts_id});
 
   @override
-  State<HomeDesignShowcaseScreen> createState() => _HomeDesignShowcaseScreenState();
+  State<HomeDesignShowcaseScreen> createState() =>
+      _HomeDesignShowcaseScreenState();
 }
 
 enum _Design { option1, option2, option3, option4, option5 }
@@ -48,14 +48,16 @@ class _HomeDesignShowcaseScreenState extends State<HomeDesignShowcaseScreen> {
 
   Future<void> _boot() async {
     try {
-      final homeProv   = Provider.of<HomeSliderAndTransaction>(context, listen: false);
-      final sliderProv = Provider.of<HomeSliderAndTransaction>(context, listen: false);
-      final remitProv  = Provider.of<Walletremit>(context, listen: false);
+      final homeProv =
+          Provider.of<HomeSliderAndTransaction>(context, listen: false);
+      final sliderProv =
+          Provider.of<HomeSliderAndTransaction>(context, listen: false);
+      final remitProv = Provider.of<Walletremit>(context, listen: false);
 
       // 1) balance / header
       _balance = await homeProv.fetchUserData(widget.wallet_accounts_id);
-      _fName   = _balance?.f_name ?? '';
-      _mName   = _balance?.m_name ?? '';
+      _fName = _balance?.f_name ?? '';
+      _mName = _balance?.m_name ?? '';
       _imageUrl = _balance?.image;
       await _prefetchAvatarIfAny(_imageUrl);
 
@@ -101,7 +103,9 @@ class _HomeDesignShowcaseScreenState extends State<HomeDesignShowcaseScreen> {
   void _onSend() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => Searchpage1(wallet_accounts_id: widget.wallet_accounts_id)),
+      MaterialPageRoute(
+          builder: (_) =>
+              Searchpage1(wallet_accounts_id: widget.wallet_accounts_id)),
     );
   }
 
@@ -112,12 +116,17 @@ class _HomeDesignShowcaseScreenState extends State<HomeDesignShowcaseScreen> {
   void _onMore() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => AllServices(wallet_accounts_id: widget.wallet_accounts_id)),
+      MaterialPageRoute(
+          builder: (_) =>
+              AllServices(wallet_accounts_id: widget.wallet_accounts_id)),
     );
   }
 
   void _onSeeAll() {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const SeeAllTransactionsFile.Transfer()));
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => const SeeAllTransactionsFile.Transfer()));
   }
 
   @override
@@ -125,7 +134,9 @@ class _HomeDesignShowcaseScreenState extends State<HomeDesignShowcaseScreen> {
     final preview = _buildPreview();
 
     return Scaffold(
-      appBar: AppBar(backgroundColor: secondryColor, title: const Text('Home Design Options')),
+      appBar: AppBar(
+          backgroundColor: secondryColor,
+          title: const Text('Home Design Options')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
@@ -139,31 +150,33 @@ class _HomeDesignShowcaseScreenState extends State<HomeDesignShowcaseScreen> {
                       ChoiceChip(
                         label: const Text('Option 1 (Current)'),
                         selected: _selected == _Design.option1,
-                        onSelected: (_) => setState(() => _selected = _Design.option1),
+                        onSelected: (_) =>
+                            setState(() => _selected = _Design.option1),
                       ),
                       ChoiceChip(
                         label: const Text('Option 2 '),
                         selected: _selected == _Design.option2,
-                        onSelected: (_) => setState(() => _selected = _Design.option2),
+                        onSelected: (_) =>
+                            setState(() => _selected = _Design.option2),
                       ),
                       ChoiceChip(
                         label: const Text('Option 3 '),
                         selected: _selected == _Design.option3,
-                        onSelected: (_) => setState(() => _selected = _Design.option3),
+                        onSelected: (_) =>
+                            setState(() => _selected = _Design.option3),
                       ),
-
                       ChoiceChip(
                         label: const Text('Option 4 '),
                         selected: _selected == _Design.option4,
-                        onSelected: (_) => setState(() => _selected = _Design.option4),
+                        onSelected: (_) =>
+                            setState(() => _selected = _Design.option4),
                       ),
                       ChoiceChip(
                         label: const Text('Option 5 '),
                         selected: _selected == _Design.option5,
-                        onSelected: (_) => setState(() => _selected = _Design.option5),
+                        onSelected: (_) =>
+                            setState(() => _selected = _Design.option5),
                       ),
-
-
                     ],
                   ),
                 ),
@@ -250,40 +263,38 @@ class _HomeDesignShowcaseScreenState extends State<HomeDesignShowcaseScreen> {
           onSeeAll: _onSeeAll,
         );
 
-
       case _Design.option4:
-  return NeoHomeBody(
-    balance: _balance,
-    sliderModels: _sliderModels,
-    transactions: _transactions,
-    isShort: true,
-    bottomSafe: 0,
-    avatarProvider: _avatarProvider,
-    fullName: _fullName,
-    greeting: _greeting,
-    validImageUrl: _validImageUrl,
-    onSend: _onSend,
-    onReceive: _onReceive,
-    onMore: _onMore,
-    onSeeAll: _onSeeAll,
-  );
-case _Design.option5:
-  return DarkHomeBody(
-    balance: _balance,
-    sliderModels: _sliderModels,
-    transactions: _transactions,
-    isShort: true,
-    bottomSafe: 0,
-    avatarProvider: _avatarProvider,
-    fullName: _fullName,
-    greeting: _greeting,
-    validImageUrl: _validImageUrl,
-    onSend: _onSend,
-    onReceive: _onReceive,
-    onMore: _onMore,
-    onSeeAll: _onSeeAll,
-  );
-
+        return NeoHomeBody(
+          balance: _balance,
+          sliderModels: _sliderModels,
+          transactions: _transactions,
+          isShort: true,
+          bottomSafe: 0,
+          avatarProvider: _avatarProvider,
+          fullName: _fullName,
+          greeting: _greeting,
+          validImageUrl: _validImageUrl,
+          onSend: _onSend,
+          onReceive: _onReceive,
+          onMore: _onMore,
+          onSeeAll: _onSeeAll,
+        );
+      case _Design.option5:
+        return DarkHomeBody(
+          balance: _balance,
+          sliderModels: _sliderModels,
+          transactions: _transactions,
+          isShort: true,
+          bottomSafe: 0,
+          avatarProvider: _avatarProvider,
+          fullName: _fullName,
+          greeting: _greeting,
+          validImageUrl: _validImageUrl,
+          onSend: _onSend,
+          onReceive: _onReceive,
+          onMore: _onMore,
+          onSeeAll: _onSeeAll,
+        );
     }
   }
 }
@@ -341,11 +352,15 @@ class DefaultHomeBody extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [secondryColor, secondryColor.withOpacity(0.85)],
-              begin: Alignment.topLeft, end: Alignment.bottomRight,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
-              BoxShadow(color: secondryColor.withOpacity(0.25), blurRadius: 12, offset: const Offset(0, 6)),
+              BoxShadow(
+                  color: secondryColor.withOpacity(0.25),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6)),
             ],
           ),
           child: Column(
@@ -354,18 +369,28 @@ class DefaultHomeBody extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(greeting(), style: const TextStyle(color: Colors.white70)),
+                  Text(greeting(),
+                      style: const TextStyle(color: Colors.white70)),
                   Row(
                     children: [
                       ClipOval(
                         child: avatarProvider != null
-                            ? Image(image: avatarProvider!, width: 36, height: 36, fit: BoxFit.cover)
-                            : SafeAvatar(imagePath: validImageUrl(balance?.image), size: 36, radius: 0, imageUrl: ''),
+                            ? Image(
+                                image: avatarProvider!,
+                                width: 36,
+                                height: 36,
+                                fit: BoxFit.cover)
+                            : SafeAvatar(
+                                imagePath: validImageUrl(balance?.image),
+                                size: 36,
+                                radius: 0,
+                                imageUrl: ''),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         fullName().isEmpty ? 'User' : fullName(),
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
@@ -374,16 +399,31 @@ class DefaultHomeBody extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 '${balance?.currency_name ?? 'USD'} ${balance?.balance ?? '0.00'}',
-                style: TextStyle(color: Colors.white, fontSize: isShort ? 26 : 28, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isShort ? 26 : 28,
+                    fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 14),
               Row(
                 children: [
-                  _Pill(icon: Icons.arrow_upward, label: 'Send', onTap: onSend, filled: true),
+                  _Pill(
+                      icon: Icons.arrow_upward,
+                      label: 'Send',
+                      onTap: onSend,
+                      filled: true),
                   const SizedBox(width: 10),
-                  _Pill(icon: Icons.arrow_downward, label: 'Receive', onTap: onReceive, filled: true),
+                  _Pill(
+                      icon: Icons.arrow_downward,
+                      label: 'Receive',
+                      onTap: onReceive,
+                      filled: true),
                   const SizedBox(width: 10),
-                  _Pill(icon: Icons.widgets_outlined, label: 'More', onTap: onMore, filled: false),
+                  _Pill(
+                      icon: Icons.widgets_outlined,
+                      label: 'More',
+                      onTap: onMore,
+                      filled: false),
                 ],
               ),
             ],
@@ -400,16 +440,24 @@ class DefaultHomeBody extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 2))],
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2))
+                  ],
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: CachedNetworkImage(
-                    imageUrl: '${ApiUrls.BASE_URL}${sliderModels[index].imageUrl}',
+                    imageUrl:
+                        '${ApiUrls.BASE_URL}${sliderModels[index].imageUrl}',
                     fit: BoxFit.cover,
                     fadeInDuration: Duration.zero,
                     placeholder: (_, __) => const SizedBox.expand(),
-                    errorWidget: (_, __, ___) => Container(color: Colors.grey[200], child: const Icon(Icons.error)),
+                    errorWidget: (_, __, ___) => Container(
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.error)),
                   ),
                 ),
               ),
@@ -423,11 +471,14 @@ class DefaultHomeBody extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-              const Text('Recent Transactions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text('Recent Transactions',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
               TextButton(
                 onPressed: onSeeAll,
-                child: const Text('See All', style: TextStyle(color: primaryColor, fontWeight: FontWeight.w600)),
+                child: const Text('See All',
+                    style: TextStyle(
+                        color: primaryColor, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
@@ -438,7 +489,8 @@ class DefaultHomeBody extends StatelessWidget {
           SizedBox(
             height: 160,
             child: Center(
-              child: Text('No transactions yet', style: TextStyle(color: Colors.grey[600])),
+              child: Text('No transactions yet',
+                  style: TextStyle(color: Colors.grey[600])),
             ),
           )
         else
@@ -450,24 +502,37 @@ class DefaultHomeBody extends StatelessWidget {
               if (preview && i >= 5) return const SizedBox.shrink();
               final tx = transactions[i];
               final credit = _isCredit(tx.tag);
-              final amtColor = credit ? const Color(0xFF019206) : const Color(0xFFF70115);
+              final amtColor =
+                  credit ? const Color(0xFF019206) : const Color(0xFFF70115);
               return Container(
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
-                  leading: SafeAvatar(imagePath: tx.image, size: 42, radius: 0, imageUrl: ''),
-                  title: Text(tx.wallet_accounts_id ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text(tx.description ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
+                  leading: SafeAvatar(
+                      imagePath: tx.image, size: 42, radius: 0, imageUrl: ''),
+                  title: Text(tx.wallet_accounts_id ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text(tx.description ?? '',
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
                   trailing: Text(
                     (credit ? '+ ' : '- ') +
                         '${tx.currency_name ?? ''} ' +
-                        (double.tryParse(tx.amount ?? '0')?.toStringAsFixed(2) ?? '0.00'),
-                    style: TextStyle(color: amtColor, fontWeight: FontWeight.w900),
+                        (double.tryParse(tx.amount ?? '0')
+                                ?.toStringAsFixed(2) ??
+                            '0.00'),
+                    style:
+                        TextStyle(color: amtColor, fontWeight: FontWeight.w900),
                   ),
                 ),
               );
             },
             separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemCount: preview ? (transactions.length.clamp(0, 5)) : transactions.length,
+            itemCount: preview
+                ? (transactions.length.clamp(0, 5))
+                : transactions.length,
           ),
         const SizedBox(height: 16),
       ],
@@ -480,7 +545,11 @@ class _Pill extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool filled;
-  const _Pill({required this.icon, required this.label, required this.onTap, required this.filled});
+  const _Pill(
+      {required this.icon,
+      required this.label,
+      required this.onTap,
+      required this.filled});
 
   @override
   Widget build(BuildContext context) {
@@ -492,13 +561,15 @@ class _Pill extends StatelessWidget {
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+          decoration:
+              BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 18, color: fg),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
+              Text(label,
+                  style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
             ],
           ),
         ),
@@ -511,7 +582,8 @@ class _SmartChipGridTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  const _SmartChipGridTile({required this.icon, required this.label, this.onTap});
+  const _SmartChipGridTile(
+      {required this.icon, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -525,7 +597,12 @@ class _SmartChipGridTile extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(99),
           border: Border.all(color: Colors.black.withOpacity(.08)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 10, offset: const Offset(0, 6))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(.04),
+                blurRadius: 10,
+                offset: const Offset(0, 6))
+          ],
         ),
         child: FittedBox(
           fit: BoxFit.scaleDown,
@@ -542,7 +619,6 @@ class _SmartChipGridTile extends StatelessWidget {
     );
   }
 }
-
 
 class GlassHomeBody extends StatelessWidget {
   final BalanceDisplayModel? balance;
@@ -591,8 +667,6 @@ class GlassHomeBody extends StatelessWidget {
     return t == 'in' || t == 'credit' || t == 'cr';
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -616,11 +690,16 @@ class GlassHomeBody extends StatelessWidget {
                     children: [
                       ClipOval(
                         child: Container(
-                          width: 48, height: 48,
+                          width: 48,
+                          height: 48,
                           color: Colors.white.withOpacity(.28),
                           child: avatarProvider != null
                               ? Image(image: avatarProvider!, fit: BoxFit.cover)
-                              : SafeAvatar(imagePath: validImageUrl(balance?.image), size: 48, radius: 0, imageUrl: ''),
+                              : SafeAvatar(
+                                  imagePath: validImageUrl(balance?.image),
+                                  size: 48,
+                                  radius: 0,
+                                  imageUrl: ''),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -628,12 +707,18 @@ class GlassHomeBody extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(greeting(), style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                            Text(greeting(),
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 13)),
                             const SizedBox(height: 2),
                             Text(
                               fullName().isEmpty ? 'User' : fullName(),
-                              maxLines: 1, overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800),
                             ),
                           ],
                         ),
@@ -642,35 +727,48 @@ class GlassHomeBody extends StatelessWidget {
                   ),
                 ),
               ),
-
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 child: _GlassCard(
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Available Balance', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      const Text('Available Balance',
+                          style:
+                              TextStyle(color: Colors.white70, fontSize: 12)),
                       const SizedBox(height: 6),
                       Text(
                         '${balance?.currency_name ?? 'USD'} ${balance?.balance ?? '0.00'}',
-                        style: TextStyle(color: Colors.white, fontSize: isShort ? 26 : 30, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isShort ? 26 : 30,
+                            fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 14),
                       Row(
                         children: [
-                          _GlassAction(icon: Icons.arrow_upward, label: 'Send', onTap: onSend),
+                          _GlassAction(
+                              icon: Icons.arrow_upward,
+                              label: 'Send',
+                              onTap: onSend),
                           const SizedBox(width: 10),
-                          _GlassAction(icon: Icons.arrow_downward, label: 'Receive', onTap: onReceive),
+                          _GlassAction(
+                              icon: Icons.arrow_downward,
+                              label: 'Receive',
+                              onTap: onReceive),
                           const SizedBox(width: 10),
-                          _GlassAction(icon: Icons.widgets_outlined, label: 'More', onTap: onMore),
+                          _GlassAction(
+                              icon: Icons.widgets_outlined,
+                              label: 'More',
+                              onTap: onMore),
                         ],
                       ),
                     ],
                   ),
                 ),
               ),
-
               if (sliderModels.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
@@ -679,12 +777,14 @@ class GlassHomeBody extends StatelessWidget {
                     child: AspectRatio(
                       aspectRatio: 16 / 9,
                       child: CachedNetworkImage(
-                        imageUrl: '${ApiUrls.BASE_URL}${sliderModels.first.imageUrl}',
+                        imageUrl:
+                            '${ApiUrls.BASE_URL}${sliderModels.first.imageUrl}',
                         fit: BoxFit.cover,
                         fadeInDuration: Duration.zero,
                         placeholder: (_, __) => const SizedBox.expand(),
-                        errorWidget: (_, __, ___) =>
-                            Container(color: Colors.grey[200], child: const Icon(Icons.error_outline)),
+                        errorWidget: (_, __, ___) => Container(
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.error_outline)),
                       ),
                     ),
                   ),
@@ -694,41 +794,55 @@ class GlassHomeBody extends StatelessWidget {
         ),
 
         const SizedBox(height: 12),
-Padding(
-  padding: const EdgeInsets.symmetric(horizontal: 16),
-  child: LayoutBuilder(
-    builder: (ctx, c) {
-      const spacing = 10.0;
-      const perRow = 3;
-      final cellW = (c.maxWidth - spacing * (perRow - 1)) / perRow;
-      const cellH = 48.0; // chip height target
-      final aspect = cellW / cellH;
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: LayoutBuilder(
+            builder: (ctx, c) {
+              const spacing = 10.0;
+              const perRow = 3;
+              final cellW = (c.maxWidth - spacing * (perRow - 1)) / perRow;
+              const cellH = 48.0; // chip height target
+              final aspect = cellW / cellH;
 
-      return GridView(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: perRow,
-          crossAxisSpacing: spacing,
-          mainAxisSpacing: spacing,
-          childAspectRatio: aspect,
+              return GridView(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: perRow,
+                  crossAxisSpacing: spacing,
+                  mainAxisSpacing: spacing,
+                  childAspectRatio: aspect,
+                ),
+                children: [
+                  _SmartChipGridTile(
+                      icon: Icons.qr_code_scanner,
+                      label: 'Scan & Pay',
+                      onTap: onScanPay),
+                  _SmartChipGridTile(
+                      icon: Icons.account_balance_wallet_outlined,
+                      label: 'Top Up',
+                      onTap: onTopUp),
+                  _SmartChipGridTile(
+                      icon: Icons.attach_money,
+                      label: 'Withdraw',
+                      onTap: onWithdraw),
+                  _SmartChipGridTile(
+                      icon: Icons.receipt_long_outlined,
+                      label: 'Bills',
+                      onTap: onBills),
+                  _SmartChipGridTile(
+                      icon: Icons.receipt_long_outlined,
+                      label: 'Pay Bills',
+                      onTap: onBills),
+                  _SmartChipGridTile(
+                      icon: Icons.receipt_long_outlined,
+                      label: '252PAY',
+                      onTap: onBills),
+                ],
+              );
+            },
+          ),
         ),
-        children: [
-          _SmartChipGridTile(icon: Icons.qr_code_scanner, label: 'Scan & Pay', onTap: onScanPay),
-          _SmartChipGridTile(icon: Icons.account_balance_wallet_outlined, label: 'Top Up', onTap: onTopUp),
-          _SmartChipGridTile(icon: Icons.attach_money, label: 'Withdraw', onTap: onWithdraw),
-          _SmartChipGridTile(icon: Icons.receipt_long_outlined, label: 'Bills', onTap: onBills),
-
-          _SmartChipGridTile(icon: Icons.receipt_long_outlined, label: 'Pay Bills', onTap: onBills),
-
-          _SmartChipGridTile(icon: Icons.receipt_long_outlined, label: '252PAY', onTap: onBills),
-        ],
-      );
-    },
-  ),
-),
-
-
 
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -739,7 +853,9 @@ Padding(
               const Spacer(),
               TextButton(
                 onPressed: onSeeAll,
-                child: const Text('See All', style: TextStyle(color: primaryColor, fontWeight: FontWeight.w700)),
+                child: const Text('See All',
+                    style: TextStyle(
+                        color: primaryColor, fontWeight: FontWeight.w700)),
               ),
             ],
           ),
@@ -766,18 +882,28 @@ Padding(
               }
               final tx = transactions[i];
               final credit = _isCredit(tx.tag);
-              final amtColor = credit ? const Color(0xFF019206) : const Color(0xFFF70115);
+              final amtColor =
+                  credit ? const Color(0xFF019206) : const Color(0xFFF70115);
               return Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 12, offset: const Offset(0, 6))],
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(.05),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6))
+                  ],
                 ),
                 child: ListTile(
-                  leading: SafeAvatar(imagePath: tx.image, size: 42, radius: 0, imageUrl: ''),
+                  leading: SafeAvatar(
+                      imagePath: tx.image, size: 42, radius: 0, imageUrl: ''),
                   title: Text(tx.wallet_accounts_id ?? '',
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
-                  subtitle: Text(tx.description ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Text(tx.description ?? '',
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
                   trailing: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -785,11 +911,16 @@ Padding(
                       Text(
                         (credit ? '+ ' : '- ') +
                             '${tx.currency_name ?? ''} ' +
-                            (double.tryParse(tx.amount ?? '0')?.toStringAsFixed(2) ?? '0.00'),
-                        style: TextStyle(color: amtColor, fontWeight: FontWeight.w900),
+                            (double.tryParse(tx.amount ?? '0')
+                                    ?.toStringAsFixed(2) ??
+                                '0.00'),
+                        style: TextStyle(
+                            color: amtColor, fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 4),
-                      Text(_shortDate(tx.trx_date), style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                      Text(_shortDate(tx.trx_date),
+                          style: const TextStyle(
+                              color: Colors.black54, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -814,11 +945,11 @@ Padding(
   }
 }
 
-
 class _GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
-  const _GlassCard({required this.child, this.padding = const EdgeInsets.all(12)});
+  const _GlassCard(
+      {required this.child, this.padding = const EdgeInsets.all(12)});
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
@@ -830,12 +961,18 @@ class _GlassCard extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border.all(color: Colors.white.withOpacity(.20), width: 1),
             gradient: LinearGradient(
-              colors: [Colors.white.withOpacity(.22), Colors.white.withOpacity(.10)],
+              colors: [
+                Colors.white.withOpacity(.22),
+                Colors.white.withOpacity(.10)
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(.12), blurRadius: 20, offset: const Offset(0, 10)),
+              BoxShadow(
+                  color: Colors.black.withOpacity(.12),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10)),
             ],
           ),
           child: child,
@@ -849,7 +986,8 @@ class _GlassAction extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _GlassAction({required this.icon, required this.label, required this.onTap});
+  const _GlassAction(
+      {required this.icon, required this.label, required this.onTap});
   @override
   Widget build(BuildContext context) {
     return Expanded(
@@ -868,7 +1006,9 @@ class _GlassAction extends StatelessWidget {
             children: [
               Icon(icon, color: Colors.white),
               const SizedBox(width: 6),
-              Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+              Text(label,
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w700)),
             ],
           ),
         ),
@@ -876,7 +1016,6 @@ class _GlassAction extends StatelessWidget {
     );
   }
 }
-
 
 class _QuickServicesGlass extends StatelessWidget {
   final VoidCallback? onScanPay;
@@ -900,10 +1039,26 @@ class _QuickServicesGlass extends StatelessWidget {
           const perRow = 3;
           final itemWidth = (c.maxWidth - (spacing * (perRow - 1))) / perRow;
           final items = <Widget>[
-            _ServiceItemGlass(width: itemWidth, icon: Icons.qr_code_scanner, label: 'Scan & Pay', onTap: onScanPay),
-            _ServiceItemGlass(width: itemWidth, icon: Icons.account_balance_wallet_outlined, label: 'Top Up', onTap: onTopUp),
-            _ServiceItemGlass(width: itemWidth, icon: Icons.attach_money, label: 'Withdraw', onTap: onWithdraw),
-            _ServiceItemGlass(width: itemWidth, icon: Icons.receipt_long_outlined, label: 'Bills', onTap: onBills),
+            _ServiceItemGlass(
+                width: itemWidth,
+                icon: Icons.qr_code_scanner,
+                label: 'Scan & Pay',
+                onTap: onScanPay),
+            _ServiceItemGlass(
+                width: itemWidth,
+                icon: Icons.account_balance_wallet_outlined,
+                label: 'Top Up',
+                onTap: onTopUp),
+            _ServiceItemGlass(
+                width: itemWidth,
+                icon: Icons.attach_money,
+                label: 'Withdraw',
+                onTap: onWithdraw),
+            _ServiceItemGlass(
+                width: itemWidth,
+                icon: Icons.receipt_long_outlined,
+                label: 'Bills',
+                onTap: onBills),
           ];
 
           return Wrap(
@@ -948,7 +1103,8 @@ class _ServiceItemGlass extends StatelessWidget {
             children: [
               // circular frosted icon badge
               Container(
-                width: 42, height: 42,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white.withOpacity(.18),
@@ -961,7 +1117,10 @@ class _ServiceItemGlass extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12)),
             ],
           ),
         ),
@@ -969,7 +1128,6 @@ class _ServiceItemGlass extends StatelessWidget {
     );
   }
 }
-
 
 class _GlassTxTile extends StatelessWidget {
   final Widget leading;
@@ -1003,7 +1161,8 @@ class _GlassTxTile extends StatelessWidget {
                 Text(title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 2),
                 Text(subtitle,
                     maxLines: 1,
@@ -1017,7 +1176,9 @@ class _GlassTxTile extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(amountText, style: TextStyle(color: amountColor, fontWeight: FontWeight.w900)),
+              Text(amountText,
+                  style: TextStyle(
+                      color: amountColor, fontWeight: FontWeight.w900)),
               const SizedBox(height: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -1026,7 +1187,9 @@ class _GlassTxTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: Colors.white.withOpacity(.22)),
                 ),
-                child: Text(dateText, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                child: Text(dateText,
+                    style:
+                        const TextStyle(color: Colors.white70, fontSize: 11)),
               ),
             ],
           ),
@@ -1035,7 +1198,6 @@ class _GlassTxTile extends StatelessWidget {
     );
   }
 }
-
 
 class CardyHomeBody extends StatelessWidget {
   final BalanceDisplayModel? balance;
@@ -1085,18 +1247,33 @@ class CardyHomeBody extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
           decoration: BoxDecoration(
             color: secondryColor,
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
-            boxShadow: [BoxShadow(color: secondryColor.withOpacity(.25), blurRadius: 16, offset: const Offset(0, 6))],
+            borderRadius:
+                const BorderRadius.vertical(bottom: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                  color: secondryColor.withOpacity(.25),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6))
+            ],
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+                decoration: const BoxDecoration(
+                    shape: BoxShape.circle, color: Colors.white),
                 child: ClipOval(
                   child: avatarProvider != null
-                      ? Image(image: avatarProvider!, width: 44, height: 44, fit: BoxFit.cover)
-                      : SafeAvatar(imagePath: validImageUrl(balance?.image), size: 44, radius: 0, imageUrl: ''),
+                      ? Image(
+                          image: avatarProvider!,
+                          width: 44,
+                          height: 44,
+                          fit: BoxFit.cover)
+                      : SafeAvatar(
+                          imagePath: validImageUrl(balance?.image),
+                          size: 44,
+                          radius: 0,
+                          imageUrl: ''),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1104,12 +1281,16 @@ class CardyHomeBody extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(greeting(), style: const TextStyle(color: Colors.white70)),
+                    Text(greeting(),
+                        style: const TextStyle(color: Colors.white70)),
                     const SizedBox(height: 2),
                     Text(fullName().isEmpty ? 'User' : fullName(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800)),
                   ],
                 ),
               ),
@@ -1124,30 +1305,49 @@ class CardyHomeBody extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 16, offset: const Offset(0, 8))],
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(.06),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8))
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Balance', style: TextStyle(color: Colors.black54, fontSize: 12)),
+                const Text('Balance',
+                    style: TextStyle(color: Colors.black54, fontSize: 12)),
                 const SizedBox(height: 4),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text('${balance?.currency_name ?? 'USD'} ',
-                        style: TextStyle(color: Colors.black87, fontSize: isShort ? 18 : 20, fontWeight: FontWeight.bold)),
+                        style: TextStyle(
+                            color: Colors.black87,
+                            fontSize: isShort ? 18 : 20,
+                            fontWeight: FontWeight.bold)),
                     Text(balance?.balance ?? '0.00',
-                        style: TextStyle(color: Colors.black, fontSize: isShort ? 26 : 30, fontWeight: FontWeight.w900)),
+                        style: TextStyle(
+                            color: Colors.black,
+                            fontSize: isShort ? 26 : 30,
+                            fontWeight: FontWeight.w900)),
                   ],
                 ),
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    _FilledPill(icon: Icons.arrow_upward, label: 'Send', onTap: onSend),
+                    _FilledPill(
+                        icon: Icons.arrow_upward, label: 'Send', onTap: onSend),
                     const SizedBox(width: 10),
-                    _FilledPill(icon: Icons.arrow_downward, label: 'Receive', onTap: onReceive),
+                    _FilledPill(
+                        icon: Icons.arrow_downward,
+                        label: 'Receive',
+                        onTap: onReceive),
                     const SizedBox(width: 10),
-                    _OutlinedPill(icon: Icons.widgets_outlined, label: 'More', onTap: onMore),
+                    _OutlinedPill(
+                        icon: Icons.widgets_outlined,
+                        label: 'More',
+                        onTap: onMore),
                   ],
                 ),
               ],
@@ -1171,7 +1371,9 @@ class CardyHomeBody extends StatelessWidget {
                     fit: BoxFit.cover,
                     fadeInDuration: Duration.zero,
                     placeholder: (_, __) => Container(color: Colors.grey[200]),
-                    errorWidget: (_, __, ___) => Container(color: Colors.grey[200], child: const Icon(Icons.error_outline)),
+                    errorWidget: (_, __, ___) => Container(
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.error_outline)),
                   ),
                 ),
               ),
@@ -1188,7 +1390,8 @@ class CardyHomeBody extends StatelessWidget {
             runSpacing: 10,
             children: const [
               _SmartChip(icon: Icons.qr_code_scanner, label: 'Scan & Pay'),
-              _SmartChip(icon: Icons.account_balance_wallet_outlined, label: 'Top Up'),
+              _SmartChip(
+                  icon: Icons.account_balance_wallet_outlined, label: 'Top Up'),
               _SmartChip(icon: Icons.attach_money, label: 'Withdraw'),
               _SmartChip(icon: Icons.receipt_long_outlined, label: 'Bills'),
             ],
@@ -1205,7 +1408,9 @@ class CardyHomeBody extends StatelessWidget {
               const Spacer(),
               TextButton(
                 onPressed: onSeeAll,
-                child: const Text('See All', style: TextStyle(color: primaryColor, fontWeight: FontWeight.w700)),
+                child: const Text('See All',
+                    style: TextStyle(
+                        color: primaryColor, fontWeight: FontWeight.w700)),
               ),
             ],
           ),
@@ -1231,18 +1436,28 @@ class CardyHomeBody extends StatelessWidget {
               }
               final tx = transactions[i];
               final credit = _isCredit(tx.tag);
-              final amtColor = credit ? const Color(0xFF019206) : const Color(0xFFF70115);
+              final amtColor =
+                  credit ? const Color(0xFF019206) : const Color(0xFFF70115);
               return Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 12, offset: const Offset(0, 6))],
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(.05),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6))
+                  ],
                 ),
                 child: ListTile(
-                  leading: SafeAvatar(imagePath: tx.image, size: 42, radius: 0, imageUrl: ''),
+                  leading: SafeAvatar(
+                      imagePath: tx.image, size: 42, radius: 0, imageUrl: ''),
                   title: Text(tx.wallet_accounts_id ?? '',
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
-                  subtitle: Text(tx.description ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Text(tx.description ?? '',
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
                   trailing: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -1250,11 +1465,16 @@ class CardyHomeBody extends StatelessWidget {
                       Text(
                         (credit ? '+ ' : '- ') +
                             '${tx.currency_name ?? ''} ' +
-                            (double.tryParse(tx.amount ?? '0')?.toStringAsFixed(2) ?? '0.00'),
-                        style: TextStyle(color: amtColor, fontWeight: FontWeight.w900),
+                            (double.tryParse(tx.amount ?? '0')
+                                    ?.toStringAsFixed(2) ??
+                                '0.00'),
+                        style: TextStyle(
+                            color: amtColor, fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 4),
-                      Text(_shortDate(tx.trx_date), style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                      Text(_shortDate(tx.trx_date),
+                          style: const TextStyle(
+                              color: Colors.black54, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -1278,8 +1498,6 @@ class CardyHomeBody extends StatelessWidget {
     }
   }
 }
-
-
 
 class NeoHomeBody extends StatelessWidget {
   final BalanceDisplayModel? balance;
@@ -1321,13 +1539,13 @@ class NeoHomeBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const bg = Color(0xFFEFF3F7); 
+    const bg = Color(0xFFEFF3F7);
     return Container(
       color: bg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header card 
+          // Header card
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: _NeoCard(
@@ -1336,8 +1554,16 @@ class NeoHomeBody extends StatelessWidget {
                   _NeoCircle(
                     child: ClipOval(
                       child: avatarProvider != null
-                          ? Image(image: avatarProvider!, width: 44, height: 44, fit: BoxFit.cover)
-                          : SafeAvatar(imagePath: validImageUrl(balance?.image), size: 44, radius: 0, imageUrl: ''),
+                          ? Image(
+                              image: avatarProvider!,
+                              width: 44,
+                              height: 44,
+                              fit: BoxFit.cover)
+                          : SafeAvatar(
+                              imagePath: validImageUrl(balance?.image),
+                              size: 44,
+                              radius: 0,
+                              imageUrl: ''),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1345,13 +1571,15 @@ class NeoHomeBody extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(greeting(), style: const TextStyle(color: Colors.black54)),
+                        Text(greeting(),
+                            style: const TextStyle(color: Colors.black54)),
                         const SizedBox(height: 2),
                         Text(
                           fullName().isEmpty ? 'User' : fullName(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w800),
                         ),
                       ],
                     ),
@@ -1361,7 +1589,7 @@ class NeoHomeBody extends StatelessWidget {
             ),
           ),
 
-          // Balance card 
+          // Balance card
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: _NeoInset(
@@ -1370,25 +1598,42 @@ class NeoHomeBody extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Available Balance', style: TextStyle(color: Colors.black54, fontSize: 12)),
+                    const Text('Available Balance',
+                        style: TextStyle(color: Colors.black54, fontSize: 12)),
                     const SizedBox(height: 6),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text('${balance?.currency_name ?? 'USD'} ',
-                            style: TextStyle(color: Colors.black87, fontSize: isShort ? 18 : 20, fontWeight: FontWeight.bold)),
+                            style: TextStyle(
+                                color: Colors.black87,
+                                fontSize: isShort ? 18 : 20,
+                                fontWeight: FontWeight.bold)),
                         Text(balance?.balance ?? '0.00',
-                            style: TextStyle(color: Colors.black, fontSize: isShort ? 26 : 30, fontWeight: FontWeight.w900)),
+                            style: TextStyle(
+                                color: Colors.black,
+                                fontSize: isShort ? 26 : 30,
+                                fontWeight: FontWeight.w900)),
                       ],
                     ),
                     const SizedBox(height: 14),
                     Row(
                       children: [
-                        _NeoButton(icon: Icons.arrow_upward, label: 'Send', onTap: onSend),
+                        _NeoButton(
+                            icon: Icons.arrow_upward,
+                            label: 'Send',
+                            onTap: onSend),
                         const SizedBox(width: 10),
-                        _NeoButton(icon: Icons.arrow_downward, label: 'Receive', onTap: onReceive),
+                        _NeoButton(
+                            icon: Icons.arrow_downward,
+                            label: 'Receive',
+                            onTap: onReceive),
                         const SizedBox(width: 10),
-                        _NeoButton(icon: Icons.widgets_outlined, label: 'More', onTap: onMore, outlined: true),
+                        _NeoButton(
+                            icon: Icons.widgets_outlined,
+                            label: 'More',
+                            onTap: onMore,
+                            outlined: true),
                       ],
                     ),
                   ],
@@ -1407,11 +1652,15 @@ class NeoHomeBody extends StatelessWidget {
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
                     child: CachedNetworkImage(
-                      imageUrl: '${ApiUrls.BASE_URL}${sliderModels.first.imageUrl}',
+                      imageUrl:
+                          '${ApiUrls.BASE_URL}${sliderModels.first.imageUrl}',
                       fit: BoxFit.cover,
                       fadeInDuration: Duration.zero,
-                      placeholder: (_, __) => Container(color: Colors.grey[200]),
-                      errorWidget: (_, __, ___) => Container(color: Colors.grey[200], child: const Icon(Icons.error_outline)),
+                      placeholder: (_, __) =>
+                          Container(color: Colors.grey[200]),
+                      errorWidget: (_, __, ___) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.error_outline)),
                     ),
                   ),
                 ),
@@ -1425,11 +1674,15 @@ class NeoHomeBody extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                const Text('Recent Transactions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                const Text('Recent Transactions',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                 const Spacer(),
                 TextButton(
                   onPressed: onSeeAll,
-                  child: const Text('See All', style: TextStyle(color: primaryColor, fontWeight: FontWeight.w700)),
+                  child: const Text('See All',
+                      style: TextStyle(
+                          color: primaryColor, fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
@@ -1443,7 +1696,9 @@ class NeoHomeBody extends StatelessWidget {
               child: _NeoCard(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 22),
-                  child: Center(child: Text('No transactions yet', style: TextStyle(color: Colors.black54))),
+                  child: Center(
+                      child: Text('No transactions yet',
+                          style: TextStyle(color: Colors.black54))),
                 ),
               ),
             )
@@ -1453,21 +1708,30 @@ class NeoHomeBody extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               itemBuilder: (_, i) {
-                if (i >= (transactions.length > 6 ? 6 : transactions.length)) return const SizedBox.shrink();
+                if (i >= (transactions.length > 6 ? 6 : transactions.length))
+                  return const SizedBox.shrink();
                 final tx = transactions[i];
                 final credit = _isCredit(tx.tag);
-                final amtColor = credit ? const Color(0xFF019206) : const Color(0xFFF70115);
+                final amtColor =
+                    credit ? const Color(0xFF019206) : const Color(0xFFF70115);
                 return _NeoCard(
                   child: ListTile(
-                    leading: SafeAvatar(imagePath: tx.image, size: 42, radius: 0, imageUrl: ''),
+                    leading: SafeAvatar(
+                        imagePath: tx.image, size: 42, radius: 0, imageUrl: ''),
                     title: Text(tx.wallet_accounts_id ?? '',
-                        maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
-                    subtitle: Text(tx.description ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                    subtitle: Text(tx.description ?? '',
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
                     trailing: Text(
                       (credit ? '+ ' : '- ') +
                           '${tx.currency_name ?? ''} ' +
-                          (double.tryParse(tx.amount ?? '0')?.toStringAsFixed(2) ?? '0.00'),
-                      style: TextStyle(color: amtColor, fontWeight: FontWeight.w900),
+                          (double.tryParse(tx.amount ?? '0')
+                                  ?.toStringAsFixed(2) ??
+                              '0.00'),
+                      style: TextStyle(
+                          color: amtColor, fontWeight: FontWeight.w900),
                     ),
                   ),
                 );
@@ -1492,8 +1756,10 @@ class _NeoCard extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
-          BoxShadow(color: Color(0xFFFFFFFF), offset: Offset(-6, -6), blurRadius: 16),
-          BoxShadow(color: Color(0xFFCFD5DB), offset: Offset(6, 6), blurRadius: 16),
+          BoxShadow(
+              color: Color(0xFFFFFFFF), offset: Offset(-6, -6), blurRadius: 16),
+          BoxShadow(
+              color: Color(0xFFCFD5DB), offset: Offset(6, 6), blurRadius: 16),
         ],
       ),
       child: Padding(padding: const EdgeInsets.all(14), child: child),
@@ -1512,8 +1778,16 @@ class _NeoInset extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
-          BoxShadow(color: Color(0xFFCFD5DB), offset: Offset(6, 6), blurRadius: 16, spreadRadius: 1),
-          BoxShadow(color: Color(0xFFFFFFFF), offset: Offset(-6, -6), blurRadius: 16, spreadRadius: 1),
+          BoxShadow(
+              color: Color(0xFFCFD5DB),
+              offset: Offset(6, 6),
+              blurRadius: 16,
+              spreadRadius: 1),
+          BoxShadow(
+              color: Color(0xFFFFFFFF),
+              offset: Offset(-6, -6),
+              blurRadius: 16,
+              spreadRadius: 1),
         ],
       ),
       child: child,
@@ -1533,8 +1807,10 @@ class _NeoCircle extends StatelessWidget {
         color: bg,
         shape: BoxShape.circle,
         boxShadow: [
-          BoxShadow(color: Color(0xFFFFFFFF), offset: Offset(-4, -4), blurRadius: 10),
-          BoxShadow(color: Color(0xFFCFD5DB), offset: Offset(4, 4), blurRadius: 10),
+          BoxShadow(
+              color: Color(0xFFFFFFFF), offset: Offset(-4, -4), blurRadius: 10),
+          BoxShadow(
+              color: Color(0xFFCFD5DB), offset: Offset(4, 4), blurRadius: 10),
         ],
       ),
       child: child,
@@ -1547,7 +1823,11 @@ class _NeoButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool outlined;
-  const _NeoButton({required this.icon, required this.label, required this.onTap, this.outlined = false});
+  const _NeoButton(
+      {required this.icon,
+      required this.label,
+      required this.onTap,
+      this.outlined = false});
 
   @override
   Widget build(BuildContext context) {
@@ -1563,12 +1843,24 @@ class _NeoButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             boxShadow: outlined
                 ? const [
-                    BoxShadow(color: Color(0xFFFFFFFF), offset: Offset(-3, -3), blurRadius: 6),
-                    BoxShadow(color: Color(0xFFCFD5DB), offset: Offset(3, 3), blurRadius: 6),
+                    BoxShadow(
+                        color: Color(0xFFFFFFFF),
+                        offset: Offset(-3, -3),
+                        blurRadius: 6),
+                    BoxShadow(
+                        color: Color(0xFFCFD5DB),
+                        offset: Offset(3, 3),
+                        blurRadius: 6),
                   ]
                 : const [
-                    BoxShadow(color: Color(0xFFFFFFFF), offset: Offset(-4, -4), blurRadius: 12),
-                    BoxShadow(color: Color(0xFFCFD5DB), offset: Offset(4, 4), blurRadius: 12),
+                    BoxShadow(
+                        color: Color(0xFFFFFFFF),
+                        offset: Offset(-4, -4),
+                        blurRadius: 12),
+                    BoxShadow(
+                        color: Color(0xFFCFD5DB),
+                        offset: Offset(4, 4),
+                        blurRadius: 12),
                   ],
           ),
           child: Row(
@@ -1584,7 +1876,6 @@ class _NeoButton extends StatelessWidget {
     );
   }
 }
-
 
 class DarkHomeBody extends StatelessWidget {
   final BalanceDisplayModel? balance;
@@ -1648,20 +1939,32 @@ class DarkHomeBody extends StatelessWidget {
               children: [
                 ClipOval(
                   child: avatarProvider != null
-                      ? Image(image: avatarProvider!, width: 44, height: 44, fit: BoxFit.cover)
-                      : SafeAvatar(imagePath: validImageUrl(balance?.image), size: 44, radius: 0, imageUrl: ''),
+                      ? Image(
+                          image: avatarProvider!,
+                          width: 44,
+                          height: 44,
+                          fit: BoxFit.cover)
+                      : SafeAvatar(
+                          imagePath: validImageUrl(balance?.image),
+                          size: 44,
+                          radius: 0,
+                          imageUrl: ''),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(greeting(), style: const TextStyle(color: Colors.white70)),
+                      Text(greeting(),
+                          style: const TextStyle(color: Colors.white70)),
                       const SizedBox(height: 2),
                       Text(fullName().isEmpty ? 'User' : fullName(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800)),
                     ],
                   ),
                 ),
@@ -1679,31 +1982,53 @@ class DarkHomeBody extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.white.withOpacity(.06)),
                 boxShadow: const [
-                  BoxShadow(color: Colors.black, blurRadius: 20, offset: Offset(0, 10)),
+                  BoxShadow(
+                      color: Colors.black,
+                      blurRadius: 20,
+                      offset: Offset(0, 10)),
                 ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Balance', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  const Text('Balance',
+                      style: TextStyle(color: Colors.white60, fontSize: 12)),
                   const SizedBox(height: 6),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text('${balance?.currency_name ?? 'USD'} ',
-                          style: TextStyle(color: Colors.white70, fontSize: isShort ? 18 : 20, fontWeight: FontWeight.bold)),
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: isShort ? 18 : 20,
+                              fontWeight: FontWeight.bold)),
                       Text(balance?.balance ?? '0.00',
-                          style: TextStyle(color: Colors.white, fontSize: isShort ? 26 : 30, fontWeight: FontWeight.w900)),
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: isShort ? 26 : 30,
+                              fontWeight: FontWeight.w900)),
                     ],
                   ),
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      _DarkButton(icon: Icons.arrow_upward, label: 'Send', onTap: onSend, filled: true),
+                      _DarkButton(
+                          icon: Icons.arrow_upward,
+                          label: 'Send',
+                          onTap: onSend,
+                          filled: true),
                       const SizedBox(width: 10),
-                      _DarkButton(icon: Icons.arrow_downward, label: 'Receive', onTap: onReceive, filled: true),
+                      _DarkButton(
+                          icon: Icons.arrow_downward,
+                          label: 'Receive',
+                          onTap: onReceive,
+                          filled: true),
                       const SizedBox(width: 10),
-                      _DarkButton(icon: Icons.widgets_outlined, label: 'More', onTap: onMore, filled: false),
+                      _DarkButton(
+                          icon: Icons.widgets_outlined,
+                          label: 'More',
+                          onTap: onMore,
+                          filled: false),
                     ],
                   ),
                 ],
@@ -1711,7 +2036,7 @@ class DarkHomeBody extends StatelessWidget {
             ),
           ),
 
-          // Slider 
+          // Slider
           if (sliderModels.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
@@ -1720,11 +2045,15 @@ class DarkHomeBody extends StatelessWidget {
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
                   child: CachedNetworkImage(
-                    imageUrl: '${ApiUrls.BASE_URL}${sliderModels.first.imageUrl}',
+                    imageUrl:
+                        '${ApiUrls.BASE_URL}${sliderModels.first.imageUrl}',
                     fit: BoxFit.cover,
                     fadeInDuration: Duration.zero,
                     placeholder: (_, __) => Container(color: Colors.black12),
-                    errorWidget: (_, __, ___) => Container(color: Colors.black26, child: const Icon(Icons.error_outline, color: Colors.white)),
+                    errorWidget: (_, __, ___) => Container(
+                        color: Colors.black26,
+                        child: const Icon(Icons.error_outline,
+                            color: Colors.white)),
                   ),
                 ),
               ),
@@ -1737,11 +2066,17 @@ class DarkHomeBody extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                const Text('Recent Transactions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
+                const Text('Recent Transactions',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white)),
                 const Spacer(),
                 TextButton(
                   onPressed: onSeeAll,
-                  child: const Text('See All', style: TextStyle(color: primaryColor, fontWeight: FontWeight.w700)),
+                  child: const Text('See All',
+                      style: TextStyle(
+                          color: primaryColor, fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
@@ -1760,7 +2095,9 @@ class DarkHomeBody extends StatelessWidget {
                   border: Border.all(color: Colors.white.withOpacity(.06)),
                 ),
                 child: const Center(
-                  child: Text('No transactions yet', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
+                  child: Text('No transactions yet',
+                      style: TextStyle(
+                          color: Colors.white70, fontWeight: FontWeight.w600)),
                 ),
               ),
             )
@@ -1770,10 +2107,12 @@ class DarkHomeBody extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               itemBuilder: (_, i) {
-                if (i >= (transactions.length > 7 ? 7 : transactions.length)) return const SizedBox.shrink();
+                if (i >= (transactions.length > 7 ? 7 : transactions.length))
+                  return const SizedBox.shrink();
                 final tx = transactions[i];
                 final credit = _isCredit(tx.tag);
-                final amtColor = credit ? const Color(0xFF1DDC8D) : const Color(0xFFFF4D67);
+                final amtColor =
+                    credit ? const Color(0xFF1DDC8D) : const Color(0xFFFF4D67);
                 return Container(
                   decoration: BoxDecoration(
                     color: card,
@@ -1781,11 +2120,17 @@ class DarkHomeBody extends StatelessWidget {
                     border: Border.all(color: Colors.white.withOpacity(.06)),
                   ),
                   child: ListTile(
-                    leading: SafeAvatar(imagePath: tx.image, size: 42, radius: 0, imageUrl: ''),
+                    leading: SafeAvatar(
+                        imagePath: tx.image, size: 42, radius: 0, imageUrl: ''),
                     title: Text(tx.wallet_accounts_id ?? '',
-                        maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w800)),
                     subtitle: Text(tx.description ?? '',
-                        maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white70)),
                     trailing: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -1793,11 +2138,16 @@ class DarkHomeBody extends StatelessWidget {
                         Text(
                           (credit ? '+ ' : '- ') +
                               '${tx.currency_name ?? ''} ' +
-                              (double.tryParse(tx.amount ?? '0')?.toStringAsFixed(2) ?? '0.00'),
-                          style: TextStyle(color: amtColor, fontWeight: FontWeight.w900),
+                              (double.tryParse(tx.amount ?? '0')
+                                      ?.toStringAsFixed(2) ??
+                                  '0.00'),
+                          style: TextStyle(
+                              color: amtColor, fontWeight: FontWeight.w900),
                         ),
                         const SizedBox(height: 4),
-                        Text(_shortDate(tx.trx_date), style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                        Text(_shortDate(tx.trx_date),
+                            style: const TextStyle(
+                                color: Colors.white54, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -1827,7 +2177,11 @@ class _DarkButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool filled;
-  const _DarkButton({required this.icon, required this.label, required this.onTap, required this.filled});
+  const _DarkButton(
+      {required this.icon,
+      required this.label,
+      required this.onTap,
+      required this.filled});
 
   @override
   Widget build(BuildContext context) {
@@ -1840,14 +2194,19 @@ class _DarkButton extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             color: filled ? secondryColor : Colors.transparent,
-            border: Border.all(color: filled ? Colors.transparent : Colors.white.withOpacity(.18)),
+            border: Border.all(
+                color: filled
+                    ? Colors.transparent
+                    : Colors.white.withOpacity(.18)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 18, color: filled ? Colors.white : Colors.white),
               const SizedBox(width: 6),
-              Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+              Text(label,
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w700)),
             ],
           ),
         ),
@@ -1860,7 +2219,8 @@ class _FilledPill extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _FilledPill({required this.icon, required this.label, required this.onTap});
+  const _FilledPill(
+      {required this.icon, required this.label, required this.onTap});
   @override
   Widget build(BuildContext context) {
     return Expanded(
@@ -1870,7 +2230,8 @@ class _FilledPill extends StatelessWidget {
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           padding: const EdgeInsets.symmetric(vertical: 12),
         ),
         icon: Icon(icon, size: 18),
@@ -1884,7 +2245,8 @@ class _OutlinedPill extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _OutlinedPill({required this.icon, required this.label, required this.onTap});
+  const _OutlinedPill(
+      {required this.icon, required this.label, required this.onTap});
   @override
   Widget build(BuildContext context) {
     return Expanded(
@@ -1892,7 +2254,8 @@ class _OutlinedPill extends StatelessWidget {
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
           side: BorderSide(color: primaryColor.withOpacity(.35), width: 1.2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           padding: const EdgeInsets.symmetric(vertical: 12),
           foregroundColor: primaryColor,
         ),
@@ -1915,7 +2278,12 @@ class _SmartChip extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(99),
         border: Border.all(color: Colors.black.withOpacity(.08)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 10, offset: const Offset(0, 6))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(.04),
+              blurRadius: 10,
+              offset: const Offset(0, 6))
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1933,14 +2301,21 @@ class _EmptyCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  const _EmptyCard({required this.icon, required this.title, required this.subtitle});
+  const _EmptyCard(
+      {required this.icon, required this.title, required this.subtitle});
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 14, offset: const Offset(0, 8))],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(.06),
+              blurRadius: 14,
+              offset: const Offset(0, 8))
+        ],
       ),
       child: Column(
         children: [
