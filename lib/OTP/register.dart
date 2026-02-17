@@ -34,7 +34,8 @@ class OtpAttemptManager {
   static const String _storageKey = 'otp_attempts';
   static const int _maxDailyAttempts = 3;
 
-  static Future<void> recordOtpAttempt(String phoneNumber, String type) async {
+  /// identifier = phone (e.g. +252615123456) or email (e.g. user@example.com)
+  static Future<void> recordOtpAttempt(String identifier, String type) async {
     final prefs = await SharedPreferences.getInstance();
     final attempts = prefs.getStringList(_storageKey) ?? [];
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -42,21 +43,22 @@ class OtpAttemptManager {
 
     final validAttempts = attempts.where((entry) {
   final parts = entry.split('|');
-  if (parts.length < 10) return false;
+  if (parts.length < 3) return false;
   final timestamp = int.tryParse(parts[2]);
   if (timestamp == null) return false;
   return now - timestamp < 24 * 60 * 60 * 1000;
 }).toList();
 
 
-    validAttempts.add('$phoneNumber|$type|$now');
+    validAttempts.add('$identifier|$type|$now');
     await prefs.setStringList(_storageKey, validAttempts);
   }
 
 
 
 
-  static Future<int> getRemainingAttempts(String phoneNumber, String type) async {
+  /// identifier = phone or email
+  static Future<int> getRemainingAttempts(String identifier, String type) async {
     final prefs = await SharedPreferences.getInstance();
     final attempts = prefs.getStringList(_storageKey) ?? [];
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -67,7 +69,7 @@ class OtpAttemptManager {
   if (parts.length < 3) return false;
   final timestamp = int.tryParse(parts[2]);
   if (timestamp == null) return false;
-  return parts[0] == phoneNumber &&
+  return parts[0] == identifier &&
          parts[1] == type &&
          now - timestamp < 24 * 60 * 60 * 1000;
 }).length;
@@ -78,11 +80,13 @@ class OtpAttemptManager {
   }
 }
  
+enum _VerifyChannel { phone, email }
+
 class _RegisterState extends State<Register> {
-
-
   late TextEditingController phoneOTP;
+  late TextEditingController emailController;
   final FocusNode _phoneFocusNode = FocusNode();
+  final FocusNode _emailFocusNode = FocusNode();
   bool _attemptsLoaded = false;
   late FlCountryCodePicker countrycodePicker;
   CountryCode? _countryCode;
@@ -91,6 +95,7 @@ class _RegisterState extends State<Register> {
   String? authStatus = "";
   bool _submitted = false;
   Timer? _debounce;
+  _VerifyChannel _channel = _VerifyChannel.phone;
 
 
   String get phoneNumberForBackend =>
@@ -111,8 +116,8 @@ class _RegisterState extends State<Register> {
   void initState() {
     super.initState();
     phoneOTP = TextEditingController();
+    emailController = TextEditingController();
 
-   
     countrycodePicker = const FlCountryCodePicker(
       showDialCode: true,
       showSearchBar: true, 
@@ -124,6 +129,7 @@ class _RegisterState extends State<Register> {
     _countryCode = somalia;
 
     phoneOTP.addListener(_onPhoneNumberChanged);
+    emailController.addListener(_onPhoneNumberChanged);
     _loadInitialAttempts();
   }
 
@@ -155,11 +161,18 @@ class _RegisterState extends State<Register> {
 
   @override
   void dispose() {
+    phoneOTP.removeListener(_onPhoneNumberChanged);
+    emailController.removeListener(_onPhoneNumberChanged);
     _phoneFocusNode.dispose();
+    _emailFocusNode.dispose();
     phoneOTP.dispose();
+    emailController.dispose();
     _debounce?.cancel();
     super.dispose();
   }
+
+  String get _currentIdentifier =>
+      _channel == _VerifyChannel.phone ? phoneNumberForBackend : emailController.text.trim();
 
 
 
@@ -193,10 +206,10 @@ void _showUpdateDialog(BuildContext context) {
   );
 }
 
-Future<bool> checkAppVersion(BuildContext context) async {
+Future<bool> checkAppVersion(BuildContext context, {String? phoneForVersion}) async {
   try {
     final packageInfo = await PackageInfo.fromPlatform();
-    final currentVersion = packageInfo.version; 
+    final currentVersion = packageInfo.version;
 
     final response = await http.post(
       Uri.parse('${ApiUrls.BASE_URL}Wallet_login/login'),
@@ -206,9 +219,9 @@ Future<bool> checkAppVersion(BuildContext context) async {
         'Authorization': 'Bearer ${TokenClass().getToken()}',
       },
       body: jsonEncode({
-        'phone': phoneNumberForBackend,
+        'phone': phoneForVersion ?? '+252000000000',
         'password': 'dummy',
-        'version': currentVersion, 
+        'version': currentVersion,
       }),
     );
 
@@ -259,7 +272,7 @@ Future<bool> checkAppVersion(BuildContext context) async {
 
     try {
       final response = await http.post(
-        Uri.parse('${ApiUrls.BASE_URL}/VerificationController/createCode'),
+        Uri.parse('${ApiUrls.BASE_URL}VerificationController/createCode'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           // 'phoneNumber': _fullPhoneNumber,
@@ -280,6 +293,11 @@ Future<bool> checkAppVersion(BuildContext context) async {
 
 
       if (response.statusCode == 200) {
+        final body = response.body.trim();
+        if (body.startsWith('<') || (!body.startsWith('{') && !body.startsWith('['))) {
+          if (mounted) openSnackbar(context, "Server temporarily unavailable. Please try again later.", secondryColor);
+          return;
+        }
         final data = jsonDecode(response.body);
         if (data['status'] == 'success') {
 
@@ -294,7 +312,8 @@ Future<bool> checkAppVersion(BuildContext context) async {
 
             Navigator.push(context, MaterialPageRoute(
               builder: (context) => MyVerify(
-                phoneNumber: phoneNumberForOtp,
+                verifiedIdentifier: phoneNumberForOtp,
+                channel: 'phone',
                 type: 'registration',
               ),
             )).then((_) {
@@ -322,16 +341,71 @@ Future<bool> checkAppVersion(BuildContext context) async {
 
         openSnackbar(context, "Error: ${response.reasonPhrase}", secondryColor);
       }
+    } on FormatException catch (_) {
+      if (mounted) openSnackbar(context, "Server temporarily unavailable. Please try again later.", secondryColor);
     } catch (e) {
-      openSnackbar(context, "Connection error: $e", secondryColor);
+      openSnackbar(context, "Connection error. Please check your internet and try again.", secondryColor);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  Future<void> _OptVerificationEmail(BuildContext context) async {
+    setState(() => _isLoading = true);
+    final email = emailController.text.trim();
 
+    final remainingAttempts = await OtpAttemptManager.getRemainingAttempts(email, 'registration');
+    if (remainingAttempts <= 0) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        openSnackbar(context, "Maximum OTP requests reached. Try again tomorrow.", Colors.red);
+      }
+      return;
+    }
 
-Future<void> _ChecKPhoneNumber() async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiUrls.BASE_URL}VerificationController/createCodeEmail'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'type': 'registration'}),
+      );
+
+      if (response.statusCode == 200) {
+        final body = response.body.trim();
+        if (body.startsWith('<') || (!body.startsWith('{') && !body.startsWith('['))) {
+          if (mounted) openSnackbar(context, "Server temporarily unavailable. Please try again later.", secondryColor);
+          return;
+        }
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          OtpAttemptManager.recordOtpAttempt(email, 'registration');
+          if (mounted) {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (context) => MyVerify(
+                verifiedIdentifier: email,
+                channel: 'email',
+                type: 'registration',
+              ),
+            )).then((_) {
+              if (mounted) setState(() => _isLoading = false);
+            });
+          }
+        } else {
+          openSnackbar(context, data['message']?.toString() ?? "Verification failed", Colors.red);
+        }
+      } else {
+        openSnackbar(context, "Error: ${response.reasonPhrase}", secondryColor);
+      }
+    } on FormatException catch (_) {
+      if (mounted) openSnackbar(context, "Server temporarily unavailable. Please try again later.", secondryColor);
+    } catch (e) {
+      openSnackbar(context, "Connection error. Please check your internet and try again.", secondryColor);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _ChecKAndVerify() async {
   FocusScope.of(context).unfocus();
   _submitted = true;
 
@@ -343,30 +417,37 @@ Future<void> _ChecKPhoneNumber() async {
   setState(() => _isLoading = true);
 
   try {
-    //  Version check before anything
-    final versionOk = await checkAppVersion(context);
+    // Version check before anything
+    final versionOk = await checkAppVersion(context,
+        phoneForVersion: _channel == _VerifyChannel.phone ? phoneNumberForBackend : null);
     if (!versionOk) {
       setState(() => _isLoading = false);
       return; // stop if outdated
     }
 
-    debugPrint("Attempting backend check with: $phoneNumberForBackend");
-
-    await Provider.of<HomeSliderAndTransaction>(context, listen: false)
-        .checkNumberRegistration(phoneNumberForBackend);
-
-    await _OptVerification(context);
+    if (_channel == _VerifyChannel.phone) {
+      debugPrint("Attempting backend check with: $phoneNumberForBackend");
+      await Provider.of<HomeSliderAndTransaction>(context, listen: false)
+          .checkNumberRegistration(phoneNumberForBackend);
+      await _OptVerification(context);
+    } else {
+      final email = emailController.text.trim();
+      debugPrint("Attempting email check with: $email");
+      await Provider.of<HomeSliderAndTransaction>(context, listen: false)
+          .checkEmailRegistration(email);
+      await _OptVerificationEmail(context);
+    }
   } on HttpException catch (error) {
     String errorMessage = error.toString();
-    appLog(" [PhoneCheck] HttpException caught: $errorMessage");
-
+    appLog("[Check] HttpException caught: $errorMessage");
     if (errorMessage.contains('User already registered')) {
-      errorMessage = 'This number is already registered';
+      errorMessage = _channel == _VerifyChannel.phone
+          ? 'This number is already registered'
+          : 'This email is already registered';
     }
-
     openSnackbar(context, errorMessage, secondryColor);
   } catch (error) {
-    appLog("[PhoneCheck] Unexpected error: $error");
+    appLog("[Check] Unexpected error: $error");
     openSnackbar(context, 'An unexpected error occurred', secondryColor);
   } finally {
     if (mounted) setState(() => _isLoading = false);
@@ -410,10 +491,12 @@ Future<void> _ChecKPhoneNumber() async {
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
-                    "Please add your phone number here. We will send you a verification code to confirm your details.",
+                    _channel == _VerifyChannel.phone
+                        ? "Enter your phone number. We will send a verification code via SMS."
+                        : "Enter your email. We will send a verification code to your inbox.",
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -421,6 +504,18 @@ Future<void> _ChecKPhoneNumber() async {
                     ),
                     textAlign: TextAlign.center,
                   ),
+                ),
+                const SizedBox(height: 12),
+                SegmentedButton<_VerifyChannel>(
+                  segments: const [
+                    ButtonSegment(value: _VerifyChannel.phone, label: Text('Phone'), icon: Icon(Icons.phone)),
+                    ButtonSegment(value: _VerifyChannel.email, label: Text('Email'), icon: Icon(Icons.email)),
+                  ],
+                  selected: {_channel},
+                  onSelectionChanged: (Set<_VerifyChannel> selection) {
+                    FocusScope.of(context).unfocus();
+                    setState(() => _channel = selection.first);
+                  },
                 ),
                 const SizedBox(height: 28),
                 Card(
@@ -436,85 +531,106 @@ Future<void> _ChecKPhoneNumber() async {
                       children: [
                         Form(
                           key: _form,
-                          child: TextFormField(
-                            controller: phoneOTP,
-                            focusNode: _phoneFocusNode,
-                            keyboardType: TextInputType.phone,
-                            textInputAction: TextInputAction.done,
-                            onFieldSubmitted: (_) => _phoneFocusNode.unfocus(),
-                            autovalidateMode: AutovalidateMode.onUserInteraction,
-                            validator: (value) {
-                              if (_submitted && value!.isEmpty) return 'Phone Field is Required.';
-                              if (value!.length < 7) return "Phone should be at least 7 digits";
-                              return null;
-                            },
-                            decoration: InputDecoration(
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: const BorderSide(color: primaryColor, width: 1.5),
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: const BorderSide(color: secondryColor, width: 1.5),
-                              ),
-                              prefixIcon: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    GestureDetector(
-                                      onTap: () async {
-                                        try {
-                                          final code = await countrycodePicker.showPicker(context: context);
-                                          if (code != null && mounted) {
-                                            setState(() => _countryCode = code);
-                                          }
-                                        } catch (e) {
-                                          openSnackbar(context, 'Failed to select country', Colors.red);
-                                        }
-                                      },
-                                      child: Text(
-                                        _countryCode?.dialCode ?? "+252",
-                                        style: const TextStyle(
-                                          color: secondryColor,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                          child: _channel == _VerifyChannel.phone
+                              ? TextFormField(
+                                  key: const ValueKey('phone_input'),
+                                  controller: phoneOTP,
+                                  focusNode: _phoneFocusNode,
+                                  keyboardType: TextInputType.phone,
+                                  textInputAction: TextInputAction.done,
+                                  onFieldSubmitted: (_) => _phoneFocusNode.unfocus(),
+                                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                                  validator: (value) {
+                                    if (_submitted && (value == null || value.isEmpty)) return 'Phone is required.';
+                                    if (value != null && value.length < 7) return "Phone should be at least 7 digits";
+                                    return null;
+                                  },
+                                  decoration: InputDecoration(
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: const BorderSide(color: primaryColor, width: 1.5),
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: const BorderSide(color: secondryColor, width: 1.5),
+                                    ),
+                                    prefixIcon: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          GestureDetector(
+                                            onTap: () async {
+                                              try {
+                                                final code = await countrycodePicker.showPicker(context: context);
+                                                if (code != null && mounted) setState(() => _countryCode = code);
+                                              } catch (e) {
+                                                openSnackbar(context, 'Failed to select country', Colors.red);
+                                              }
+                                            },
+                                            child: Text(
+                                              _countryCode?.dialCode ?? "+252",
+                                              style: const TextStyle(color: secondryColor, fontSize: 16, fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ],
+                                    hintText: 'Enter Phone Number',
+                                    hintStyle: Theme.of(context).textTheme.bodyLarge!.copyWith(color: Colors.black45),
+                                    contentPadding: const EdgeInsets.only(top: 16),
+                                  ),
+                                )
+                              : TextFormField(
+                                  key: const ValueKey('email_input'),
+                                  controller: emailController,
+                                  focusNode: _emailFocusNode,
+                                  keyboardType: TextInputType.emailAddress,
+                                  textInputAction: TextInputAction.done,
+                                  onFieldSubmitted: (_) => _emailFocusNode.unfocus(),
+                                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                                  validator: (value) {
+                                    if (_submitted && (value == null || value.isEmpty)) return 'Email is required.';
+                                    if (value != null && value.isNotEmpty && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                                      return 'Enter a valid email.';
+                                    }
+                                    return null;
+                                  },
+                                  decoration: InputDecoration(
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: const BorderSide(color: primaryColor, width: 1.5),
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: const BorderSide(color: secondryColor, width: 1.5),
+                                    ),
+                                    prefixIcon: const Icon(Icons.email_outlined, color: secondryColor),
+                                    hintText: 'Enter Email',
+                                    hintStyle: Theme.of(context).textTheme.bodyLarge!.copyWith(color: Colors.black45),
+                                    contentPadding: const EdgeInsets.only(top: 16),
+                                  ),
                                 ),
-                              ),
-                              hintText: 'Enter PhoneNumber',
-                              hintStyle: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge!
-                                  .copyWith(color: Colors.black45),
-                              contentPadding: const EdgeInsets.only(top: 16),
-                            ),
-                          ),
                         ),
                         const SizedBox(height: 10),
                         FutureBuilder<int>(
 
                         // future: OtpAttemptManager.getRemainingAttempts(_fullPhoneNumber, 'registration'),
 
-                         future: OtpAttemptManager.getRemainingAttempts(phoneNumberForBackend, 'registration'),
+                         future: OtpAttemptManager.getRemainingAttempts(_currentIdentifier, 'registration'),
 
                           builder: (context, snapshot) {
                             final remaining = snapshot.data ?? 3;
-                            final validPhone = phoneOTP.text.trim().length >= 7;
+                            final validInput = _channel == _VerifyChannel.phone
+                                ? phoneOTP.text.trim().length >= 7
+                                : RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(emailController.text.trim());
                             
                             return AnimatedSwitcher(
                               duration: const Duration(milliseconds: 300),
                               child: Text(
-                                validPhone 
-                                    ? 'Remaining attempts: ${remaining.clamp(0, 3)}'
-                                    : '',
+                                validInput ? 'Remaining attempts: ${remaining.clamp(0, 3)}' : '',
                                 style: TextStyle(
-                                  color: validPhone 
-                                      ? (remaining > 0 ? Colors.green : Colors.red)
-                                      : Colors.grey,
+                                  color: validInput ? (remaining > 0 ? Colors.green : Colors.red) : Colors.grey,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -533,9 +649,7 @@ Future<void> _ChecKPhoneNumber() async {
                                   spinSpeed: Duration(milliseconds: 500),
                                 )
                               : InkWell(
-                                  onTap: () {
-                                    _ChecKPhoneNumber();
-                                  },
+                                  onTap: () => _ChecKAndVerify(),
                                   child: const CommonBtn(
                                     txt: "Verify",
                                   ),

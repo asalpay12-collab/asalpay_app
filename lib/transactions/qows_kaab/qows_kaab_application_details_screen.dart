@@ -133,39 +133,39 @@ class _QowsKaabApplicationDetailsScreenState
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : errorMessage != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
                       Icon(Icons.error_outline,
                           size: 64, color: Colors.grey.shade400),
-                      const SizedBox(height: 16),
-                      Text(
-                        errorMessage!,
+                  const SizedBox(height: 16),
+                  Text(
+                    errorMessage!,
                         style: GoogleFonts.poppins(
                             fontSize: 16, color: Colors.grey),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadDetails,
-                        child: const Text('Retry'),
-                      ),
-                    ],
+                    textAlign: TextAlign.center,
                   ),
-                )
-              : applicationData == null
-                  ? const Center(child: Text('No data available'))
-                  : SingleChildScrollView(
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadDetails,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          : applicationData == null
+          ? const Center(child: Text('No data available'))
+          : SingleChildScrollView(
                       padding: EdgeInsets.fromLTRB(
                         16,
                         16,
                         16,
                         16 + MediaQuery.of(context).padding.bottom,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                           // --- Application Information (sawirka 1) ---
                           Text(
                             'Application Information',
@@ -184,16 +184,16 @@ class _QowsKaabApplicationDetailsScreenState
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _buildDetailRow(
-                                    'Application Number',
+                          _buildDetailRow(
+                            'Application Number',
                                     _str(applicationData!['application_number'])
                                             .isEmpty
                                         ? 'N/A'
                                         : _str(applicationData![
                                             'application_number']),
-                                  ),
-                                  _buildDetailRow(
-                                    'Service Model',
+                          ),
+                          _buildDetailRow(
+                            'Service Model',
                                     _str(applicationData!['service_model'])
                                             .isEmpty
                                         ? 'N/A'
@@ -208,7 +208,7 @@ class _QowsKaabApplicationDetailsScreenState
                                           MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
-                                          'Status',
+                            'Status',
                                           style: GoogleFonts.poppins(
                                             fontSize: 14,
                                             color: Colors.grey.shade600,
@@ -283,30 +283,30 @@ class _QowsKaabApplicationDetailsScreenState
                                   ),
                                   if (applicationData!['pack_total_amount'] !=
                                       null)
-                                    _buildDetailRow(
-                                        'Pack Amount',
+                            _buildDetailRow(
+                              'Pack Amount',
                                         _formatAmount(applicationData![
                                             'pack_total_amount'])),
                                   if (applicationData!['daily_credit_limit'] !=
                                       null)
-                                    _buildDetailRow(
+                            _buildDetailRow(
                                         'Daily Credit Limit',
                                         _formatAmount(applicationData![
                                             'daily_credit_limit'])),
                                   if (applicationData![
                                           'payment_due_next_month'] !=
                                       null)
-                                    _buildDetailRow(
-                                        'Payment Due',
+                            _buildDetailRow(
+                              'Payment Due',
                                         _formatDate(applicationData![
                                             'payment_due_next_month'])),
                                   if (applicationData!['monthly_payment_due'] !=
                                       null)
-                                    _buildDetailRow(
-                                        'Payment Due',
+                            _buildDetailRow(
+                              'Payment Due',
                                         _formatDate(applicationData![
                                             'monthly_payment_due'])),
-                                  if (applicationData!['family_size'] != null)
+                          if (applicationData!['family_size'] != null)
                                     _buildDetailRow('Family Size',
                                         _str(applicationData!['family_size'])),
                                   if (applicationData!['usage_type'] != null &&
@@ -332,9 +332,9 @@ class _QowsKaabApplicationDetailsScreenState
                                   fontWeight: FontWeight.w700,
                                   color: primaryColor,
                                 ),
-                              ),
-                            ],
-                          ),
+                            ),
+                        ],
+                      ),
                           const SizedBox(height: 12),
                           Container(
                             padding: const EdgeInsets.all(16),
@@ -398,11 +398,11 @@ class _QowsKaabApplicationDetailsScreenState
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 16),
-                                SizedBox(
-                                  width: double.infinity,
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
                                   height: 48,
-                                  child: ElevatedButton.icon(
+                      child: ElevatedButton.icon(
                                     onPressed: _showPaymentAmountModal,
                                     icon:
                                         const Icon(Icons.credit_card, size: 22),
@@ -427,53 +427,53 @@ class _QowsKaabApplicationDetailsScreenState
                                     width: double.infinity,
                                     height: 48,
                                     child: OutlinedButton.icon(
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
                                             builder: (context) =>
                                                 QowsKaabPaymentsHistoryScreen(
                                               walletAccountId:
                                                   widget.walletAccountId,
-                                              qowsKaabId: widget.qowsKaabId,
-                                            ),
-                                          ),
-                                        ).then((_) => _loadDetails());
-                                      },
+                                qowsKaabId: widget.qowsKaabId,
+                              ),
+                            ),
+                          ).then((_) => _loadDetails());
+                        },
                                       icon: const Icon(
                                           Icons.history, size: 22),
-                                      label: Text(
+                        label: Text(
                                         'View Payment History',
-                                        style: GoogleFonts.poppins(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 16,
-                                        ),
-                                      ),
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: primaryColor,
                                         side: BorderSide(
                                             color: primaryColor, width: 1.5),
                                         shape: RoundedRectangleBorder(
                                             borderRadius: br12),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                        ),
+                      ),
+                    ),
+                  ],
                               ],
                             ),
                           ),
                           if (isDailyCredit) ...[
                             const SizedBox(height: 8),
                             Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                                 Icon(Icons.credit_card_outlined,
                                     size: 18, color: Colors.grey.shade600),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     'Daily Credit: Daily payments based on monthly total',
-                                    style: GoogleFonts.poppins(
+                              style: GoogleFonts.poppins(
                                       fontSize: 13,
                                       color: Colors.grey.shade600,
                                     ),
@@ -566,9 +566,9 @@ class _QowsKaabApplicationDetailsScreenState
                   children: [
                     Icon(Icons.edit, color: primaryColor, size: 24),
                     const SizedBox(width: 8),
-                    Text(
+                              Text(
                       'Payment Amount',
-                      style: GoogleFonts.poppins(
+                                style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w700,
                         fontSize: 18,
                       ),
@@ -582,8 +582,8 @@ class _QowsKaabApplicationDetailsScreenState
                     children: [
                       Text(
                         'Enter the payment amount:',
-                        style: GoogleFonts.poppins(fontSize: 14),
-                      ),
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                    ),
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -648,7 +648,7 @@ class _QowsKaabApplicationDetailsScreenState
                         const SizedBox(height: 8),
                         Text(
                           'Only amount allowed is \$${_minDailyPayment.toStringAsFixed(0)}',
-                          style: GoogleFonts.poppins(
+                                      style: GoogleFonts.poppins(
                             fontSize: 13,
                             color: Colors.red,
                             fontWeight: FontWeight.w500,
@@ -668,9 +668,9 @@ class _QowsKaabApplicationDetailsScreenState
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
+                          ],
+                        ),
+                      ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context, null),
@@ -1040,10 +1040,10 @@ class _QowsKaabApplicationDetailsScreenState
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
               ),
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.end,

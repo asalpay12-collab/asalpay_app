@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:ui' show ImageFilter;
 
 import 'package:android_intent_plus/android_intent.dart';
-import 'package:asalpay/transactions/qows_kaab/qows_kaab_products_screen.dart';
 import 'package:asalpay/PayBills/PayBills.dart';
 import 'package:asalpay/SettingPage/Setting.dart';
 import 'package:asalpay/constants/Constant.dart';
@@ -21,6 +20,7 @@ import 'package:asalpay/services/api_urls.dart';
 import 'package:asalpay/services/tokens.dart';
 import 'package:asalpay/topup/TopUp.dart';
 import 'package:asalpay/transactions/ProductPurchaseScreen.dart';
+import 'package:asalpay/transactions/qows_kaab/qows_kaab_products_screen.dart';
 import 'package:asalpay/transactions/SeeAllTransactions.dart'
     as SeeAllTransactionsFile;
 import 'package:asalpay/transactions/allServices.dart';
@@ -54,12 +54,13 @@ class _QuickActionCardV extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double puck = compact ? 32 : 44;
-    final double iconSize = compact ? 18 : 22;
-    final double gap = compact ? 6 : 10;
-    final double fontSize = compact ? 12.0 : 15.0;
+    // compact mode: yaray adigoo beddelaya puck, iconSize, gap, fontSize, tilePad
+    final double puck = compact ? 28 : 44;
+    final double iconSize = compact ? 16 : 22;
+    final double gap = compact ? 4 : 10;
+    final double fontSize = compact ? 11.0 : 15.0;
     final EdgeInsets tilePad = compact
-        ? const EdgeInsets.fromLTRB(10, 8, 10, 8)
+        ? const EdgeInsets.fromLTRB(8, 6, 8, 6)
         : const EdgeInsets.fromLTRB(12, 12, 12, 10);
 
     return Material(
@@ -1012,7 +1013,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     crossAxisCount: 3,
                                     crossAxisSpacing: 8,
                                     mainAxisSpacing: 8,
-                                    mainAxisExtent: 86,
+                                    mainAxisExtent: 72, // 86 → 72: card height (yareey)
                                   ),
                                   children: [
                                     _QuickActionCardV(
@@ -1067,18 +1068,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     ),
                                     _QuickActionCardV(
                                       icon: Icons.shopping_basket,
-                                      label: 'Qows Kaab',
+                                      label: 'QOWS KAAB',
                                       accent: primaryColor,
                                       compact: true,
                                       onTap: () {
                                         Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => QowsKaabProductsScreen(
-                                              walletAccountId: widget.wallet_accounts_id,
-                                            ),
-                                          ),
-                                        );
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  QowsKaabProductsScreen(
+                                                      walletAccountId: widget
+                                                          .wallet_accounts_id),
+                                            ));
                                       },
                                     ),
                                     _QuickActionCardV(
@@ -1093,7 +1094,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                             builder: (_) =>
                                                 ProductPurchaseScreen(
                                               wallet_accounts_id: widget
-                                                  .wallet_accounts_id, // non-nullable, no '!' needed
+                                                  .wallet_accounts_id,
                                             ),
                                           ),
                                         );
@@ -1720,47 +1721,6 @@ class _GlassAction extends StatelessWidget {
               Text(label,
                   style: const TextStyle(
                       color: Colors.white, fontWeight: FontWeight.w700)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SmartChipGridTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-  const _SmartChipGridTile(
-      {required this.icon, required this.label, this.onTap});
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(99),
-      onTap: onTap,
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(99),
-          border: Border.all(color: Colors.black.withOpacity(.08)),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withOpacity(.04),
-                blurRadius: 10,
-                offset: const Offset(0, 6))
-          ],
-        ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: secondryColor),
-              const SizedBox(width: 8),
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
             ],
           ),
         ),

@@ -51,17 +51,20 @@ android {
 
     defaultConfig {
         applicationId = "com.asal.asalpay"
-      
-
         minSdkVersion = 23  // Required by firebase-auth; was flutter.minSdkVersion (21)
         targetSdk = 35
-
-
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
+    }
 
-          // targetSdk = flutter.targetSdkVersion
-        // minSdk = flutter.minSdkVersion
+    // APK size: Per-ABI splits = smaller APKs per device. Run: flutter build apk --split-per-abi
+    splits {
+        abi {
+            enable true
+            reset()
+            include 'armeabi-v7a', 'arm64-v8a', 'x86_64'
+            universalApk true  // Also build universal fallback for devices not in split list
+        }
     }
 
     signingConfigs {
@@ -107,15 +110,18 @@ dependencies {
     implementation 'com.google.android.gms:play-services-auth:20.7.0'
     // implementation 'com.google.android.gms:play-services-safetynet:18.0.1'
     
+    // KEPT: Chinese OCR for bank transfer. See docs/APK_SIZE_REDUCTION.md
     implementation 'com.google.mlkit:text-recognition-chinese:16.0.0'
-    implementation 'com.google.mlkit:text-recognition-devanagari:16.0.0'
-    implementation 'com.google.mlkit:text-recognition-japanese:16.0.0'
-    implementation 'com.google.mlkit:text-recognition-korean:16.0.0'
+    // REMOVED: Japanese, Korean, Devanagari - not used. Restore from docs if needed.
+    // implementation 'com.google.mlkit:text-recognition-devanagari:16.0.0'
+    // implementation 'com.google.mlkit:text-recognition-japanese:16.0.0'
+    // implementation 'com.google.mlkit:text-recognition-korean:16.0.0'
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.24"
 
+    // KEPT: Required by ML Kit text recognition. tensorflow-lite-gpu is optional (uncomment for faster OCR).
     implementation 'org.tensorflow:tensorflow-lite:2.3.0'
-    implementation 'org.tensorflow:tensorflow-lite-gpu:2.3.0'
+    // implementation 'org.tensorflow:tensorflow-lite-gpu:2.3.0'  // Optional: ~15MB, uncomment for GPU acceleration
 
     implementation 'androidx.work:work-runtime-ktx:2.8.1'
 
@@ -130,7 +136,5 @@ dependencies {
 
    implementation platform('com.google.firebase:firebase-bom:33.4.0')
    implementation 'com.google.firebase:firebase-messaging'
-
-   implementation 'com.google.android.gms:play-services-auth:20.7.0'
-
+   // play-services-auth already above (line 107) - duplicate removed for clarity
 }

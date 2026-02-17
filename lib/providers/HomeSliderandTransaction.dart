@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:asalpay/services/api_urls.dart';
 import 'package:asalpay/services/tokens.dart';
+import 'package:asalpay/utils/session_handler.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -273,6 +274,7 @@ class HomeSliderAndTransaction with ChangeNotifier {
             yield _allTransactions;
           }
         } else {
+          checkAndHandleSessionExpiry(response.statusCode, response.body);
           print('Request failed with status: ${response.statusCode}.');
         }
       } catch (error) {
@@ -372,6 +374,9 @@ class HomeSliderAndTransaction with ChangeNotifier {
         _AllTransactionsRemittance = loadedAllTransactionsRemittance.toList();
         return _AllTransactionsRemittance;
       } else {
+        if (checkAndHandleSessionExpiry(response.statusCode, response.body)) {
+          return [];
+        }
         print('Request failed with status: ${response.statusCode}.');
         print('Response body: ${response.body}');
         throw Exception('Failed to load transactions');
@@ -422,7 +427,9 @@ class HomeSliderAndTransaction with ChangeNotifier {
 
         return loadedTransactions;
       } else {
-        // print('Request failed with status: ${response.statusCode}.');
+        if (checkAndHandleSessionExpiry(response.statusCode, response.body)) {
+          return [];
+        }
         throw Exception('Failed to load transactions');
       }
     } catch (error) {
@@ -469,7 +476,9 @@ class HomeSliderAndTransaction with ChangeNotifier {
         _images = loadedSliderImages.toList();
         return _images;
       } else {
-        // print('Request failed with status: ${response.statusCode}.');
+        if (checkAndHandleSessionExpiry(response.statusCode, response.body)) {
+          return _images;
+        }
         throw Exception('Failed to load album');
       }
       notifyListeners();
@@ -530,12 +539,13 @@ class HomeSliderAndTransaction with ChangeNotifier {
         notifyListeners();
         return _AllTransactions;
       } else {
-        // print('Request failed with status: ${response.statusCode}.');
+        if (checkAndHandleSessionExpiry(response.statusCode, response.body)) {
+          return _AllTransactions;
+        }
         throw Exception('Failed to load album');
       }
     } catch (error) {
       print(error);
-      // print(_province);
       rethrow;
     }
   }
@@ -640,6 +650,52 @@ class HomeSliderAndTransaction with ChangeNotifier {
       } else {
         throw HttpException('Unexpected response from server.');
       }
+    } catch (error) {
+      rethrow;
+    }
+  }
+
+  Future<void> checkEmailRegistration(String email) async {
+    final token = tokenClass.getToken();
+    final url = "${ApiUrls.BASE_URL.trim()}Wallet_dashboard/chec_email".replaceAll(' ', '');
+
+    final requestBody = {"email": email.trim()};
+
+    appLog("[CheckEmail] URL: $url");
+    appLog("[CheckEmail] Body: ${jsonEncode(requestBody)}");
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          "API-KEY": tokenClass.key,
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+        body: json.encode(requestBody),
+      );
+
+      appLog("[CheckEmail] Status Code: ${response.statusCode}");
+      appLog("[CheckEmail] Response Body: ${response.body}");
+
+      final body = response.body.trim();
+      if (body.startsWith('<') || (!body.startsWith('{') && !body.startsWith('['))) {
+        throw HttpException('Server temporarily unavailable. Please try again later.');
+      }
+      final responseData = json.decode(response.body);
+      final status = responseData['status']?.toString().toLowerCase();
+
+      if (status == 'true') {
+        appLog("[CheckEmail] User already registered.");
+        throw HttpException('User already registered.');
+      } else if (status == 'false') {
+        appLog("[CheckEmail] Email not registered, proceeding.");
+        return;
+      } else {
+        throw HttpException('Unexpected response from server.');
+      }
+    } on FormatException catch (_) {
+      throw HttpException('Server temporarily unavailable. Please try again later.');
     } catch (error) {
       rethrow;
     }
@@ -889,6 +945,7 @@ class HomeSliderAndTransaction with ChangeNotifier {
               "API-KEY": tokenClass.key,
               "Authorization": "Bearer $token",
             });
+        if (checkAndHandleSessionExpiry(response.statusCode, response.body)) continue;
         if (response.statusCode == 200) {
           final List<BalanceDisplayModel> loadedAllDisplayBalancetoList = [];
           final extractedData = json.decode(response.body);
@@ -898,11 +955,10 @@ class HomeSliderAndTransaction with ChangeNotifier {
           }
           yield loadedAllDisplayBalancetoList;
         } else {
-          // print('Request failed with status: ${response.statusCode}.');
+          checkAndHandleSessionExpiry(response.statusCode, response.body);
           throw Exception('Failed to load balance');
         }
       } catch (error) {
-        // print(error);
         rethrow;
       }
       await Future.delayed(const Duration(seconds: 5));
@@ -927,6 +983,7 @@ class HomeSliderAndTransaction with ChangeNotifier {
             "API-KEY": tokenClass.key,
             "Authorization": "Bearer $token",
           });
+      if (checkAndHandleSessionExpiry(response.statusCode, response.body)) throw Exception('Session expired');
       if (response.statusCode == 200) {
         final extractedData = json.decode(response.body);
 
@@ -937,6 +994,7 @@ class HomeSliderAndTransaction with ChangeNotifier {
           throw Exception('No data found');
         }
       } else {
+        checkAndHandleSessionExpiry(response.statusCode, response.body);
         throw Exception('Failed to load user data');
       }
     } catch (error) {

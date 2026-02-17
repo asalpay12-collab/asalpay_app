@@ -7,10 +7,15 @@ import 'package:provider/provider.dart';
 import 'package:asalpay/constants/Constant.dart';
 import 'package:asalpay/services/api_urls.dart';
 import 'package:asalpay/widgets/safe_avatar.dart';
+import 'package:asalpay/PayBills/PayBills.dart';
+import 'package:asalpay/transactions/ProductPurchaseScreen.dart';
 import 'package:asalpay/transactions/SeeAllTransactions.dart' as SeeAllTransactionsFile;
 import 'package:asalpay/transactions/allServices.dart';
+import 'package:asalpay/transactions/qows_kaab/qows_kaab_products_screen.dart';
 import 'package:asalpay/sendMoney/searchpage.dart';
 import 'package:asalpay/topup/TopUp.dart';
+import 'package:asalpay/transfer/MerchantAccount.dart';
+import 'package:asalpay/transfer/Transfer1.dart';
 
 import 'package:asalpay/providers/HomeSliderandTransaction.dart';
 import 'package:asalpay/providers/Walletremit.dart';
@@ -118,6 +123,26 @@ class _HomeDesignShowcaseScreenState extends State<HomeDesignShowcaseScreen> {
 
   void _onSeeAll() {
     Navigator.push(context, MaterialPageRoute(builder: (_) => const SeeAllTransactionsFile.Transfer()));
+  }
+
+  void _onPayMerchant() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => Merchant(wallet_accounts_id: widget.wallet_accounts_id)));
+  }
+
+  void _onTransfer() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => Transfer(wallet_accounts_id: widget.wallet_accounts_id)));
+  }
+
+  void _on252Pay() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => ProductPurchaseScreen(wallet_accounts_id: widget.wallet_accounts_id)));
+  }
+
+  void _onQowsKaab() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => QowsKaabProductsScreen(walletAccountId: widget.wallet_accounts_id)));
+  }
+
+  void _onPayBill() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => ServicePaymentScreen(walletAccountsId: widget.wallet_accounts_id)));
   }
 
   @override
@@ -232,6 +257,11 @@ class _HomeDesignShowcaseScreenState extends State<HomeDesignShowcaseScreen> {
           onReceive: _onReceive,
           onMore: _onMore,
           onSeeAll: _onSeeAll,
+          onPayMerchant: _onPayMerchant,
+          onTransfer: _onTransfer,
+          on252Pay: _on252Pay,
+          onQowsKaab: _onQowsKaab,
+          onPayBill: _onPayBill,
         );
       case _Design.option3:
         return CardyHomeBody(
@@ -483,7 +513,7 @@ class _Pill extends StatelessWidget {
   const _Pill({required this.icon, required this.label, required this.onTap, required this.filled});
 
   @override
-  Widget build(BuildContext context) {
+  Widget burild(BuildContext context) {
     final bg = filled ? Colors.white : Colors.white.withOpacity(0.2);
     final fg = filled ? secondryColor : Colors.white;
     return Expanded(
@@ -559,10 +589,11 @@ class GlassHomeBody extends StatelessWidget {
   final VoidCallback onMore;
   final VoidCallback onSeeAll;
 
-  final VoidCallback? onScanPay;
-  final VoidCallback? onTopUp;
-  final VoidCallback? onWithdraw;
-  final VoidCallback? onBills;
+  final VoidCallback? onPayMerchant;
+  final VoidCallback? onTransfer;
+  final VoidCallback? on252Pay;
+  final VoidCallback? onQowsKaab;
+  final VoidCallback? onPayBill;
 
   const GlassHomeBody({
     super.key,
@@ -579,10 +610,11 @@ class GlassHomeBody extends StatelessWidget {
     required this.onReceive,
     required this.onMore,
     required this.onSeeAll,
-    this.onScanPay,
-    this.onTopUp,
-    this.onWithdraw,
-    this.onBills,
+    this.onPayMerchant,
+    this.onTransfer,
+    this.on252Pay,
+    this.onQowsKaab,
+    this.onPayBill,
   });
 
   bool _isCredit(String? tag) {
@@ -714,14 +746,12 @@ Padding(
           childAspectRatio: aspect,
         ),
         children: [
-          _SmartChipGridTile(icon: Icons.qr_code_scanner, label: 'Scan & Pay', onTap: onScanPay),
-          _SmartChipGridTile(icon: Icons.account_balance_wallet_outlined, label: 'Top Up', onTap: onTopUp),
-          _SmartChipGridTile(icon: Icons.attach_money, label: 'Withdraw', onTap: onWithdraw),
-          _SmartChipGridTile(icon: Icons.receipt_long_outlined, label: 'Bills', onTap: onBills),
-
-          _SmartChipGridTile(icon: Icons.receipt_long_outlined, label: 'Pay Bills', onTap: onBills),
-
-          _SmartChipGridTile(icon: Icons.receipt_long_outlined, label: '252PAY', onTap: onBills),
+          _SmartChipGridTile(icon: Icons.qr_code_scanner_sharp, label: 'Pay Merchant', onTap: onPayMerchant),
+          _SmartChipGridTile(icon: Icons.account_balance_wallet_outlined, label: 'Transfer', onTap: onTransfer),
+          _SmartChipGridTile(icon: Icons.move_to_inbox_outlined, label: 'All Transactions', onTap: onSeeAll),
+          _SmartChipGridTile(icon: Icons.shopping_basket, label: 'QOWS KAAB', onTap: onQowsKaab),
+          _SmartChipGridTile(icon: Icons.devices_other, label: '252PAY', onTap: on252Pay),
+          _SmartChipGridTile(icon: Icons.payments_outlined, label: 'PayBill', onTap: onPayBill),
         ],
       );
     },

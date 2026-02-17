@@ -13,14 +13,18 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class MyVerify extends StatefulWidget {
-  final String phoneNumber;
+  final String verifiedIdentifier; // phone (e.g. +252...) or email
+  final String channel; // 'phone' | 'email'
   final String type; // 'registration', 'forget_password', 'forget_pin'
-  
-   const MyVerify({
+
+  const MyVerify({
     super.key,
-    required this.phoneNumber,
+    required this.verifiedIdentifier,
+    required this.channel,
     required this.type,
   });
+
+  String get phoneNumber => verifiedIdentifier;
 
   @override
   State<MyVerify> createState() => _MyVerifyState();
@@ -74,28 +78,35 @@ void dispose() {
     final otpCode = pinController.text.trim();
 
     try {
+      final url = widget.channel == 'email'
+          ? '${ApiUrls.BASE_URL}VerificationController/validateCodeEmail'
+          : '${ApiUrls.BASE_URL}VerificationController/validateCode';
+      final body = widget.channel == 'email'
+          ? {'email': widget.verifiedIdentifier, 'otpCode': otpCode, 'type': widget.type}
+          : {'phoneNumber': widget.verifiedIdentifier, 'otpCode': otpCode, 'type': widget.type};
+
       final response = await http.post(
-        Uri.parse('${ApiUrls.BASE_URL}/VerificationController/validateCode'),
+        Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'phoneNumber': widget.phoneNumber,
-          'otpCode': otpCode,
-          'type': widget.type,
-        }),
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final respBody = response.body.trim();
+        if (respBody.startsWith('<') || (!respBody.startsWith('{') && !respBody.startsWith('['))) {
+          openSnackbar(context, "Server temporarily unavailable. Please try again later.", Colors.red);
+          return;
+        }
+        final data = jsonDecode(respBody);
         if (data['status'] == 'success') {
           if (widget.type == 'registration') {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-
-                // builder: (_) => SignUp(phoneNumber: widget.phoneNumber),
-
-               builder: (_) => InitiateRegistrationScreen(phoneNumber: widget.phoneNumber),
-
+                builder: (_) => InitiateRegistrationScreen(
+                  verifiedIdentifier: widget.verifiedIdentifier,
+                  channel: widget.channel,
+                ),
               ),
             );
           } else if (widget.type == 'forget_password') {
@@ -107,8 +118,10 @@ void dispose() {
       } else {
         openSnackbar(context, "Error: ${response.reasonPhrase}", Colors.red);
       }
+    } on FormatException catch (_) {
+      openSnackbar(context, "Server temporarily unavailable. Please try again later.", Colors.red);
     } catch (e) {
-      openSnackbar(context, "Network error: $e", Colors.red);
+      openSnackbar(context, "Connection error. Please check your internet and try again.", Colors.red);
     }
   }
 
@@ -182,18 +195,18 @@ void dispose() {
               const SizedBox(
                 height: 25,
               ),
-              const Text(
-                "Phone Verification",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              Text(
+                widget.channel == 'email' ? "Email Verification" : "Phone Verification",
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(
                 height: 10,
               ),
-              const Text(
-                "We need to register your phone for getting started!",
-                style: TextStyle(
-                  fontSize: 16,
-                ),
+              Text(
+                widget.channel == 'email'
+                    ? "Enter the 6-digit code sent to your email."
+                    : "We need to register your phone for getting started!",
+                style: const TextStyle(fontSize: 16),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(
@@ -224,8 +237,8 @@ void dispose() {
                       openSnackbar(context, "Please enter a valid OTP.", Colors.red);
                     }
                   },
-                  child: const CommonBtn(
-                    txt: "Verify Phone Number",
+                  child: CommonBtn(
+                    txt: widget.channel == 'email' ? "Verify Email" : "Verify Phone Number",
                   ),
                 ),
               ),

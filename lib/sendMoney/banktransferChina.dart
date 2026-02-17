@@ -58,12 +58,8 @@ StreamSubscription<List<BalanceDisplayModel>>? _balanceSubscription;
   final _textRecognizer = TextRecognizer(script: TextRecognitionScript.chinese);
   bool _canProcess = true;
   bool _isBusy = false;
-  final bool _isLoading1 = false;
   CustomPaint? _customPaint;
   String? _text;
-  // var _cameraLensDirection = CameraLensDirection.back;
-
-
 
   final _addSaveReallyTimeData = SaveReallyTimeData(
     description: "",
@@ -110,71 +106,12 @@ StreamSubscription<List<BalanceDisplayModel>>? _balanceSubscription;
       _image = File(path);
     });
     _path = path;
-    final inputImage = InputImage.fromFilePath(path);
-    // widget.onImage(inputImage);
-    _processImage(inputImage);
-  }
-
-  //todo: image recognition;
-  Future<void> _processImage(InputImage inputImage) async {
-    print('TextView11111111111111111111');
-    print(TextView);
-    if (!_canProcess) return;
-    if (_isBusy) return;
-    _isBusy = true;
-    setState(() {
-      _text = '';
-      // _isLoading1 = true;
-    });
-    print('TextView222222222222222');
-    final recognizedText = await _textRecognizer.processImage(inputImage);
-    print('recognizedText');
-    print(recognizedText.text);
-    if (inputImage.metadata?.size != null &&
-        inputImage.metadata?.rotation != null) {
-      print('Text Recognized1');
-
-      setState(() {
-        TextView = recognizedText.text;
-        print('Text Recognized1 TextView');
-      });
-
-      // setState(() {
-      //   _isLoading1 = false;
-      // });
-      accounholder.text = recognizedText.text.isNotEmpty
-          ? recognizedText.text.trim()
-          : "Scan or Upload Again";
-      print(recognizedText.text);
-    } else {
-      _text = 'Recognized text:\n\n${recognizedText.text}';
-      print('Text Recognized2');
-      print('$_text');
-      accounholder.text = recognizedText.text.isNotEmpty
-          ? recognizedText.text.trim()
-          : "Scan or Upload Again";
-      setState(() {
-        ReceiverName = recognizedText.text;
-        _addWalletBankTransfer = WalletBankTransfer(
-          country_id: _addWalletBankTransfer.bank_name,
-          acc_holder_name: recognizedText.text,
-          acc_holder_phone: _addWalletBankTransfer.acc_holder_phone,
-          amount_fro: _addWalletBankTransfer.amount_fro,
-          amt_accounts_no: _addWalletBankTransfer.amt_accounts_no,
-          bank_name: _addWalletBankTransfer.bank_name,
-          currency_id_fro: _addWalletBankTransfer.currency_id_fro,
-          currency_id_to: _addWalletBankTransfer.currency_id_to,
-          wallet_accounts_id_fro: _addWalletBankTransfer.wallet_accounts_id_fro,
-        );
-      });
-      _customPaint = null;
-    }
-    _textRecognizer.close();
-    _isBusy = false;
+    // OCR disabled for APK size. User enters details manually.
     if (mounted) {
-      setState(() {
-        // _isLoading1 = false;
-      });
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter details manually (OCR disabled for smaller APK)')),
+      );
     }
   }
 
@@ -911,7 +848,7 @@ Future<void> _saveForm() async {
                                             ),
 
                                             const SizedBox(height: 10),
-                                            if (_isLoading1)
+                                            if (_isBusy)
                                               const Center(
                                                 child:
                                                 LogoandSpinner(
