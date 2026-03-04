@@ -38,69 +38,126 @@ class _TransferState extends State<Transfer> {
     final transactions = listPaths.AllTransactions;
 
     return Scaffold(
-      body: Padding(
-        padding: EdgeInsets.only(
-          top: AppBar().preferredSize.height,
-          left: 15,
-          right: 15,
-        ),
-        child: Container(
-          color: const Color.fromARGB(255, 226, 225, 225),
+      backgroundColor: secondryColor.withOpacity(0.9),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15),
           child: Column(
             children: [
               Row(
                 children: [
                   GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                    },
+                    onTap: () => Navigator.pop(context),
                     child: const Icon(
                       Icons.arrow_back_ios_new,
-                      color: primaryColor,
+                      color: Colors.white,
+                      size: 22,
                     ),
                   ),
                   const SizedBox(width: 15),
                   const Text(
-                    "Transactions",
+                    "All Transactions",
                     style: TextStyle(
-                      fontSize: 22,
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 17),
+              const SizedBox(height: 16),
               Expanded(
                 child: _isLoading && transactions.isEmpty
                     ? const Center(
-                        child: CircularProgressIndicator(),
+                        child: CircularProgressIndicator(color: Colors.white),
                       )
                     : transactions.isEmpty
-                        ? const Center(
-                            child: Text('No transactions yet'),
-                          )
-                        : ListView(
-                            padding: EdgeInsets.zero,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  for (var transaction in transactions)
-                                    AllTransactions(
-                                      image:
-                                          '${ApiUrls.BASE_URL}${transaction.image}',
-                                      wallet_accounts_id:
-                                          transaction.wallet_accounts_id,
-                                      description: transaction.description,
-                                      amount: transaction.tag == 'in'
-                                          ? '+ ${transaction.currency_name} ${transaction.amount}'
-                                          : '- ${transaction.currency_name} ${transaction.amount}',
-                                      date: transaction.trx_date,
-                                      currencyName: transaction.currency_name,
-                                      tag: transaction.tag,
+                        ? Center(
+                            child: SingleChildScrollView(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: Card(
+                                  elevation: 4,
+                                  color: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 32, horizontal: 24),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.receipt_long_outlined,
+                                          size: 64,
+                                          color: secondryColor.withOpacity(0.8),
+                                        ),
+                                        const SizedBox(height: 20),
+                                        Text(
+                                          'No transactions yet',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey.shade800,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Your transaction history will appear here',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        const SizedBox(height: 24),
+                                        ElevatedButton.icon(
+                                          onPressed: () => Navigator.pop(context),
+                                          icon: const Icon(Icons.send, size: 20),
+                                          label: const Text('Make a Transfer'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: secondryColor,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 24, vertical: 12),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(14),
+                                            ),
+                                            elevation: 2,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                ],
+                                  ),
+                                ),
                               ),
-                            ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.only(top: 4, bottom: 24),
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: transactions.length,
+                            itemBuilder: (context, index) {
+                              final transaction = transactions[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: AllTransactions(
+                                  image:
+                                      '${ApiUrls.BASE_URL}${transaction.image}',
+                                  wallet_accounts_id:
+                                      transaction.wallet_accounts_id,
+                                  description: transaction.description,
+                                  amount: transaction.tag == 'in'
+                                      ? '+ ${transaction.currency_name} ${transaction.amount}'
+                                      : '- ${transaction.currency_name} ${transaction.amount}',
+                                  date: transaction.trx_date,
+                                  currencyName: transaction.currency_name,
+                                  tag: transaction.tag,
+                                ),
+                              );
+                            },
                           ),
               ),
             ],
@@ -170,45 +227,49 @@ class _AllTransactionsState extends State<AllTransactions>
   @override
   Widget build(BuildContext context) {
     bool isPositive = widget.tag.startsWith('in');
-    Color textColor = isPositive
-        ? const Color.fromARGB(255, 2, 247, 10)
-        : const Color.fromARGB(248, 247, 1, 21);
-    Color secondaryTextColor = const Color(0xFF005653);
+    Color amountColor = isPositive
+        ? const Color(0xFF2E7D32)
+        : const Color(0xFFC62828);
     String formattedDate =
         DateFormat('dd/MM/yyyy').format(DateTime.parse(widget.date));
 
     return GestureDetector(
       onTap: _toggleExpand,
       child: Card(
-        //color: secondaryTextColor,
-        surfaceTintColor: Colors.white,
-        elevation: 4.0,
-        margin: const EdgeInsets.symmetric(vertical: 3.5, horizontal: 2),
+        elevation: 4,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 13.0, horizontal: 13.0),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  if (widget.image != null)
+                  if (widget.image != null && widget.image!.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(right: 10, left: 0),
-                      child: Container(
-                        //width: 42,
-                        //height: 42,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(21.0),
-                          child: Image.network(
-                            widget.image!,
-                            width: 42.0,
-                            height: 42.0,
-                            //fit: BoxFit.contain,
-                            alignment: Alignment.topLeft,
+                      padding: const EdgeInsets.only(right: 12),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(22),
+                        child: Image.network(
+                          widget.image!,
+                          width: 44,
+                          height: 44,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: secondryColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            child: Icon(
+                              Icons.receipt_long,
+                              color: secondryColor,
+                              size: 24,
+                            ),
                           ),
                         ),
                       ),
@@ -217,9 +278,12 @@ class _AllTransactionsState extends State<AllTransactions>
                     child: Text(
                       widget.wallet_accounts_id,
                       style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Column(
@@ -228,15 +292,18 @@ class _AllTransactionsState extends State<AllTransactions>
                       Text(
                         widget.amount,
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: textColor,
+                          color: amountColor,
                         ),
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         formattedDate,
-                        style:
-                            const TextStyle(fontSize: 13, color: Colors.black),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
@@ -245,14 +312,14 @@ class _AllTransactionsState extends State<AllTransactions>
               SizeTransition(
                 sizeFactor: _expandAnimation,
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 10),
+                  padding: const EdgeInsets.only(top: 12),
                   child: Text(
                     widget.description,
-                    style: TextStyle(
-                      color: secondaryTextColor,
-                      fontSize: 14.0,
+                    style: const TextStyle(
+                      color: secondryColor,
+                      fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      letterSpacing: 0.5,
+                      letterSpacing: 0.3,
                     ),
                   ),
                 ),

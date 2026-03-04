@@ -15,6 +15,8 @@ class QowsKaabApplication {
   final double? paymentDueNextMonth;
   final double? monthlyPaymentDue;
   final int? familySize;
+  /// 0 = pending approval, 1 = approved (only pending can be cancelled by customer)
+  final int? eligibilityApproved;
 
   QowsKaabApplication({
     this.id,
@@ -32,7 +34,13 @@ class QowsKaabApplication {
     this.paymentDueNextMonth,
     this.monthlyPaymentDue,
     this.familySize,
+    this.eligibilityApproved,
   });
+
+  /// True when application is pending approval and can be cancelled by the customer.
+  bool get canCancel =>
+      (eligibilityApproved ?? 0) == 0 &&
+      (status?.toLowerCase() != 'closed' && status?.toLowerCase() != 'cancelled');
 
   // Computed getters
   bool get isMonthlyPack => serviceModel?.toLowerCase() == 'monthly_pack';
@@ -74,6 +82,7 @@ class QowsKaabApplication {
           ? double.tryParse(json['monthly_payment_due'].toString())
           : null,
       familySize: json['family_size'] != null ? int.tryParse(json['family_size'].toString()) : null,
+      eligibilityApproved: json['eligibility_approved'] != null ? int.tryParse(json['eligibility_approved'].toString()) : null,
     );
   }
 
@@ -100,6 +109,7 @@ class QowsKaabApplication {
       'payment_due_next_month': paymentDueNextMonth,
       'monthly_payment_due': monthlyPaymentDue,
       'family_size': familySize,
+      'eligibility_approved': eligibilityApproved,
     };
   }
 }

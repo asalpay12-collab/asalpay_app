@@ -86,7 +86,7 @@ class _QowsKaabStatusScreenState extends State<QowsKaabStatusScreen> {
     return Scaffold(
       backgroundColor: secondryColor,
       appBar: AppBar(
-        title: const Text('QOWS KAAB Application Status'),
+        title: const Text('QOYS KAAB Application Status'),
         backgroundColor: primaryColor,
         foregroundColor: pureWhite,
       ),

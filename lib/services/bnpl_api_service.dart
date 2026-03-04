@@ -131,10 +131,12 @@ class BnplApiService {
     }
   }
 
-  /// Get Product Rules (for calculating deposit)
+  /// Get Product Rules (for calculating deposit).
+  /// Backend checks eligibility (income vs product price) first; returns eligible/rule_found/reason when no rule.
   Future<Map<String, dynamic>> getProductRules({
     required String incomeCategory,
     required double productPrice,
+    double? monthlyIncome,
   }) async {
     String token = tokenClass.getToken();
     appLog("🔑 Token: $token");
@@ -145,13 +147,16 @@ class BnplApiService {
       "Content-Type": "application/json",
     };
 
+    final body = <String, dynamic>{
+      'income_category': incomeCategory,
+      'product_price': productPrice,
+    };
+    if (monthlyIncome != null) body['monthly_income'] = monthlyIncome;
+
     final response = await http.post(
       Uri.parse('${ApiUrls.BASE_URL}api/wallet/bnpl/product_rules'),
       headers: headers,
-      body: jsonEncode({
-        'income_category': incomeCategory,
-        'product_price': productPrice,
-      }),
+      body: jsonEncode(body),
     );
 
     if (response.statusCode == 200) {

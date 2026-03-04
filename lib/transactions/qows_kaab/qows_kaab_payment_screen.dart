@@ -136,7 +136,7 @@ class _QowsKaabPaymentScreenState extends State<QowsKaabPaymentScreen> {
     return Scaffold(
       backgroundColor: secondryColor,
       appBar: AppBar(
-        title: const Text('QOWS KAAB Payment'),
+        title: const Text('QOYS KAAB Payment'),
         backgroundColor: primaryColor,
         foregroundColor: pureWhite,
       ),

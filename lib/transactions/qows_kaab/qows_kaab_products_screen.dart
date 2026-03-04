@@ -22,11 +22,23 @@ class _QowsKaabProductsScreenState extends State<QowsKaabProductsScreen> {
   final Color cardBg = const Color(0xFFF8FAFA);
   final BorderRadius br12 = BorderRadius.circular(12);
   final api = ApiService();
-  static const String baseUrl = ApiService.imgURL;
+  static String get baseUrl => ApiService.imgURL;
 
   List<QowsKaabProduct> products = [];
   bool isLoading = true;
   String? errorMessage;
+
+  final TextEditingController _searchController = TextEditingController();
+
+  List<QowsKaabProduct> _filterProducts(List<QowsKaabProduct> list, String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return list;
+    return list
+        .where((p) =>
+            (p.name ?? '').toLowerCase().contains(q) ||
+            (p.categoryName ?? '').toLowerCase().contains(q))
+        .toList();
+  }
 
   @override
   void initState() {
@@ -55,6 +67,116 @@ class _QowsKaabProductsScreenState extends State<QowsKaabProductsScreen> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildProductsGrid() {
+    final filteredProducts =
+        _filterProducts(products, _searchController.text);
+    if (filteredProducts.isEmpty && products.isNotEmpty) {
+      return Center(
+        child: Text(
+          'No products match your search',
+          style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+        ),
+      );
+    }
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 0.85,
+      ),
+      itemCount: filteredProducts.length,
+      itemBuilder: (context, index) {
+        final product = filteredProducts[index];
+        return Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: br12),
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => QowsKaabEligibilityScreen(
+                    walletAccountId: widget.walletAccountId,
+                  ),
+                ),
+              );
+            },
+            borderRadius: br12,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(12)),
+                    child: product.imagePath != null &&
+                            product.imagePath!.isNotEmpty
+                        ? Image.network(
+                            '$baseUrl/${product.imagePath}',
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: cardBg,
+                              child: Icon(
+                                Icons.shopping_basket,
+                                size: 40,
+                                color: primaryColor,
+                              ),
+                            ),
+                          )
+                        : Container(
+                            color: cardBg,
+                            child: Icon(
+                              Icons.shopping_basket,
+                              size: 40,
+                              color: primaryColor,
+                            ),
+                          ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.name ?? 'Product',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: primaryColor,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (product.categoryName != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          product.categoryName!,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -63,7 +185,7 @@ class _QowsKaabProductsScreenState extends State<QowsKaabProductsScreen> {
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         title: Text(
-          'QOWS KAAB Products',
+          'QOYS KAAB Products',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w600,
             fontSize: 20,
@@ -94,7 +216,7 @@ class _QowsKaabProductsScreenState extends State<QowsKaabProductsScreen> {
                     Icon(Icons.assignment_outlined, color: primaryColor, size: 22),
                     const SizedBox(width: 12),
                     Text(
-                      'My QOWS KAAB Applications',
+                      'My QOYS KAAB Applications',
                       style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -135,7 +257,7 @@ class _QowsKaabProductsScreenState extends State<QowsKaabProductsScreen> {
               : products.isEmpty
                   ? Center(
                       child: Text(
-                        'No QOWS KAAB products available',
+                        'No QOYS KAAB products available',
                         style: GoogleFonts.poppins(
                             fontSize: 16, color: Colors.grey),
                       ),
@@ -158,7 +280,7 @@ class _QowsKaabProductsScreenState extends State<QowsKaabProductsScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'QOWS KAAB offers household essentials on credit. Choose Monthly Pack or Daily Credit.',
+                                  'QOYS KAAB offers household essentials on credit. Choose Monthly Pack or Daily Credit.',
                                   style: GoogleFonts.poppins(
                                     fontSize: 13,
                                     color: Colors.blue.shade900,
@@ -168,109 +290,34 @@ class _QowsKaabProductsScreenState extends State<QowsKaabProductsScreen> {
                             ],
                           ),
                         ),
+                        // Search bar
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (_) => setState(() {}),
+                            decoration: InputDecoration(
+                              hintText: 'Search products...',
+                              prefixIcon: const Icon(Icons.search, color: Color(0xFF005653)),
+                              suffixIcon: _searchController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() {});
+                                      },
+                                    )
+                                  : null,
+                              border: OutlineInputBorder(borderRadius: br12),
+                              filled: true,
+                              fillColor: cardBg,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         // Products Grid
                         Expanded(
-                          child: GridView.builder(
-                            padding: const EdgeInsets.all(16),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              mainAxisSpacing: 16,
-                              crossAxisSpacing: 16,
-                              childAspectRatio: 0.85,
-                            ),
-                            itemCount: products.length,
-                            itemBuilder: (context, index) {
-                              final product = products[index];
-                              return Card(
-                                elevation: 2,
-                                shape:
-                                    RoundedRectangleBorder(borderRadius: br12),
-                                child: InkWell(
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            QowsKaabEligibilityScreen(
-                                          walletAccountId:
-                                              widget.walletAccountId,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  borderRadius: br12,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Expanded(
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              const BorderRadius.vertical(
-                                            top: Radius.circular(12),
-                                          ),
-                                          child: product.imagePath != null &&
-                                                  product.imagePath!.isNotEmpty
-                                              ? Image.network(
-                                                  '$baseUrl/${product.imagePath}',
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (_, __, ___) =>
-                                                      Container(
-                                                    color: cardBg,
-                                                    child: Icon(
-                                                      Icons.shopping_basket,
-                                                      size: 40,
-                                                      color: primaryColor,
-                                                    ),
-                                                  ),
-                                                )
-                                              : Container(
-                                                  color: cardBg,
-                                                  child: Icon(
-                                                    Icons.shopping_basket,
-                                                    size: 40,
-                                                    color: primaryColor,
-                                                  ),
-                                                ),
-                                        ),
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.all(12),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              product.name ?? 'Product',
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                                color: primaryColor,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            if (product.categoryName !=
-                                                null) ...[
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                product.categoryName!,
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 12,
-                                                  color: Colors.grey.shade600,
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                          child: _buildProductsGrid(),
                         ),
                         // Apply Button
                         SafeArea(
@@ -302,7 +349,7 @@ class _QowsKaabProductsScreenState extends State<QowsKaabProductsScreen> {
                                 },
                                 icon: const Icon(Icons.credit_card, size: 20),
                                 label: Text(
-                                  'Apply for QOWS KAAB',
+                                  'Apply for QOYS KAAB',
                                   style: GoogleFonts.poppins(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 16,

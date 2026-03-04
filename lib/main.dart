@@ -13,13 +13,17 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:asalpay/firebase/firebase_messaging_setup.dart';
 import 'package:asalpay/home/homescreen.dart';
 import 'package:asalpay/login/login.dart';
+import 'package:asalpay/notifications/notifications_hub_screen.dart';
+import 'package:asalpay/notifications/pay252_notifications_screen.dart';
+import 'package:asalpay/notifications/qows_kaab_notifications_screen.dart';
 import 'package:asalpay/pageview/pageviewscr.dart';
 import 'package:asalpay/profile/profile.dart';
 import 'package:asalpay/providers/FillDropdownbyRegistreration.dart';
-import 'package:asalpay/providers/HomeSliderandTransaction.dart'; 
+import 'package:asalpay/providers/HomeSliderandTransaction.dart';
 import 'package:asalpay/providers/NetworkProvider.dart';
 import 'package:asalpay/providers/WalletOperations.dart';
 import 'package:asalpay/providers/Walletremit.dart';
+import 'package:asalpay/providers/252pay_basket_provider.dart';
 import 'package:asalpay/providers/auth.dart';
 // import 'package:asalpay/sendMoney/banktransfer.dart';
 
@@ -46,16 +50,11 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:asalpay/firebase/firebase_messaging_setup.dart'
     show setupFirebaseMessaging, tryShowPendingPinCommand;
 
-
 import 'package:asalpay/firebase/fcm_command_cache.dart';
-
 
 import 'package:flutter/services.dart';
 
-
-
 // Define the notification channel
-
 
 // const AndroidNotificationChannel channel = AndroidNotificationChannel(
 //   'high_importance_channel', // id
@@ -63,7 +62,6 @@ import 'package:flutter/services.dart';
 //   description: 'This channel is used for important notifications.',
 //   importance: Importance.high,
 // );
-
 
 const AndroidNotificationChannel highImportanceChannel =
     AndroidNotificationChannel(
@@ -73,7 +71,6 @@ const AndroidNotificationChannel highImportanceChannel =
   importance: Importance.high,
 );
 
-
 // NEW: channel dedicated to ChatMsg banners
 const AndroidNotificationChannel chatChannel = AndroidNotificationChannel(
   'chat_channel',
@@ -82,12 +79,9 @@ const AndroidNotificationChannel chatChannel = AndroidNotificationChannel(
   importance: Importance.high,
 );
 
-
-
 // Single plugin instance (flutterLocalNotificationsPlugin moved to globals.dart)
 
-
-  class MyHttpOverrides extends HttpOverrides {
+class MyHttpOverrides extends HttpOverrides {
   // Add every host you need to whitelist here
   static const _allowedHosts = {
     'production.asalxpress.com',
@@ -104,7 +98,6 @@ const AndroidNotificationChannel chatChannel = AndroidNotificationChannel(
   }
 }
 
-
 Future<void> _requestNotificationPermission() async {
   final settings = await FirebaseMessaging.instance.requestPermission(
     alert: true,
@@ -115,20 +108,11 @@ Future<void> _requestNotificationPermission() async {
   print('🔔 Permission status: ${settings.authorizationStatus}');
 }
 
-
-
-
-
 Future<void> main() async {
-  
-
-
   //here for the iOS
 
-
-
   //ENDS IOS HERE
-  
+
   WidgetsFlutterBinding.ensureInitialized();
 
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -142,26 +126,20 @@ Future<void> main() async {
     ),
   );
 
-
-
   print("🚀 [MAIN] App starting");
 
-    await Hive.initFlutter();
+  await Hive.initFlutter();
   Hive.registerAdapter(ChatMessageAdapter());
   await Hive.openBox<ChatMessage>('chat_messages');
 
-  
-  
-  // Initialize Firebase 
+  // Initialize Firebase
   try {
-
     print("🔥 Initializing Firebase...");
 
     await Firebase.initializeApp();
     print("🔥 Firebase initialized successfully");
 
-    await _requestNotificationPermission();      
-
+    await _requestNotificationPermission();
   } catch (e) {
     print("❌ Firebase initialization failed: $e");
   }
@@ -174,17 +152,14 @@ Future<void> main() async {
     print("❌ FCM setup failed: $e");
   }
 
-
   await dotenv.load(fileName: ".env");
 
-  HttpOverrides.global = MyHttpOverrides(); 
+  HttpOverrides.global = MyHttpOverrides();
 
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(highImportanceChannel);
-
-
 
   runApp(const MyApp());
 }
@@ -197,55 +172,39 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-
-
   @override
   void initState() {
-
-
-
     super.initState();
 
-
     FirebaseMessaging.instance.getInitialMessage().then((msg) {
-  if (msg != null) {
-    FCMCommandCache.setPendingData(msg.data);
-   
-  }
-});
+      if (msg != null) {
+        FCMCommandCache.setPendingData(msg.data);
+      }
+    });
 
+    // Delay to wait for navigatorKey to be ready
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // _checkFCMPendingCommand();
 
-     // Delay to wait for navigatorKey to be ready
-  WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkFCMPendingCommand();
+    });
 
-    // _checkFCMPendingCommand();
-
-    _checkFCMPendingCommand();
-  });
-
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-  tryShowPendingPinCommand(); 
-  _checkDiskCache();
-});
-
-
-
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      tryShowPendingPinCommand();
+      _checkDiskCache();
+    });
   }
 
-
-
-
-
-Future<void> _checkDiskCache() async {
-    final diskData = await takePendingPin();         
+  Future<void> _checkDiskCache() async {
+    final diskData = await takePendingPin();
     if (diskData != null) {
       debugPrint('💾 Found pending PIN in SharedPreferences');
-      FCMCommandCache.setPendingData(diskData);      
-      tryShowPendingPinCommand();                    
+      FCMCommandCache.setPendingData(diskData);
+      tryShowPendingPinCommand();
     }
   }
 
-   void _checkFCMPendingCommand() {
+  void _checkFCMPendingCommand() {
     print(" [TERMINATED CHECK] Checking for pending command");
     final data = FCMCommandCache.getPendingData();
     if (data != null && data['command'] == 'EnterPin') {
@@ -264,8 +223,10 @@ Future<void> _checkDiskCache() async {
             merchantName: data['merchantName'] ?? '',
             reference: data['reference'] ?? '',
             callbackUrl: data['callback_url'] ?? '',
-            currencyFrom: int.tryParse(data['currencyFrom']?.toString() ?? '0') ?? 0,
-            currencyTo: int.tryParse(data['currencyTo']?.toString() ?? '0') ?? 0,
+            currencyFrom:
+                int.tryParse(data['currencyFrom']?.toString() ?? '0') ?? 0,
+            currencyTo:
+                int.tryParse(data['currencyTo']?.toString() ?? '0') ?? 0,
           );
           FCMCommandCache.clear();
         } else {
@@ -299,62 +260,55 @@ Future<void> _checkDiskCache() async {
           ChangeNotifierProvider.value(
             value: NetworkProvider(),
           ),
+          ChangeNotifierProvider(create: (_) => Pay252BasketProvider()),
           // ChangeNotifierProvider.value(
           //   value: WalletOperations(),
           // ),
           ChangeNotifierProxyProvider<Auth, HomeSliderAndTransaction>(
 
-          //commented on 23/04
-             create: (_) => HomeSliderAndTransaction(''),
-
-              
+              //commented on 23/04
+              create: (_) => HomeSliderAndTransaction(''),
               update: (ctx, auth, wll) => HomeSliderAndTransaction(
                     auth.wallet_accounts_id,
-                   
                   )),
           ChangeNotifierProxyProvider<Auth, WalletOperations>(
               create: (_) => WalletOperations('', ''),
               update: (ctx, auth, wll) =>
                   WalletOperations(auth.wallet_accounts_id, auth.token)),
 
-                  ChangeNotifierProxyProvider<Auth, TransferOperations>(
-          create: (_) => TransferOperations('', ''),
-          update: (ctx, auth, transfer) =>
-              TransferOperations(auth.wallet_accounts_id, auth.token),
-        ),
-        
+          ChangeNotifierProxyProvider<Auth, TransferOperations>(
+            create: (_) => TransferOperations('', ''),
+            update: (ctx, auth, transfer) =>
+                TransferOperations(auth.wallet_accounts_id, auth.token),
+          ),
         ],
         child: Consumer<Auth>(
-          builder: (ctx, auth, _) => MaterialApp(
+          builder: (ctx, auth, _) => _AppLifecycleHandler(
+            auth: auth,
+            child: MaterialApp(
+              navigatorKey: navigatorKey,
 
-            navigatorKey: navigatorKey,
+              title: 'Asal pay',
 
+              debugShowCheckedModeBanner: false,
 
-            title: 'Asal pay',
+              // theme: ThemeData(
+              //     // primaryColor: primaryColor,
+              //     hintColor: secondryColor,
+              //     pageTransitionsTheme: PageTransitionsTheme(builders: {
+              //       TargetPlatform.android: CustomPageTransitionBuilder(),
+              //       TargetPlatform.iOS: CustomPageTransitionBuilder(),
+              //     }), colorScheme: const ColorScheme.light().copyWith(primary: primaryColor).copyWith(surface: primaryColor)),
 
-            debugShowCheckedModeBanner: false,
-            
-            
-            // theme: ThemeData(
-            //     // primaryColor: primaryColor,
-            //     hintColor: secondryColor,
-            //     pageTransitionsTheme: PageTransitionsTheme(builders: {
-            //       TargetPlatform.android: CustomPageTransitionBuilder(),
-            //       TargetPlatform.iOS: CustomPageTransitionBuilder(),
-            //     }), colorScheme: const ColorScheme.light().copyWith(primary: primaryColor).copyWith(surface: primaryColor)),
-
-               theme: ThemeData(
+              theme: ThemeData(
                 primaryColor: primaryColor,
                 hintColor: secondryColor,
-
                 scaffoldBackgroundColor: Colors.white,
-
                 appBarTheme: const AppBarTheme(
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black,
                   elevation: 0,
                 ),
-
                 snackBarTheme: SnackBarThemeData(
                   backgroundColor: Colors.grey.shade900,
                   contentTextStyle: const TextStyle(color: Colors.white),
@@ -363,12 +317,10 @@ Future<void> _checkDiskCache() async {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-
                 pageTransitionsTheme: PageTransitionsTheme(builders: {
                   TargetPlatform.android: CustomPageTransitionBuilder(),
                   TargetPlatform.iOS: CustomPageTransitionBuilder(),
                 }),
-
                 colorScheme: const ColorScheme.light().copyWith(
                   primary: primaryColor,
                   background: Colors.white,
@@ -376,48 +328,89 @@ Future<void> _checkDiskCache() async {
                 ),
               ),
 
+              // home: widget.hasNetwork ? auth.isAuth
+              home: auth.isAuth
+                  ? HomeScreen(
+                      name: auth.Name,
+                      wallet_accounts_id: auth.wallet_accounts_id.toString(),
+                      fromLogin: false)
+                  : FutureBuilder(
+                      future: auth.tryAutoLogin(),
+                      builder: (ctx, authResultSnapshot) =>
+                          authResultSnapshot.connectionState ==
+                                  ConnectionState.waiting
+                              ?
+                              // PageViewScreen
+                              const SplashScreen1()
+                              // : MyFormRemoveSpaces(),
+                              : const Login(),
+                      // : SignUp(),
+                    ),
 
-            // home: widget.hasNetwork ? auth.isAuth
-            home: auth.isAuth
-                ?
-                HomeScreen(name: auth.Name, wallet_accounts_id: auth.wallet_accounts_id.toString(), fromLogin: false)
-                : FutureBuilder(
-                    future: auth.tryAutoLogin(),
-                    builder: (ctx, authResultSnapshot) =>
-                        authResultSnapshot.connectionState ==
-                                ConnectionState.waiting
-                            ?
-                            // PageViewScreen
-                            const SplashScreen1()
-                            // : MyFormRemoveSpaces(),
-                            : const Login(),
-                    // : SignUp(),
-                  ),
-
-            // initialRoute: splash.id,
-            routes: {
-              HomeScreen.routeName: (ctx) => HomeScreen(
-                  wallet_accounts_id: auth.wallet_accounts_id.toString(), fromLogin: true ), 
-              Bbanktransfer.BbanktransferChina.routeName: (ctx) =>
-              Bbanktransfer.BbanktransferChina(wallet_accounts_id: auth.wallet_accounts_id,),
-              Profile.routeName: (ctx) => Profile(
-                  username: auth.Name,
-                  midname: auth.m_name,
-                  wallet_accounts_id: auth.wallet_accounts_id),
-              Transfer.routeName: (ctx) =>
-                  Transfer(wallet_accounts_id: auth.wallet_accounts_id),
-              TopUpScreen.routeName: (ctx) => const TopUpScreen(),
-              SignUp.routeName: (ctx) => const SignUp(),
-              PageViewScreen.routeName: (ctx) => const PageViewScreen(),
-              Login.routeName: (ctx) => const Login(), 
-
-              ChatScreen.route: (_) => const ChatScreen(),
-
-              '/testScreen': (ctx) => const TestScreen(), 
-
-            }, 
+              // initialRoute: splash.id,
+              routes: {
+                HomeScreen.routeName: (ctx) => HomeScreen(
+                    wallet_accounts_id: auth.wallet_accounts_id.toString(),
+                    fromLogin: true),
+                Bbanktransfer.BbanktransferChina.routeName: (ctx) =>
+                    Bbanktransfer.BbanktransferChina(
+                      wallet_accounts_id: auth.wallet_accounts_id,
+                    ),
+                Profile.routeName: (ctx) => Profile(
+                    username: auth.Name,
+                    midname: auth.m_name,
+                    wallet_accounts_id: auth.wallet_accounts_id),
+                Transfer.routeName: (ctx) =>
+                    Transfer(wallet_accounts_id: auth.wallet_accounts_id),
+                TopUpScreen.routeName: (ctx) => const TopUpScreen(),
+                SignUp.routeName: (ctx) => const SignUp(),
+                PageViewScreen.routeName: (ctx) => const PageViewScreen(),
+                Login.routeName: (ctx) => const Login(),
+                ChatScreen.route: (_) => const ChatScreen(),
+                NotificationsHubScreen.routeName: (_) =>
+                    const NotificationsHubScreen(),
+                Pay252NotificationsScreen.routeName: (_) =>
+                    const Pay252NotificationsScreen(),
+                QowsKaabNotificationsScreen.routeName: (_) =>
+                    const QowsKaabNotificationsScreen(),
+                '/testScreen': (ctx) => const TestScreen(),
+              },
+            ),
           ),
         ));
   }
 }
 
+/// Listens to app lifecycle; on resume, checks token expiry and force-logout if expired (no user tap).
+class _AppLifecycleHandler extends StatefulWidget {
+  final Auth auth;
+  final Widget child;
+
+  const _AppLifecycleHandler({required this.auth, required this.child});
+
+  @override
+  State<_AppLifecycleHandler> createState() => _AppLifecycleHandlerState();
+}
+
+class _AppLifecycleHandlerState extends State<_AppLifecycleHandler>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    widget.auth.onAppLifecycleStateChanged(state);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}

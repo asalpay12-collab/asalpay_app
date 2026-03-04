@@ -1,18 +1,18 @@
-import 'package:android_intent_plus/android_intent.dart';
 import 'package:asalpay/SettingPage/complete_profile_screen.dart';
+// Biometric disabled
+// import 'package:asalpay/SettingPage/fingerprint_settings_screen.dart';
+import 'package:asalpay/constants/Constant.dart';
+import 'package:asalpay/notifications/notifications_hub_screen.dart';
 import 'package:asalpay/diaglogs/policyDialog.dart';
-import 'package:asalpay/login/login.dart';
 import 'package:asalpay/providers/auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../OTP/PINOPT.dart';
 import '../login/ChangePIN.dart';
 import '../login/ChangePassword.dart';
 import '../splash/SplashScrn1.dart';
 import 'Contactuspage.dart';
-import 'dart:io' show Platform;
 
 class SettingPage extends StatefulWidget {
 	final String? wallet_accounts_id;
@@ -31,40 +31,56 @@ class SettingPage extends StatefulWidget {
 class _SettingPageState extends State<SettingPage> {
 	@override
 	Widget build(BuildContext context) {
+		final bottomPadding = MediaQuery.of(context).padding.bottom;
 		return Scaffold(
-			backgroundColor: Colors.grey.shade200,
-			appBar: AppBar(
-				backgroundColor: Colors.blueAccent,
-				title: const Text(
-					'Settings',
-					style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+			body: Container(
+				width: double.infinity,
+				height: double.infinity,
+				decoration: BoxDecoration(
+					gradient: LinearGradient(
+						colors: [
+							secondryColor,
+							secondryColor.withOpacity(0.72),
+						],
+						begin: Alignment.topCenter,
+						end: Alignment.bottomCenter,
+					),
 				),
-				elevation: 0,
-			),
-      
-			body: SingleChildScrollView(
-
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 80),
-
-				child: Column(
-					crossAxisAlignment: CrossAxisAlignment.start,
-					children: <Widget>[
-						const SizedBox(height: 10.0),
-						Card(
-							elevation: 4,
-							shape: RoundedRectangleBorder(
-								borderRadius: BorderRadius.circular(12.0),
+				child: SafeArea(
+					child: Column(
+						children: [
+							Padding(
+								padding: const EdgeInsets.fromLTRB(15, 12, 15, 16),
+								child: Row(
+									children: [
+										GestureDetector(
+											onTap: () => Navigator.pop(context),
+											child: const Icon(
+												Icons.arrow_back_ios_new,
+												color: Colors.white,
+												size: 22,
+											),
+										),
+										const SizedBox(width: 15),
+										const Text(
+											'Settings',
+											style: TextStyle(
+												color: Colors.white,
+												fontSize: 20,
+												fontWeight: FontWeight.w600,
+											),
+										),
+									],
+								),
 							),
-							margin: const EdgeInsets.symmetric(vertical: 8.0),
-							child: SizedBox(
-								width: double.infinity,
-								height: 200,
-								child: Image.asset("assets/help02.png"),
-							),
-						),
-						const SizedBox(height: 10.0),
-
-            _buildCard(
+							Expanded(
+								child: SingleChildScrollView(
+									physics: const BouncingScrollPhysics(),
+									padding: EdgeInsets.fromLTRB(15, 0, 15, 24 + bottomPadding),
+									child: Column(
+										crossAxisAlignment: CrossAxisAlignment.start,
+										children: <Widget>[
+											_buildCard(
               icon: Icons.verified_user_outlined,
               text: "Complete Profile",
               onTap: () {
@@ -83,8 +99,13 @@ class _SettingPageState extends State<SettingPage> {
                 );
               },
             ),
-
-
+						_buildCard(
+							icon: Icons.notifications_outlined,
+							text: "Notifications",
+							onTap: () {
+								Navigator.pushNamed(context, NotificationsHubScreen.routeName);
+							},
+						),
 						_buildCard(
 							icon: Icons.security,
 							text: "Change Password",
@@ -105,6 +126,17 @@ class _SettingPageState extends State<SettingPage> {
 								);
 							},
 						),
+						// Biometric disabled: users could not log in with session
+						// _buildCard(
+						// 	icon: Icons.fingerprint,
+						// 	text: "Fingerprint",
+						// 	onTap: () {
+						// 		Navigator.push(
+						// 			context,
+						// 			MaterialPageRoute(builder: (context) => const FingerprintSettingsScreen()),
+						// 		);
+						// 	},
+						// ),
 						_buildCard(
 							icon: Icons.password,
 							text: "Forgot PIN",
@@ -189,10 +221,12 @@ class _SettingPageState extends State<SettingPage> {
     });
   },
 ),
-
-
-
-					],
+										],
+									),
+								),
+							),
+						],
+					),
 				),
 			),
 		);
@@ -203,16 +237,52 @@ class _SettingPageState extends State<SettingPage> {
 		required String text,
 		required VoidCallback? onTap,
 	}) {
-		return InkWell(
-			onTap: onTap,
-			child: Card(
-				elevation: 2,
-				margin: const EdgeInsets.symmetric(vertical: 8.0),
-				child: ListTile(
-					leading: Icon(icon, color: Colors.blue, size: 32),
-					title: Text(
-						text,
-						style: const TextStyle(color: Colors.black87, fontSize: 18),
+		return Padding(
+			padding: const EdgeInsets.only(bottom: 10),
+			child: Material(
+				color: Colors.transparent,
+				child: InkWell(
+					onTap: onTap,
+					borderRadius: BorderRadius.circular(20),
+					child: Card(
+						elevation: 4,
+						color: Colors.white,
+						shape: RoundedRectangleBorder(
+							borderRadius: BorderRadius.circular(20),
+						),
+						child: Padding(
+							padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+							child: Row(
+								children: [
+									Container(
+										width: 44,
+										height: 44,
+										decoration: BoxDecoration(
+											color: secondryColor.withOpacity(0.12),
+											borderRadius: BorderRadius.circular(14),
+										),
+										child: Icon(icon, color: secondryColor, size: 24),
+									),
+									const SizedBox(width: 16),
+									Expanded(
+										child: Text(
+											text,
+											style: const TextStyle(
+												color: Color(0xFF1A1A1A),
+												fontSize: 16,
+												fontWeight: FontWeight.w600,
+											),
+										),
+									),
+									if (onTap != null)
+										Icon(
+											Icons.arrow_forward_ios_rounded,
+											size: 16,
+											color: secondryColor.withOpacity(0.7),
+										),
+								],
+							),
+						),
 					),
 				),
 			),

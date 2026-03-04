@@ -25,6 +25,7 @@ class _QowsKaabTrackingScreenState extends State<QowsKaabTrackingScreen> {
   List<QowsKaabApplication> applications = [];
   bool isLoading = true;
   String? errorMessage;
+  int? _cancellingId;
 
   @override
   void initState() {
@@ -64,8 +65,78 @@ class _QowsKaabTrackingScreenState extends State<QowsKaabTrackingScreen> {
         return Colors.red;
       case 'closed':
         return Colors.grey;
+      case 'cancelled':
+        return Colors.red;
       default:
         return Colors.grey;
+    }
+  }
+
+  void _showCancelConfirmation(
+      BuildContext context, QowsKaabApplication app) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Cancel application',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Are you sure you want to cancel this application (${app.applicationNumber ?? 'N/A'})? This action cannot be undone.',
+          style: GoogleFonts.poppins(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('No', style: GoogleFonts.poppins(color: primaryColor)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _cancelApplication(app);
+            },
+            child: Text(
+              'Yes, cancel',
+              style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cancelApplication(QowsKaabApplication app) async {
+    final id = app.qowsKaabId ?? app.id;
+    if (id == null) return;
+    setState(() => _cancellingId = id);
+    try {
+      await api.cancelQowsKaabApplication(id, widget.walletAccountId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Application cancelled successfully.',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _loadApplications();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e.toString().replaceFirst('Exception: ', ''),
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cancellingId = null);
     }
   }
 
@@ -78,7 +149,7 @@ class _QowsKaabTrackingScreenState extends State<QowsKaabTrackingScreen> {
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         title: Text(
-          'My QOWS KAAB Applications',
+          'My QOYS KAAB Applications',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w600,
             fontSize: 20,
@@ -124,7 +195,7 @@ class _QowsKaabTrackingScreenState extends State<QowsKaabTrackingScreen> {
                               size: 64, color: Colors.grey.shade400),
                           const SizedBox(height: 16),
                           Text(
-                            'No QOWS KAAB applications found',
+                            'No QOYS KAAB applications found',
                             style: GoogleFonts.poppins(
                                 fontSize: 16, color: Colors.grey),
                           ),
@@ -138,13 +209,19 @@ class _QowsKaabTrackingScreenState extends State<QowsKaabTrackingScreen> {
                         itemCount: applications.length,
                         itemBuilder: (context, index) {
                           final app = applications[index];
+                          final isCancelling =
+                              _cancellingId == (app.qowsKaabId ?? app.id);
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
                             elevation: 2,
                             shape: RoundedRectangleBorder(borderRadius: br12),
-                            child: InkWell(
-                              onTap: () {
-                                Navigator.push(
+                            child: Stack(
+                              children: [
+                                InkWell(
+                                  onTap: isCancelling
+                                      ? null
+                                      : () {
+                                          Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) =>
@@ -191,33 +268,71 @@ class _QowsKaabTrackingScreenState extends State<QowsKaabTrackingScreen> {
                                             ],
                                           ),
                                         ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: _getStatusColor(
-                                                    app.status ?? 'pending')
-                                                .withOpacity(0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                            border: Border.all(
-                                              color: _getStatusColor(
-                                                  app.status ?? 'pending'),
-                                              width: 1,
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 6,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: _getStatusColor(
+                                                        app.status ?? 'pending')
+                                                    .withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                border: Border.all(
+                                                  color: _getStatusColor(
+                                                      app.status ?? 'pending'),
+                                                  width: 1,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                (app.status ?? 'pending')
+                                                    .toUpperCase(),
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: _getStatusColor(
+                                                      app.status ?? 'pending'),
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                          child: Text(
-                                            (app.status ?? 'pending')
-                                                .toUpperCase(),
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: _getStatusColor(
-                                                  app.status ?? 'pending'),
-                                            ),
-                                          ),
+                                            if (app.canCancel) ...[
+                                              const SizedBox(width: 4),
+                                              PopupMenuButton<String>(
+                                                icon: Icon(
+                                                  Icons.more_vert,
+                                                  color: primaryColor,
+                                                  size: 22,
+                                                ),
+                                                padding: EdgeInsets.zero,
+                                                shape: RoundedRectangleBorder(
+                                                    borderRadius: br12),
+                                                onSelected: (value) {
+                                                  if (value == 'cancel') {
+                                                    _showCancelConfirmation(
+                                                        context, app);
+                                                  }
+                                                },
+                                                itemBuilder: (context) => [
+                                                  const PopupMenuItem<String>(
+                                                    value: 'cancel',
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(Icons.cancel_outlined,
+                                                            color: Colors.red,
+                                                            size: 20),
+                                                        SizedBox(width: 8),
+                                                        Text('Cancel application'),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ],
                                         ),
                                       ],
                                     ),
@@ -252,6 +367,20 @@ class _QowsKaabTrackingScreenState extends State<QowsKaabTrackingScreen> {
                                   ],
                                 ),
                               ),
+                            ),
+                                if (isCancelling)
+                                  Positioned.fill(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.black26,
+                                        borderRadius: br12,
+                                      ),
+                                      child: const Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           );
                         },

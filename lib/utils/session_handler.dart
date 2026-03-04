@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:asalpay/globals.dart';
 import 'package:asalpay/providers/auth.dart';
@@ -40,4 +39,24 @@ bool checkAndHandleSessionExpiry(int statusCode, String? body) {
     return true;
   }
   return false;
+}
+
+/// Call after a successful (200) API response to extend token expiry so user is not logged out while in app.
+void extendTokenExpiryIfInApp() {
+  try {
+    final ctx = navigatorKey.currentContext;
+    if (ctx != null && ctx.mounted) {
+      Provider.of<Auth>(ctx, listen: false).extendTokenExpiry();
+    }
+  } catch (_) {}
+}
+
+/// Extend session expiry while user is in app (sliding expiry). Call when making authenticated requests
+/// so the session does not expire while the user is actively using the app.
+void extendTokenExpiryIfLoggedIn() {
+  final ctx = navigatorKey.currentContext;
+  if (ctx == null || !ctx.mounted) return;
+  try {
+    Provider.of<Auth>(ctx, listen: false).extendTokenExpiry();
+  } catch (_) {}
 }

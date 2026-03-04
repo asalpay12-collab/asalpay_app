@@ -6,38 +6,30 @@ import 'package:provider/provider.dart';
 import '../providers/HomeSliderandTransaction.dart';
 import '../services/api_urls.dart';
 
-
 class Profile extends StatefulWidget {
-
   final String? username;
   final String? midname;
   final String? wallet_accounts_id;
   final BalanceDisplayModel? initialBalance;
 
   const Profile(
-      {
-        this.midname,
-         this.username, 
-         required this.wallet_accounts_id, 
-         this.initialBalance,
-
-         super.key});
+      {this.midname,
+      this.username,
+      required this.wallet_accounts_id,
+      this.initialBalance,
+      super.key});
 
   static const routeName = '/profile-screen';
 
-  
   @override
   _ProfileState createState() => _ProfileState();
 }
 
 class _ProfileState extends State<Profile> {
-
   BalanceDisplayModel? currentBalance;
 
-  bool _dataFetched = false;  
+  String initialBalance = "Loading...";
 
-   String initialBalance = "Loading..."; 
-   
   String? fName = '.';
   String? mName = '.';
   String? balanceTypeName;
@@ -50,34 +42,29 @@ class _ProfileState extends State<Profile> {
 
   String? defaultCurrencyDisplay;
 
-
   @override
-void initState() {
-  super.initState();
-  if (widget.initialBalance != null) {
-    currentBalance = widget.initialBalance;
-    updateStaticUI(currentBalance!);
-    _dataFetched = true;  
-  } else if (widget.wallet_accounts_id != null) {
-    fetchUserData(widget.wallet_accounts_id ?? '');  
+  void initState() {
+    super.initState();
+    if (widget.initialBalance != null) {
+      currentBalance = widget.initialBalance;
+      updateStaticUI(currentBalance!);
+    } else if (widget.wallet_accounts_id != null) {
+      fetchUserData(widget.wallet_accounts_id ?? '');
+    }
   }
-}
-
 
   void fetchUserData(String accountId) {
     Provider.of<HomeSliderAndTransaction>(context, listen: false)
-      .fetchUserData(accountId)
-      .then((userData) {
-        setState(() {
-          currentBalance = userData;
-          _dataFetched = true;
-        });
-        updateStaticUI(currentBalance!);
-      }).catchError((error) {
-        print("Error fetching user data: $error");
+        .fetchUserData(accountId)
+        .then((userData) {
+      setState(() {
+        currentBalance = userData;
       });
+      updateStaticUI(currentBalance!);
+    }).catchError((error) {
+      print("Error fetching user data: $error");
+    });
   }
-
 
   void updateStaticUI(BalanceDisplayModel balance) {
     setState(() {
@@ -85,24 +72,14 @@ void initState() {
       mName = balance.m_name ?? '';
       balanceTypeName = balance.balance_type_name ?? 'N/A';
       _fullName = "${balance.f_name?.toUpperCase() ?? ''}  ";
-     // _fullName = "${balance.f_name?.toUpperCase() ?? ''} ${balance.m_name?.toUpperCase() ?? ''}";
-      _accountID = balance.wallet_accounts_id?.toUpperCase() ?? 'ID not available';
+      // _fullName = "${balance.f_name?.toUpperCase() ?? ''} ${balance.m_name?.toUpperCase() ?? ''}";
+      _accountID =
+          balance.wallet_accounts_id?.toUpperCase() ?? 'ID not available';
       _telephone = balance.tell?.toUpperCase() ?? 'N/A';
       _balanceTypeName = balance.balance_type_name?.toUpperCase() ?? 'N/A';
-      defaultCurrencyDisplay = "Default Currency: ${balance.currency_name?.toUpperCase() ?? 'N/A'}";
+      defaultCurrencyDisplay =
+          "Default Currency: ${balance.currency_name?.toUpperCase() ?? 'N/A'}";
     });
-  }
-
-  void _subscribeToBalance(String accountId) {
-    Provider.of<HomeSliderAndTransaction>(context, listen: false)
-      .fetchAndDisplayBalance(accountId)
-      .listen((balances) {
-        if (balances.isNotEmpty) {
-          updateDynamicUI(balances.first);
-        }
-      }, onError: (error) {
-        print("Error receiving balance data: $error");
-      });
   }
 
   void updateDynamicUI(BalanceDisplayModel balance) {
@@ -118,608 +95,327 @@ void initState() {
   Future<void> didChangeDependencies() async {
     // TODO: implement didChangeDependencies
     super.didChangeDependencies();
-    
   }
-  
 
   @override
   Widget build(BuildContext context) {
+    final DisplayBalance =
+        Provider.of<HomeSliderAndTransaction>(context, listen: false);
 
+    print('DisplayBalance length: ${DisplayBalance.DisplayBalance.length}');
+    print('Current index: $_index');
 
-    final DisplayBalance = Provider.of<HomeSliderAndTransaction>(context, listen: false);
-
-      print('DisplayBalance length: ${DisplayBalance.DisplayBalance.length}');
-      print('Current index: $_index');
-
-      
-      if (DisplayBalance.DisplayBalance.isNotEmpty && _index < DisplayBalance.DisplayBalance.length) {
-        print('Data at current index: ${DisplayBalance.DisplayBalance[_index]}');
-      } else {
-        print('No data at current index or DisplayBalance is empty');
-      }
-
+    if (DisplayBalance.DisplayBalance.isNotEmpty &&
+        _index < DisplayBalance.DisplayBalance.length) {
+      print('Data at current index: ${DisplayBalance.DisplayBalance[_index]}');
+    } else {
+      print('No data at current index or DisplayBalance is empty');
+    }
 
     return Scaffold(
-      body: Padding(
-        padding: EdgeInsets.only(
-          top: AppBar().preferredSize.height,
-          left: 15,
-          right: 15,
+      backgroundColor: secondryColor.withOpacity(0.9),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(
+                      Icons.arrow_back_ios_new,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  const Text(
+                    "My Profile",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: _isLoadingDrop_data
+                    ? const Center(
+                        child: LogoandSpinner(
+                          imageAssets: 'assets/asalicon.png',
+                          reverse: true,
+                          arcColor: primaryColor,
+                          spinSpeed: Duration(milliseconds: 500),
+                        ),
+                      )
+                    : ListView(
+                        padding: const EdgeInsets.only(top: 12, bottom: 24),
+                        physics: const BouncingScrollPhysics(),
+                        children: [
+                          _buildProfileCard(DisplayBalance),
+                          const SizedBox(height: 12),
+                          _buildAccountInfoCard(context),
+                        ],
+                      ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildProfileCard(HomeSliderAndTransaction DisplayBalance) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            Row(
+            IndexedStack(
+              index: _index,
               children: [
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Icon(
-                    Icons.arrow_back_ios_new,
+                CircleAvatar(
+                  radius: 50,
+                  backgroundColor: secondryColor.withOpacity(0.15),
+                  child: CircleAvatar(
+                    radius: 46,
+                    backgroundColor: Colors.white,
+                    child: ClipOval(
+                      child: DisplayBalance.DisplayBalance.isNotEmpty &&
+                              _index < DisplayBalance.DisplayBalance.length
+                          ? Image.network(
+                              '${ApiUrls.BASE_URL}${DisplayBalance.DisplayBalance[_index].image}',
+                              fit: BoxFit.cover,
+                              width: 92,
+                              height: 92,
+                              errorBuilder: (_, __, ___) => Image.asset(
+                                'assets/asalicon.png',
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Image.asset(
+                              'assets/asalicon.png',
+                              fit: BoxFit.cover,
+                            ),
+                    ),
                   ),
-                ),
-                const SizedBox(
-                  width: 15,
-                ),
-                Text(
-                  "My Profile",
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium!
-                      .copyWith(fontSize: 22),
                 ),
               ],
             ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _isLoadingDrop_data
-                      ? const Center(
-                          child:
-                    // CircularProgressIndicator(),
-                      LogoandSpinner(
-                        imageAssets:
-                        'assets/asalicon.png',
-                        reverse: true,
-                        arcColor: primaryColor,
-                        spinSpeed: Duration(
-                            milliseconds: 500),
-                      )
-                        )
-                      : Column(
-                          children: [
-                            const SizedBox(
-                              height: 10,
-                            ),
-                            Card(
-                              elevation: 4,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  children: [
-                                    const SizedBox(
-                                      height: 10,
-                                    ),
-                                    IndexedStack(
-                                      index: _index,
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 53,
-                                          backgroundColor: primaryColor,
-                                          child: CircleAvatar(
-                                            radius: 50,
-                                            backgroundColor: Colors.white,
-                                            child: ClipOval(
-                                              child: DisplayBalance.DisplayBalance.isNotEmpty && _index < DisplayBalance.DisplayBalance.length
-                                              ? Image.network(
-                                                  '${ApiUrls.BASE_URL}${DisplayBalance.DisplayBalance[_index].image}',
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error, stackTrace) {
-                                                    
-                                                    return Image.asset(
-                                                      'assets/asalicon.png', // Fallback image
-                                                      fit: BoxFit.cover,
-                                                    );
-                                                  },
-                                                )
-                                              : Image.asset(
-                                                  'assets/asalicon.png', 
-                                                  fit: BoxFit.cover,
-                                                ),
-
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(
-                                      height: 10,
-                                    ),
-                                    IndexedStack(
-                                      index: _index,
-                                      children: [
-                                       Text(
-                                        "$fName" , //"$fName  $mName" ,
-                                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                                              fontSize: 20,
-                                            ),
-                                      )
-
-                                      ],
-                                    ),
-                                    const SizedBox(
-                                      height: 5,
-                                    ),
-                                    IndexedStack(
-                                      index: _index,
-                                      children: [
-                                       Text(
-                                        balanceTypeName ?? 'N/A',
-                                        style: Theme.of(context).textTheme.bodyLarge!.copyWith(fontSize: 16, color: Colors.grey),
-                                      ),
-                                      ],
-                                    ),
-                                    const SizedBox(
-                                      height: 10,
-                                    ),
-
-                                    //todo:profile balance;
-                                    Card(
-                                      elevation: 4,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(10),
-                                        child: Column(
-                                          children: [
-                                            
-                                            const Text(
-                                              "Available Balance",
-                                              style: TextStyle(
-                                                fontSize: 15,
-                                                color: secondryColor,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            const SizedBox(
-                                              width: 5,
-                                            ),
-                             
-                                            // StreamBuilder to fetch and display balance
-                                            StreamBuilder<List<BalanceDisplayModel>>(
-                                              stream: Provider.of<HomeSliderAndTransaction>(context, listen: false).fetchAndDisplayBalance(widget.wallet_accounts_id!),
-                                              builder: (context, snapshot) {
-                                                if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                                                 
-                                                  initialBalance = "${snapshot.data!.first.currency_name} ${snapshot.data!.first.balance}";
-                                                 // fName=" ${snapshot.data!.first.f_name}";
-                                                }
-                                                
-                                                return Container(
-                                                  
-                                                  height: 50,
-                                                  width: 300,
-                                                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                                                  decoration: BoxDecoration(
-                                                    border: Border.all(color: Colors.white, width: 1),
-                                                    borderRadius: BorderRadius.circular(15),
-                                                    color: primaryColor.withOpacity(0.8),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                    children: [
-                                                      Text(
-                                                        _showBalance ? initialBalance : "********",
-                                                        style: const TextStyle(
-                                                          fontSize: 16,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: Colors.white,
-                                                        ),
-                                                      ),
-                                                      IconButton(
-                                                        icon: Icon(
-                                                          _showBalance ? Icons.visibility : Icons.visibility_off,
-                                                          color: Colors.white,
-                                                          size: 24,
-                                                        ),
-                                                        onPressed: () {
-                                                          setState(() {
-                                                            _showBalance = !_showBalance;
-                                                          });
-                                                        },
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          // StreamBuilder integration ends here
-                                          
-
-                                      
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(
-                              height: 10,
-                            ),
-                            // todo: AccountsCard
-                            Card(
-                              elevation: 4,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  children: [
-                                    const SizedBox(
-                                      height: 10,
-                                    ),
-                                    //todo:Account Info;
-                                    LayoutBuilder(
-                                      builder: (BuildContext context,
-                                          BoxConstraints constraints) {
-                                        return Container(
-                                          decoration: BoxDecoration(
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                secondryColor.withOpacity(0.2),
-                                                primaryColor,
-                                              ],
-                                            ),
-                                          ),
-                                          child: Padding(
-                                            padding: EdgeInsets.all(
-                                                constraints.maxWidth * 0.02),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Text(
-                                                      "Account Information"
-                                                          .toUpperCase(),
-                                                      style: Theme.of(context)
-                                                          .textTheme
-                                                          .bodyLarge!
-                                                          .copyWith(
-                                                            fontSize: constraints
-                                                                    .maxWidth *
-                                                                0.045,
-                                                            color: Colors.white,
-                                                          ),
-                                                    ),
-                                                    const Expanded(child: SizedBox()),
-                                                   
-                                                    Image.asset(
-                                                      'assets/asaliconwhite.png',
-                                                      height:
-                                                          constraints.maxWidth *
-                                                              0.2,
-                                                      width:
-                                                          constraints.maxWidth *
-                                                              0.2,
-                                                      fit: BoxFit.cover,
-                                                      // color: Colors.white,
-                                                    )
-                                                  ],
-                                                ),
-                                                const Divider(
-                                                  thickness: 1,
-                                                  color: Colors.white,
-                                                ),
-                                                SizedBox(
-                                                    height:
-                                                        constraints.maxWidth *
-                                                            0.02),
-                                                Column(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  children: [
-                                                    Row(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        const Icon(
-                                                          Icons.account_circle,
-                                                          color: Colors.white,
-                                                        ),
-                                                        SizedBox(
-                                                            width: constraints
-                                                                    .maxWidth *
-                                                                0.01),
-                                                        Text(
-                                                          "Name: ",
-                                                          style:
-                                                              Theme.of(context)
-                                                                  .textTheme
-                                                                  .bodyLarge!
-                                                                  .copyWith(
-                                                                    fontSize:
-                                                                        constraints.maxWidth *
-                                                                            0.040,
-                                                                    color: Colors
-                                                                        .white,
-                                                                  ),
-                                                        ),
-                                                        SizedBox(
-                                                            width: constraints
-                                                                    .maxWidth *
-                                                                0.01),
-                                                        Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            IndexedStack(
-                                                              index: _index,
-                                                              children: [
-                                                                Text(
-                                                              _fullName ?? "Name not available",
-
-                                                              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                                                                    fontSize: constraints.maxWidth * 0.040,
-                                                                    color: Colors.white,
-                                                                  ),
-                                                            ),
-                                                              ],
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    SizedBox(
-                                                        height: constraints
-                                                                .maxWidth *
-                                                            0.02),
-                                                    Row(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        const Icon(
-                                                          Icons
-                                                              .account_balance_wallet,
-                                                          color: Colors.white,
-                                                        ),
-                                                        SizedBox(
-                                                            width: constraints
-                                                                    .maxWidth *
-                                                                0.01),
-                                                        Text(
-                                                          "Account: ",
-                                                          style:
-                                                              Theme.of(context)
-                                                                  .textTheme
-                                                                  .bodyLarge!
-                                                                  .copyWith(
-                                                                    fontSize:
-                                                                        constraints.maxWidth *
-                                                                            0.040,
-                                                                    color: Colors
-                                                                        .white,
-                                                                  ),
-                                                        ),
-                                                        Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            IndexedStack(
-                                                              index: _index,
-                                                              children: [
-                                                            Text(
-
-                                                            _accountID ?? "ID not available",
-
-                                                            style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                                                                  fontSize: constraints.maxWidth * 0.040,
-                                                                  color: Colors.white,
-                                                                ),
-                                                          ),
-
-                                                              ],
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ],
-                                                ),
-                                                SizedBox(
-                                                    height:
-                                                        constraints.maxWidth *
-                                                            0.02),
-                                                Column(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  children: [
-                                                    Row(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        const Icon(
-                                                          Icons.phone_iphone,
-                                                          color: Colors.white,
-                                                        ),
-                                                        Text(
-                                                          "Phone: ",
-                                                          style:
-                                                              Theme.of(context)
-                                                                  .textTheme
-                                                                  .bodyLarge!
-                                                                  .copyWith(
-                                                                    fontSize:
-                                                                        constraints.maxWidth *
-                                                                            0.040,
-                                                                    color: Colors
-                                                                        .white,
-                                                                  ),
-                                                        ),
-                                                        Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            IndexedStack(
-                                                              index: _index,
-                                                              children: [
-                                                                Text(
-
-                                                                  _telephone ?? 'N/A',
-
-                                                                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                                                                        fontSize: constraints.maxWidth * 0.040,
-                                                                        color: Colors.white,
-                                                                      ),
-                                                                ),
-
-                                                              ],
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    SizedBox(
-                                                        height: constraints
-                                                                .maxWidth *
-                                                            0.02),
-                                                    Row(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        const Icon(
-                                                          Icons.switch_account,
-                                                          color: Colors.white,
-                                                        ),
-                                                        SizedBox(
-                                                            width: constraints
-                                                                    .maxWidth *
-                                                                0.01),
-                                                        Row(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            Text(
-                                                              "Account Type: ",
-                                                              style: Theme.of(
-                                                                      context)
-                                                                  .textTheme
-                                                                  .bodyLarge!
-                                                                  .copyWith(
-                                                                    fontSize:
-                                                                        constraints.maxWidth *
-                                                                            0.040,
-                                                                    color: Colors
-                                                                        .white,
-                                                                  ),
-                                                            ),
-                                                            SizedBox(
-                                                                height: constraints
-                                                                        .maxWidth *
-                                                                    0.005),
-                                                            IndexedStack(
-                                                              index: _index,
-                                                              children: [
-                                                                Text(
-
-                                                                _balanceTypeName ??  'N/A',
-
-                                                                style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                                                                      fontSize: constraints.maxWidth * 0.040,
-                                                                      color: Colors.white,
-                                                                    ),
-                                                              ),
-                                                              ],
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ],
-                                                ),
-                                                SizedBox(
-                                                    height:
-                                                        constraints.maxWidth *
-                                                            0.005),
-                                                const Divider(
-                                                  thickness: 1,
-                                                  color: Colors.white,
-                                                ),
-                                                SizedBox(
-                                                    height:
-                                                        constraints.maxWidth *
-                                                            0.02),
-                                                Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .center,
-                                                        children: [
-                                                          IndexedStack(
-                                                            index: _index,
-                                                            children: [
-                                                             Text(
-                                                               defaultCurrencyDisplay ?? 'N/A',
-                                                              style: Theme.of(context).textTheme.bodyLarge!.copyWith(
-                                                                    fontSize: constraints.maxWidth * 0.040,
-                                                                    color: Colors.white,
-                                                                  ),
-                                                            ),
-
-                                                            ],
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                )
-                                              ],
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    )
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(
-                              height: 20,
-                            ),
-                          ],
-                        ),
-                ],
+            const SizedBox(height: 14),
+            Text(
+              fName ?? '',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: secondryColor,
               ),
-            )
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              balanceTypeName ?? 'N/A',
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildBalanceSection(),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildBalanceSection() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          children: [
+            const Text(
+              "Available Balance",
+              style: TextStyle(
+                fontSize: 15,
+                color: secondryColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            StreamBuilder<List<BalanceDisplayModel>>(
+              stream: Provider.of<HomeSliderAndTransaction>(context, listen: false)
+                  .fetchAndDisplayBalance(widget.wallet_accounts_id!),
+              builder: (context, snapshot) {
+                if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                  initialBalance =
+                      "${snapshot.data!.first.currency_name} ${snapshot.data!.first.balance}";
+                }
+                return Container(
+                  height: 50,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: secondryColor.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: secondryColor.withOpacity(0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _showBalance ? initialBalance : "********",
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          _showBalance ? Icons.visibility : Icons.visibility_off,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                        onPressed: () =>
+                            setState(() => _showBalance = !_showBalance),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAccountInfoCard(BuildContext context) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    secondryColor.withOpacity(0.85),
+                    secondryColor,
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: secondryColor.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "ACCOUNT INFORMATION",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      Image.asset(
+                        'assets/asaliconwhite.png',
+                        height: 32,
+                        width: 32,
+                        fit: BoxFit.contain,
+                      ),
+                    ],
+                  ),
+                  const Divider(thickness: 1, color: Colors.white54),
+                  _infoRow(Icons.account_circle, "Name:", _fullName ?? "—"),
+                  _infoRow(Icons.account_balance_wallet, "Account:", _accountID ?? "—"),
+                  _infoRow(Icons.phone_iphone, "Phone:", _telephone ?? "—"),
+                  _infoRow(Icons.switch_account, "Account Type:", _balanceTypeName ?? "—"),
+                  const Divider(thickness: 1, color: Colors.white54),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      defaultCurrencyDisplay ?? '—',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.white, size: 20),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.white70,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
- 

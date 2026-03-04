@@ -237,7 +237,7 @@ class _QowsKaabPaymentsHistoryScreenState
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: Text(
-          'QOWS KAAB Payment History',
+          'QOYS KAAB Payment History',
           style: GoogleFonts.poppins(
             fontSize: 18,
             fontWeight: FontWeight.w700,

@@ -25,6 +25,7 @@ import 'package:asalpay/transactions/SeeAllTransactions.dart'
     as SeeAllTransactionsFile;
 import 'package:asalpay/transactions/allServices.dart';
 import 'package:asalpay/transfer/MerchantAccount.dart';
+import 'package:asalpay/ewareeji/ewareeji_main_screen.dart';
 import 'package:asalpay/transfer/Transfer1.dart';
 import 'package:asalpay/widgets/safe_avatar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -41,7 +42,6 @@ class _QuickActionCardV extends StatelessWidget {
   final String label;
   final Color accent;
   final VoidCallback onTap;
-
   final bool compact;
 
   const _QuickActionCardV({
@@ -54,70 +54,69 @@ class _QuickActionCardV extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // compact mode: yaray adigoo beddelaya puck, iconSize, gap, fontSize, tilePad
-    final double puck = compact ? 28 : 44;
-    final double iconSize = compact ? 16 : 22;
-    final double gap = compact ? 4 : 10;
-    final double fontSize = compact ? 11.0 : 15.0;
+    final double puck = compact ? 24 : 40;
+    final double iconSize = compact ? 13 : 20;
+    final double gap = compact ? 3 : 8;
+    final double fontSize = compact ? 9.5 : 14.0;
     final EdgeInsets tilePad = compact
-        ? const EdgeInsets.fromLTRB(8, 6, 8, 6)
-        : const EdgeInsets.fromLTRB(12, 12, 12, 10);
+        ? const EdgeInsets.symmetric(horizontal: 6, vertical: 5)
+        : const EdgeInsets.fromLTRB(12, 10, 12, 10);
 
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           width: double.infinity,
           padding: tilePad,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.black.withOpacity(.06)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(.06),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
-            gradient: LinearGradient(
-              colors: [Colors.white, Colors.white.withOpacity(.96)],
+            borderRadius: BorderRadius.circular(14),
+            gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
+              colors: [Colors.white, Color(0xFFF8FAFC)],
             ),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Gradient icon puck
               Container(
                 width: puck,
                 height: puck,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                    colors: [accent, accent.withOpacity(.72)],
+                    colors: [accent, accent.withOpacity(0.75)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: accent.withOpacity(.28),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
+                      color: accent.withOpacity(0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
                 child: Icon(icon, size: iconSize, color: Colors.white),
               ),
               SizedBox(height: gap),
-
-              // Label
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+              Flexible(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
@@ -126,9 +125,10 @@ class _QuickActionCardV extends StatelessWidget {
                     textAlign: TextAlign.center,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       fontSize: fontSize,
-                      height: 1.1,
+                      height: 1.15,
+                      color: const Color(0xFF1A1A2E),
                     ),
                   ),
                 ),
@@ -408,7 +408,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? imageUrl = '';
   ImageProvider? _avatarProvider;
 
-  bool _showBalance = true;
+  bool _showBalance = false;
 
   // Streams
   StreamSubscription<List<BalanceDisplayModel>>? _balanceSubscription;
@@ -889,7 +889,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 },
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.only(bottom: 70),
+                  padding: EdgeInsets.only(
+                    bottom: 24 + MediaQuery.of(context).padding.bottom + 80,
+                  ),
                   child: Column(
                     children: [
                       // gradient top
@@ -1011,9 +1013,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   gridDelegate:
                                       const SliverGridDelegateWithFixedCrossAxisCount(
                                     crossAxisCount: 3,
-                                    crossAxisSpacing: 8,
-                                    mainAxisSpacing: 8,
-                                    mainAxisExtent: 72, // 86 → 72: card height (yareey)
+                                    crossAxisSpacing: 6,
+                                    mainAxisSpacing: 6,
+                                    mainAxisExtent: 74,
                                   ),
                                   children: [
                                     _QuickActionCardV(
@@ -1068,7 +1070,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     ),
                                     _QuickActionCardV(
                                       icon: Icons.shopping_basket,
-                                      label: 'QOWS KAAB',
+                                      label: 'Qoys Kaab',
                                       accent: primaryColor,
                                       compact: true,
                                       onTap: () {
@@ -1084,7 +1086,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     ),
                                     _QuickActionCardV(
                                       icon: Icons.devices_other,
-                                      label: '252PAY',
+                                      label: '252Pay',
                                       accent: secondryColor,
                                       compact: true,
                                       onTap: () {
@@ -1093,25 +1095,42 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                           MaterialPageRoute(
                                             builder: (_) =>
                                                 ProductPurchaseScreen(
-                                              wallet_accounts_id: widget
-                                                  .wallet_accounts_id,
+                                              wallet_accounts_id:
+                                                  widget.wallet_accounts_id,
                                             ),
                                           ),
                                         );
                                       },
                                     ),
+                                    // _QuickActionCardV(
+                                    //   icon: Icons.payments_outlined,
+                                    //   label: 'Pay Bill',
+                                    //   accent: primaryColor,
+                                    //   compact: true,
+                                    //   onTap: () {
+                                    //     Navigator.push(
+                                    //       context,
+                                    //       MaterialPageRoute(
+                                    //         builder: (_) =>
+                                    //             ServicePaymentScreen(
+                                    //           walletAccountsId:
+                                    //               widget.wallet_accounts_id,
+                                    //         ),
+                                    //       ),
+                                    //     );
+                                    //   },
+                                    // ),
                                     _QuickActionCardV(
-                                      icon: Icons.payments_outlined,
-                                      label: 'PayBill',
-                                      accent: primaryColor,
+                                      icon: Icons.currency_exchange_rounded,
+                                      label: 'E-Wareeji',
+                                      accent: secondryColor,
                                       compact: true,
                                       onTap: () {
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (_) =>
-                                                ServicePaymentScreen(
-                                              walletAccountsId:
+                                            builder: (_) => EwareejiMainScreen(
+                                              wallet_accounts_id:
                                                   widget.wallet_accounts_id,
                                             ),
                                           ),

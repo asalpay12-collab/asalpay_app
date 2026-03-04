@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/foundation.dart'; 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:asalpay/services/api_urls.dart';
+import 'package:asalpay/services/252pay_api_service.dart';
+import 'package:asalpay/services/tokens.dart';
 
 class DeviceRegistrationService {
   static Future<void> registerDevice({
@@ -32,8 +34,10 @@ class DeviceRegistrationService {
       deviceUUID = 'error-${DateTime.now().millisecondsSinceEpoch}';
     }
 
+    final walletAccount = walletAccountsId.replaceAll('+', '').trim();
     final body = {
-      "wallet_accounts_id": walletAccountsId.replaceAll('+', ''),
+      "wallet_account": walletAccount,
+      "wallet_accounts_id": walletAccount,
       "device_uuid": deviceUUID,
       "platform": Platform.isAndroid ? "android" : "ios",
       "model": model,
@@ -44,40 +48,55 @@ class DeviceRegistrationService {
 
     print('📤 Sending registration: ${jsonEncode(body)}');
 
-    // final url = kDebugMode
-    //     // ? Uri.parse("https://192.168.100.85/asalpay_erp/Wallet_merchant_transfer/registerDevice")
-    //     // ? Uri.parse("https://dev2.asalxpress.com/merchantPurchase/registerDevice")
-    //      ? Uri.parse("${ApiUrls.BASE_URL}/Wallet_merchant_transfer/registerDevice");
-
-    final url = Uri.parse("${ApiUrls.BASE_URL}merchantPurchase/registerDevice");
-
-    // final url = Uri.parse("https://192.168.100.85/asalpay_erp/merchantPurchase/registerDevice");
-
-
-
-    final headers = {
+    // 252pay (Path 2): same baseUrl as 252pay_api_service – diiwaangeli device (tbl_devices_info + tbl_customer_devices)
+    final base252 = ApiService.baseUrl.replaceAll(RegExp(r'/$'), '');
+    final url252 = Uri.parse('$base252/api/wallet/bnpl/register_device');
+    print('📡 252pay register_device URL: $url252');
+    final tokenClass = TokenClass();
+    final headers252 = {
       "Content-Type": "application/json",
-      "API-KEY": "39913b5d5937728da1834df0b5d639b2",
-      //  "API-KEY": "ASAL-0014480cb3f2eed05b6c2a4"
+      "API-KEY": tokenClass.key,
+      "Authorization": "Bearer ${tokenClass.getToken()}",
     };
-
     try {
-      final response = await _postWithOptionalCertificateBypass(
-        url: url,
-        headers: headers,
+      final response252 = await _postWithOptionalCertificateBypass(
+        url: url252,
+        headers: headers252,
         body: jsonEncode(body),
       );
-
-      print(' Status: ${response.statusCode}');
-      print(' Response: ${response.body}');
-
-      if (response.statusCode != 200) {
-        print(' Registration failed');
+      if (response252.statusCode == 200) {
+        print('✅ 252pay device registration OK – row waa la xareeyey');
       } else {
-        print(' Registration successful');
+        print('❌ 252pay device registration FAILED status=${response252.statusCode} body=${response252.body}');
+        if (response252.statusCode == 401) {
+          print('   → 401: Hubi API-KEY iyo Bearer (c_collaboration.token + user/pass) backend-ka');
+        }
+      }
+    } catch (e, st) {
+      print('❌ 252pay registration error: $e');
+      print('$st');
+    }
+
+    // DEV2 (legacy): keep so existing flows still receive notifications from DEV2 if used
+    final urlDev2 = Uri.parse("${ApiUrls.BASE_URL}merchantPurchase/registerDevice");
+    final headersDev2 = {
+      "Content-Type": "application/json",
+      "API-KEY": "39913b5d5937728da1834df0b5d639b2",
+    };
+    try {
+      final responseDev2 = await _postWithOptionalCertificateBypass(
+        url: urlDev2,
+        headers: headersDev2,
+        body: jsonEncode(body),
+      );
+      print(' DEV2 registration: ${responseDev2.statusCode}');
+      if (responseDev2.statusCode != 200) {
+        print(' DEV2 registration failed');
+      } else {
+        print(' DEV2 registration successful');
       }
     } catch (e) {
-      print(' Registration error: $e');
+      print(' DEV2 registration error: $e');
     }
   }
 

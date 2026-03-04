@@ -5,6 +5,9 @@ class Product {
   final String unitPrice; // was unit_price
   final String imagePath;
 
+  /// Product description for View details / PDP.
+  final String description;
+
   final String discountType;
   final String remainingQuantity;
   final String sdate;
@@ -21,6 +24,7 @@ class Product {
     required this.originalPrice,
     required this.unitPrice,
     required this.imagePath,
+    this.description = '',
     required this.discountType,
     required this.remainingQuantity,
     required this.sdate,
@@ -58,11 +62,15 @@ class Product {
             ? costPriceVal.toDouble()
             : double.tryParse(costPriceVal.toString()));
 
+    final desc = json['description'];
+    final descriptionStr = desc == null ? '' : desc.toString().trim();
+
     return Product(
       id: int.tryParse(json['product_id'].toString()) ?? 0,
       name: json['name'] ?? '',
       originalPrice: json['original_price']?.toString() ?? unitPriceStr,
       imagePath: json['image_path'] ?? '',
+      description: descriptionStr,
       edate: json['end_date']?.toString() ?? '',
       sdate: json['start_date']?.toString() ?? '',
       unitPrice: unitPriceStr,

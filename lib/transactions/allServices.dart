@@ -1,10 +1,15 @@
 import 'package:asalpay/FundMoving/FundMoving.dart';
 import 'package:asalpay/PayBills/PayBills.dart';
-import 'package:asalpay/constants/Constant.dart' as ConstantColors;
+import 'package:asalpay/constants/Constant.dart' as C;
+import 'package:asalpay/home/home_design_showcase.dart';
+import 'package:asalpay/sendMoney/searchpage.dart';
+import 'package:asalpay/topup/TopUp.dart';
+import 'package:asalpay/transfer/MerchantAccount.dart';
+import 'package:asalpay/transfer/Transfer1.dart' as T1;
 import 'package:asalpay/transactions/ProductPurchaseScreen.dart';
 import 'package:asalpay/transactions/SeeAllTransactions.dart';
 import 'package:asalpay/transactions/qows_kaab/qows_kaab_products_screen.dart';
-import 'package:asalpay/widgets/mostusedservices.dart';
+import 'package:asalpay/ewareeji/ewareeji_main_screen.dart';
 import 'package:flutter/material.dart';
 
 class AllServices extends StatefulWidget {
@@ -18,183 +23,239 @@ class _AllServicesState extends State<AllServices> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: Padding(
-      padding: EdgeInsets.only(
-        top: AppBar().preferredSize.height,
-        left: 15,
-        right: 15,
+      backgroundColor: C.secondryColor,
+      body: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            _buildAppBar(),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  bottom: 24 + MediaQuery.of(context).padding.bottom,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionLabel('Most Used', 'Quick access'),
+                    const SizedBox(height: 10),
+                    _buildMostUsedSection(),
+                    const SizedBox(height: 24),
+                    _buildSectionLabel('All Services', 'Browse all'),
+                    const SizedBox(height: 10),
+                    _buildAllServicesGrid(),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.pop(context);
-                },
-                child: const Icon(
-                  Icons.arrow_back_ios_new,
+    );
+  }
+
+  Widget _buildAppBar() {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 20, 16),
+      sliver: SliverToBoxAdapter(
+        child: Row(
+          children: [
+            Material(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                onTap: () => Navigator.pop(context),
+                borderRadius: BorderRadius.circular(12),
+                child: const Padding(
+                  padding: EdgeInsets.all(10),
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
               ),
-              const SizedBox(
-                width: 15,
+            ),
+            const SizedBox(width: 14),
+            const Text(
+              'Services',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
               ),
-              const Text(
-                "Services",
-                style: TextStyle(
-                  fontSize: 20,
-                  // color:primaryColor,
-                  color: ConstantColors.secondryColor,
-                ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String title, String subtitle) {
+    return Row(
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          subtitle,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.75),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMostUsedSection() {
+    final items = [
+      (Icons.home_rounded, 'Home Design', () => HomeDesignShowcaseScreen(wallet_accounts_id: widget.wallet_accounts_id!)),
+      (Icons.receipt_rounded, 'Top Up', () => const TopUpScreen()),
+      (Icons.transform_rounded, 'Transfer', () => T1.Transfer(wallet_accounts_id: widget.wallet_accounts_id!)),
+      (Icons.send_rounded, 'Send Money', () => Searchpage1(wallet_accounts_id: widget.wallet_accounts_id!)),
+      (Icons.qr_code_scanner_rounded, 'Pay Merchant', () => Merchant(wallet_accounts_id: widget.wallet_accounts_id!)),
+      (Icons.swap_horiz_rounded, 'Funds Transfer', () => FundMoving(wallet_accounts_id: widget.wallet_accounts_id)),
+    ];
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.12), width: 1),
+      ),
+      padding: const EdgeInsets.all(8),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 4,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 0.88,
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return _serviceCard(
+            item.$1,
+            item.$2,
+            () => Navigator.push(context, MaterialPageRoute(builder: (_) => item.$3())),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAllServicesGrid() {
+    final items = [
+      (Icons.devices_other_rounded, '252Pay', () => ProductPurchaseScreen(wallet_accounts_id: widget.wallet_accounts_id)),
+      (Icons.shopping_basket_rounded, 'Qoys Kaab', () => QowsKaabProductsScreen(walletAccountId: widget.wallet_accounts_id ?? '')),
+      (Icons.payments_rounded, 'Pay Bill', () => ServicePaymentScreen(walletAccountsId: widget.wallet_accounts_id!)),
+      (Icons.receipt_long_rounded, 'Funds Transfer', () => FundMoving(wallet_accounts_id: widget.wallet_accounts_id)),
+      (Icons.history_rounded, 'All Transactions', () => const Transfer()),
+      (Icons.currency_exchange_rounded, 'E-Wareeji', () => EwareejiMainScreen(wallet_accounts_id: widget.wallet_accounts_id)),
+    ];
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.88,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return _serviceCard(
+          item.$1,
+          item.$2,
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => item.$3())),
+        );
+      },
+    );
+  }
+
+  Widget _serviceCard(IconData icon, String label, VoidCallback onTap) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white,
+                const Color(0xFFF8FAFC),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: C.secondryColor.withOpacity(0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          const SizedBox(
-            height: 40,
-          ),
-          const Text(
-            "Most Used",
-            style: TextStyle(
-                fontSize: 18,
-                // color:primaryColor,
-                color: ConstantColors.secondryColor),
-          ),
-
-          ///todo:mostused ones;
-          MostUsedServices(wallet_accounts_id: widget.wallet_accounts_id),
-          const Text(
-            "All Services",
-            style: TextStyle(
-              color: ConstantColors.secondryColor,
-              fontSize: 18,
-            ),
-          ),
-          Expanded(
-            child: GridView.count(
-              primary: false,
-              crossAxisCount: 3,
-              childAspectRatio: 0.9,
-              children: <Widget>[
-                InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => ProductPurchaseScreen(
-                              wallet_accounts_id: widget.wallet_accounts_id)),
-                    );
-                  },
-                  // child: card2(Icons.devices_other, ConstantColors.primaryColor, "252PAY"),
-
-                  child: card2(
-                      Icons.devices_other, ConstantColors.pureWhite, "252PAY"),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        C.secondryColor.withOpacity(0.18),
+                        C.secondryColor.withOpacity(0.08),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, size: 21, color: C.secondryColor),
                 ),
-                InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => QowsKaabProductsScreen(
-                          walletAccountId: widget.wallet_accounts_id ?? '',
-                        ),
+                const SizedBox(height: 6),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A2E),
                       ),
-                    );
-                  },
-                  child: card2(Icons.shopping_basket, ConstantColors.pureWhite,
-                      "QOWS KAAB"),
-                ),
-                InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ServicePaymentScreen(
-                          walletAccountsId: widget.wallet_accounts_id!,
-                        ),
-                      ),
-                    );
-                  },
-                  child: card2(Icons.payments_outlined,
-                      ConstantColors.pureWhite, "PayBill"),
-                ),
-                InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => FundMoving(
-                          wallet_accounts_id: widget.wallet_accounts_id,
-                        ),
-                      ),
-                    );
-                  },
-                  child: card2(Icons.receipt_long_outlined,
-                      ConstantColors.pureWhite, "Funds transfer"),
-                ),
-                InkWell(
-                  onTap: () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const Transfer()));
-
-                    // MaterialPageRoute(builder: (context) => Transfer(walletAccountsId: widget.wallet_accounts_id!,)));
-                  },
-                  child: card2(Icons.move_to_inbox_outlined,
-                      ConstantColors.pureWhite, "Transactions"),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    ));
-  }
-
-  Widget card2(IconData icn, Color clr, String txt) {
-    final double cardWidth = MediaQuery.of(context).size.width * 0.2;
-    final double cardHeight = MediaQuery.of(context).size.height * 0.07;
-    return Padding(
-      padding: const EdgeInsets.all(4),
-      child: Card(
-        elevation: 4,
-        color: ConstantColors.secondryColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Container(
-          // width: 90,
-          // height: 90,
-          width: cardWidth,
-          height: cardHeight + 20,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            color: ConstantColors.primaryColor.withOpacity(0.01),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icn,
-                // size: 32,
-                size: cardHeight * 0.5,
-                color: clr,
-              ),
-              SizedBox(
-                height: cardHeight * 0.2,
-                // height: 10,
-              ),
-              Text(
-                txt,
-                style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                      fontSize: cardHeight * 0.25,
-                      color: Colors.white,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-            ],
           ),
         ),
       ),

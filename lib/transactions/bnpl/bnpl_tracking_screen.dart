@@ -110,6 +110,7 @@ class _BnplTrackingScreenState extends State<BnplTrackingScreen> {
                   value: 'operations_approved',
                   child: Text('Operations Approved')),
               const PopupMenuItem(value: 'rejected', child: Text('Rejected')),
+              const PopupMenuItem(value: 'cancelled', child: Text('Cancelled')),
             ],
           ),
         ],
@@ -264,6 +265,7 @@ class _BnplTrackingScreenState extends State<BnplTrackingScreen> {
                           builder: (_) => BnplRepaymentScreen(
                             walletAccountId: widget.walletAccountId,
                             applicationId: application.applicationId,
+                            loanAmount: application.loanAmount,
                           ),
                         ),
                       );
@@ -272,6 +274,21 @@ class _BnplTrackingScreenState extends State<BnplTrackingScreen> {
                     label: const Text('View Repayment Schedule'),
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(color: primaryColor),
+                    ),
+                  ),
+                ),
+              ],
+              if (_canCancel(application)) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _cancelApplication(application),
+                    icon: const Icon(Icons.cancel_outlined, size: 18),
+                    label: const Text('Cancel Application'),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.red),
+                      foregroundColor: Colors.red,
                     ),
                   ),
                 ),
@@ -315,15 +332,64 @@ class _BnplTrackingScreenState extends State<BnplTrackingScreen> {
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
+      case 'draft':
         return Colors.orange;
       case 'branch_approved':
       case 'credit_approved':
       case 'operations_approved':
         return Colors.blue;
       case 'rejected':
+      case 'cancelled':
         return Colors.red;
       default:
         return Colors.grey;
+    }
+  }
+
+  bool _canCancel(BnplApplication application) {
+    final s = (application.approvalStatus ?? '').toLowerCase();
+    return s == 'pending' || s == 'draft';
+  }
+
+  Future<void> _cancelApplication(BnplApplication application) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Application'),
+        content: Text(
+          'Are you sure you want to cancel application ${application.applicationNumber ?? ''}? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Yes, cancel'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    try {
+      await api.cancelBnplApplication(
+        application.applicationId!,
+        widget.walletAccountId,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Application cancelled successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _loadApplications(status: selectedStatus);
+    } catch (e) {
+      if (mounted) {
+        _showError('Failed to cancel: $e');
+      }
     }
   }
 

@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../models/http_exception.dart';
 import 'package:asalpay/services/api_urls.dart';
+import 'package:asalpay/services/biometric_service.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -58,6 +59,7 @@ class Auth with ChangeNotifier {
   String? _phone;
   Timer? _authTimer;
   Timer? _inactivityTimer;
+  DateTime? _backgroundSince;
 
   bool get isAuth {
     return token != null;
@@ -205,6 +207,10 @@ final buildNumber = packageInfo.buildNumber;
       });
 
       await prefs.setString('userData', userData);
+
+      if (await BiometricService.getUseFingerprintLogin()) {
+        await BiometricService.saveUserDataForFingerprintLogin(userData);
+      }
     } else {
       throw HttpException('Unexpected response format');
     }
@@ -252,27 +258,59 @@ final buildNumber = packageInfo.buildNumber;
     return true;
   }
 
+  /// Restore session from secure storage (after fingerprint login). Returns true if restored and token valid.
+  Future<bool> restoreSessionFromSecureStorage() async {
+    final userDataJson = await BiometricService.getUserDataForFingerprintLogin();
+    if (userDataJson == null || userDataJson.isEmpty) return false;
+
+    try {
+      final extractedUserData = json.decode(userDataJson) as Map<String, dynamic>;
+      final expiryDate = DateTime.parse(extractedUserData['expiryDate'].toString());
+
+      _token = extractedUserData['token']?.toString();
+      _wallet_accounts_id = extractedUserData['wallet_accounts_id']?.toString();
+      _candidate_id = extractedUserData['candidate_id']?.toString();
+      _userId = extractedUserData['userId']?.toString();
+      _Name = extractedUserData['name']?.toString();
+      _m_name = extractedUserData['mName']?.toString();
+      _phone = extractedUserData['phone']?.toString();
+      _version = extractedUserData['version']?.toString();
+      _expiryDate = expiryDate;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('userData', userDataJson);
+      if (expiryDate.isAfter(DateTime.now())) _startTimerForAutoLogout();
+      notifyListeners();
+      return true;
+    } catch (_) {
+      await BiometricService.clearUserDataForFingerprintLogin();
+      return false;
+    }
+  }
+
+  /// Token expiry is only checked when app resumes from background (see main.dart).
+  /// No auto-logout while user is inside the app; logout only on sleep/leave or on resume if expired.
   void _startTimerForAutoLogout() {
     if (_authTimer != null) {
       _authTimer!.cancel();
+      _authTimer = null;
     }
-
-    final timeToExpiry = _expiryDate!.difference(DateTime.now()).inSeconds;
-    _authTimer = Timer(Duration(seconds: timeToExpiry), logout);
+    // Do not start a timer to logout on token expiry while in foreground.
+    // checkTokenExpiryAndLogout() is called when app resumes from background.
   }
 
+  /// Called after login; no longer starts in-foreground inactivity logout.
+  /// Logout only when app goes to background and user returns after 5+ min (see onAppLifecycleStateChanged).
   void autoLogout(BuildContext context) {
     startInactivityTimer(context);
   }
 
+  /// In-foreground inactivity timer is disabled so user is not logged out while using the app.
+  /// Logout happens only when app was in background 5+ min and user resumes, or on 401/token expiry.
   void startInactivityTimer(BuildContext context) {
     _cancelInactivityTimer();
-    const inactivityDuration = Duration(minutes: 5);
-    _inactivityTimer = Timer(inactivityDuration, () {
-      if (Navigator.of(context).mounted) {
-        showInactivityDialog(context);
-      }
-    });
+    // Do not start a timer that logs out after 5 min of no tap.
+    // User can stay in app (e.g. filling BNPL form) without being logged out.
   }
 
   void showInactivityDialog(BuildContext context) {
@@ -301,6 +339,48 @@ final buildNumber = packageInfo.buildNumber;
     }
   }
 
+  /// Call when app resumes (or periodically). If token has expired, force logout without user tap.
+  void checkTokenExpiryAndLogout() {
+    if (_expiryDate != null && _expiryDate!.isBefore(DateTime.now())) {
+      logout();
+    }
+  }
+
+  /// Extend token expiry (+10 min) and persist. Call on every successful API response so user is not logged out while in app (even 20+ min).
+  Future<void> extendTokenExpiry() async {
+    if (_token == null || _expiryDate == null) return;
+    _expiryDate = DateTime.now().add(const Duration(minutes: 10));
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!prefs.containsKey('userData')) return;
+      final userData = json.decode(prefs.getString('userData').toString()) as Map<String, dynamic>;
+      userData['expiryDate'] = _expiryDate!.toIso8601String();
+      await prefs.setString('userData', json.encode(userData));
+    } catch (_) {}
+  }
+
+  /// Call from app lifecycle observer. We only logout when user really left the app (resume after 5+ min in background).
+  /// Brief inactive (e.g. tap Transfer/Service opening WebView) must NOT logout — we record time on pause/inactive and check on resume.
+  void onAppLifecycleStateChanged(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _backgroundSince ??= DateTime.now();
+      _cancelInactivityTimer();
+    } else if (state == AppLifecycleState.resumed) {
+      if (_backgroundSince != null) {
+        final backgroundDuration = DateTime.now().difference(_backgroundSince!);
+        if (backgroundDuration > const Duration(minutes: 5)) {
+          appLog('App was in background ${backgroundDuration.inMinutes} min; logging out.');
+          logout();
+        } else {
+          checkTokenExpiryAndLogout();
+        }
+        _backgroundSince = null;
+      } else {
+        checkTokenExpiryAndLogout();
+      }
+    }
+  }
 
 Future<void> logout([BuildContext? context]) async {
   _cancelInactivityTimer();
@@ -321,7 +401,7 @@ Future<void> logout([BuildContext? context]) async {
 
   notifyListeners();
   final prefs = await SharedPreferences.getInstance();
-  prefs.clear();
+  await prefs.remove('userData');
 
   final ctx = context ?? navigatorKey.currentContext;
   if (ctx != null && ctx.mounted) {

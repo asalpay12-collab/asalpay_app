@@ -84,7 +84,7 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen>
       setState(() => _isLoadingQowsKaab = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading QOWS KAAB applications: ${e.toString()}')),
+          SnackBar(content: Text('Error loading QOYS KAAB applications: ${e.toString()}')),
         );
       }
     }
@@ -184,7 +184,7 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen>
           indicatorColor: pureWhite,
           tabs: const [
             Tab(text: 'BNPL (252Pay)', icon: Icon(Icons.credit_card)),
-            Tab(text: 'QOWS KAAB', icon: Icon(Icons.store)),
+            Tab(text: 'QOYS KAAB', icon: Icon(Icons.store)),
           ],
         ),
       ),
@@ -405,12 +405,12 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen>
             Icon(Icons.store_outlined, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
-              'No QOWS KAAB Applications',
+              'No QOYS KAAB Applications',
               style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 8),
             Text(
-              'Start by applying for QOWS KAAB',
+              'Start by applying for QOYS KAAB',
               style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
             ),
           ],

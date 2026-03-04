@@ -5,12 +5,7 @@ import 'package:asalpay/topup/TopUp.dart';
 import 'package:asalpay/sendMoney/searchpage.dart';
 import 'package:asalpay/transfer/MerchantAccount.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../login/login.dart';
-import '../providers/auth.dart';
 import '../transfer/Transfer1.dart';
-import '../PayBills/PayBills.dart';
-
 import '../home/home_design_showcase.dart';
 
 //filterScreen original
@@ -18,11 +13,11 @@ import '../home/home_design_showcase.dart';
 
 class MostUsedServices extends StatefulWidget {
   final String? wallet_accounts_id;
-
   final String? fullName;
-  
+  /// When true, shows smaller cards (e.g. on All Services screen).
+  final bool compact;
 
-  const MostUsedServices({super.key, this.wallet_accounts_id,  this.fullName,});
+  const MostUsedServices({super.key, this.wallet_accounts_id, this.fullName, this.compact = false});
 
   @override
   State<MostUsedServices> createState() => _MostUsedServicesState();
@@ -37,92 +32,110 @@ class _MostUsedServicesState extends State<MostUsedServices> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-      return SizedBox(
-        height: constraints.maxWidth * 0.01 * 28,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.start,  
-              children: [
-                
-// serviceCard(
-//   Icons.receipt,
-//   "Pay Bill",#
-//   ServicePaymentScreen( 
-//     walletAccountsId: widget.wallet_accounts_id!,
-  
-//   ),
-// ),
-
-                serviceCard(
-                  Icons.home,
-                  "Home Design",
-                  HomeDesignShowcaseScreen(wallet_accounts_id: widget.wallet_accounts_id!),
-                ),
-
-                serviceCard(Icons.receipt, "Top Up", const TopUpScreen()),
-                serviceCard(Icons.transform, "Transfer", Transfer(wallet_accounts_id: widget.wallet_accounts_id!)),
-                serviceCard(Icons.send_rounded, "Send Money", Searchpage1(wallet_accounts_id: widget.wallet_accounts_id!)),
-                serviceCard(Icons.qr_code_scanner_sharp, "Pay Merchant", Merchant(wallet_accounts_id: widget.wallet_accounts_id!)),
-                serviceCard(Icons.move_up, "Funds Transfer", FundMoving(wallet_accounts_id: widget.wallet_accounts_id!)),
-               // serviceCard(Icons.filter_list, "Filter", FilterScreen(wallet_accounts_id: widget.wallet_accounts_id!)), 
-
-                //tijaabo
-              //  serviceCard(Icons.chat, "Chat", AsalChatsScreen(
-              //   wallet_accounts_id: widget.wallet_accounts_id!,
-              //   fullName: widget.fullName,
-                
-              //   )), 
-              
-              ],
-            ),
-          ],
+    final bool compact = widget.compact;
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 3,
+      mainAxisSpacing: compact ? 8 : 10,
+      crossAxisSpacing: compact ? 8 : 10,
+      childAspectRatio: compact ? 0.92 : 0.85,
+      padding: EdgeInsets.symmetric(horizontal: compact ? 0 : 2),
+      children: [
+        serviceCard(
+          Icons.home_rounded,
+          "Home Design",
+          HomeDesignShowcaseScreen(wallet_accounts_id: widget.wallet_accounts_id!),
         ),
-      );
-    });
+        serviceCard(Icons.receipt_rounded, "Top Up", const TopUpScreen()),
+        serviceCard(Icons.transform_rounded, "Transfer", Transfer(wallet_accounts_id: widget.wallet_accounts_id!)),
+        serviceCard(Icons.send_rounded, "Send Money", Searchpage1(wallet_accounts_id: widget.wallet_accounts_id!)),
+        serviceCard(Icons.qr_code_scanner_rounded, "Pay Merchant", Merchant(wallet_accounts_id: widget.wallet_accounts_id!)),
+        serviceCard(Icons.swap_horiz_rounded, "Funds Transfer", FundMoving(wallet_accounts_id: widget.wallet_accounts_id!)),
+      ],
+    );
   }
 
   Widget serviceCard(IconData icon, String title, Widget destination) {
     return InkWell(
       onTap: () {
-        final auth = Provider.of<Auth>(context, listen: false);
-        if (auth.isAuth) {
-          auth.autoLogout(context);
-          Navigator.push(context, MaterialPageRoute(builder: (context) => destination));
-        } else {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const Login()));
-        }
+        // Do not logout here: user is still in app. Session expiry is handled by API 401 in each screen.
+        Navigator.push(context, MaterialPageRoute(builder: (context) => destination));
       },
-      child: card(icon, title),
+      borderRadius: BorderRadius.circular(20),
+      child: _buildCard(icon, title),
     );
   }
 
-  Widget card(IconData icn, String txt) {
-    final double cardWidth = MediaQuery.of(context).size.width * 0.2;
-    final double cardHeight = MediaQuery.of(context).size.height * 0.07;
+  Widget _buildCard(IconData icon, String title) {
+    final bool compact = widget.compact;
     return Padding(
-      padding: const EdgeInsets.all(5.5),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 0 : 2),
       child: Container(
-        width: cardWidth,
-        height: cardHeight + 20,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          color: secondryColor,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icn, size: cardHeight * 0.4, color: Colors.white),
-            SizedBox(height: cardHeight * 0.1),
-            Text(
-              txt,
-              style: TextStyle(fontSize: cardHeight * 0.2, color: Colors.white),
-              textAlign: TextAlign.center,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white, const Color(0xFFF8FAFC)],
+          ),
+          borderRadius: BorderRadius.circular(compact ? 14 : 18),
+          boxShadow: [
+            BoxShadow(
+              color: secondryColor.withOpacity(0.06),
+              blurRadius: compact ? 10 : 14,
+              offset: Offset(0, compact ? 3 : 5),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
           ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            vertical: compact ? 8 : 12,
+            horizontal: compact ? 6 : 8,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: compact ? 36 : 44,
+                height: compact ? 36 : 44,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      secondryColor.withOpacity(0.22),
+                      secondryColor.withOpacity(0.08),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(compact ? 10 : 12),
+                ),
+                child: Icon(icon, size: compact ? 18 : 22, color: secondryColor),
+              ),
+              SizedBox(height: compact ? 5 : 6),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: compact ? 10 : 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1A1A2E),
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

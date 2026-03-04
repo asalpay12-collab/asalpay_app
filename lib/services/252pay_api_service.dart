@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:asalpay/services/tokens.dart';
+import 'package:asalpay/utils/session_handler.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
@@ -8,12 +9,17 @@ import '../models/product.dart';
 import '../services/api_urls.dart';
 
 class ApiService {
-  // Base URL for 252pay endpoints (local testing)
-  // static const String baseUrl = 'http://192.168.1.83/asalexpress_252pay/';
-  static const String baseUrl = 'https://252dev.asalxpress.com/';
-  // Image URL for product images (local)
-  // static const String imgURL = 'http://192.168.1.83/asalexpress_252pay/';
-  static const String imgURL = 'https://252dev.asalxpress.com/';
+  // Localka physical device (smartphone): IP-ka PC-ka ee same WiFi (e.g. 192.168.1.83). Beddel IP-ka haddii PC-kuu yeesho kale.
+  // static const String localBaseUrl252 = 'http://192.168.1.83/asalexpress_252pay/';
+  static const String localBaseUrl252 = 'https://252dev.asalxpress.com/';
+  // .env BASE_URL_252PAY haddii buuxo; empty yahay isticmaal localBaseUrl252
+  static String get baseUrl {
+    final u = (dotenv.env['BASE_URL_252PAY'] ?? '').trim();
+    final b = u.isEmpty ? localBaseUrl252 : (u.endsWith('/') ? u : '$u/');
+    return b;
+  }
+
+  static String get imgURL => baseUrl;
 
   TokenClass tokenClass = TokenClass();
 
@@ -45,8 +51,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'category_id': categoryId.toString()}),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final List data = jsonDecode(response.body)['data'] ?? [];
       return data.map((e) => Category.fromJson(e)).toList();
     } else {
@@ -68,11 +77,13 @@ class ApiService {
     appLog("📡 Fetching categories from: $url");
 
     final response = await http.post(Uri.parse(url), headers: headers);
-
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     appLog("📥 Response status: ${response.statusCode}");
     appLog("📥 Response body: ${response.body}");
 
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       try {
         final Map<String, dynamic> jsonData = jsonDecode(response.body);
         if (jsonData['status'] == false || jsonData['status'] == 'False') {
@@ -115,8 +126,11 @@ class ApiService {
         Uri.parse(
             '${ApiUrls.BASE_URL}ApiAsalController/fetch252payMerchantAccount'),
         headers: headers);
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final List data = jsonDecode(response.body)['accountInfo'] ?? [];
       return data.map((e) => Map<String, dynamic>.from(e)).toList();
     } else {
@@ -142,11 +156,13 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'category_id': categoryId.toString()}),
     );
-
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     appLog("📥 Response status: ${response.statusCode}");
     appLog("📥 Response body: ${response.body}");
 
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       try {
         final Map<String, dynamic> jsonData = jsonDecode(response.body);
         if (jsonData['status'] == false || jsonData['status'] == 'False') {
@@ -185,9 +201,11 @@ class ApiService {
       Uri.parse(_buildUrl('wallet25Pay/discountProducts')),
       headers: headers,
     );
-
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final List data = jsonDecode(response.body)['data'] ?? [];
       return data.map((e) => Product.fromJson(e)).toList();
     } else {
@@ -248,7 +266,8 @@ class ApiService {
       headers: headers,
       body: jsonEncode(body),
     );
-
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     if (response.statusCode != 200) {
       final Map<String, dynamic> errorBody = jsonDecode(response.body);
       final errorMessage =
@@ -281,6 +300,8 @@ class ApiService {
       body: jsonEncode(body),
     );
     print(response.body);
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     if (response.statusCode != 200) {
       final Map<String, dynamic> errorBody = jsonDecode(response.body);
       final errorMessage =
@@ -303,8 +324,10 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'wallet_accounts_id': walletAccountId}),
     );
-
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final List data = jsonDecode(response.body)['data'] ?? [];
       return data.map((e) => Map<String, dynamic>.from(e)).toList();
     } else {
@@ -331,8 +354,10 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'account_no': walletAccountId}),
     );
-
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
 
       if (jsonData['result'] is List) {
@@ -367,8 +392,10 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'account_no': accountNo}),
     );
-
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       final result = jsonData['result'];
       if (result is List && result.isNotEmpty) {
@@ -400,8 +427,10 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'merchant_account_no': merchantAccountId}),
     );
-
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
 
       if (jsonData['result'] is List) {
@@ -455,7 +484,8 @@ class ApiService {
       headers: headers,
       body: jsonEncode(body),
     );
-
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body); // for debugging
 
     final responseBody = jsonDecode(response.body);
@@ -491,10 +521,12 @@ class ApiService {
         'amount_fro': amountFrom,
       }),
     );
-
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
 
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
 
       if (jsonData.containsKey('result') &&
@@ -521,9 +553,11 @@ class ApiService {
       Uri.parse(_buildUrl('wallet25Pay/getCustomerAdress')),
       headers: headers,
     );
-
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final List data = jsonDecode(response.body)['data'] ?? [];
       return data.map((e) => Map<String, dynamic>.from(e)).toList();
     } else {
@@ -546,8 +580,11 @@ class ApiService {
       Uri.parse(_buildUrl('wallet25Pay/policies')),
       headers: headers,
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final List data = jsonDecode(response.body)['data'] ?? [];
       return data.map((e) => Map<String, dynamic>.from(e)).toList();
     } else {
@@ -572,6 +609,8 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'total_order_amount': totalOrderAmount}),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     appLog("📥 Response status: ${response.statusCode}");
     appLog("📥 Response body: ${response.body}");
 
@@ -581,6 +620,7 @@ class ApiService {
 
     try {
       if (response.statusCode == 200) {
+        extendTokenExpiryIfInApp();
         final Map<String, dynamic> jsonData = jsonDecode(response.body);
         return jsonData['data'] ?? {};
       } else {
@@ -617,8 +657,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode(body),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final List data = jsonDecode(response.body)['data'] ?? [];
       return data.map((e) => Map<String, dynamic>.from(e)).toList();
     } else {
@@ -626,9 +669,14 @@ class ApiService {
     }
   }
 
-  /// Get product rules for BNPL
+  /// Get product rules for BNPL.
+  /// Pass [monthlyIncome] so backend can check income vs product price eligibility.
+  /// When not eligible, returns data with eligible: false and eligibility_reason.
   Future<Map<String, dynamic>> getProductRules(
-      String incomeCategory, double productPrice) async {
+    String incomeCategory,
+    double productPrice, {
+    double? monthlyIncome,
+  }) async {
     String token = tokenClass.getToken();
     appLog("🔑 Token: $token");
     final headers = {
@@ -636,16 +684,22 @@ class ApiService {
       "Authorization": "Bearer $token",
       "Content-Type": "application/json",
     };
+    final body = <String, dynamic>{
+      'income_category': incomeCategory,
+      'product_price': productPrice,
+    };
+    if (monthlyIncome != null) {
+      body['monthly_income'] = monthlyIncome;
+    }
     final response = await http.post(
       Uri.parse(_buildUrl('api/wallet/bnpl/product_rules')),
       headers: headers,
-      body: jsonEncode({
-        'income_category': incomeCategory,
-        'product_price': productPrice,
-      }),
+      body: jsonEncode(body),
     );
-    print(response.body);
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       return jsonData['data'] ?? {};
     } else {
@@ -671,8 +725,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode({}),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final List data = jsonDecode(response.body)['data'] ?? [];
       return data.map((e) => Map<String, dynamic>.from(e)).toList();
     } else {
@@ -695,8 +752,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode(body),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final List data = jsonDecode(response.body)['data'] ?? [];
       return data.map((e) => Map<String, dynamic>.from(e)).toList();
     } else {
@@ -722,8 +782,11 @@ class ApiService {
         'region_id': regionId,
       }),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       return jsonData['data'] ?? {};
     } else {
@@ -748,8 +811,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'wallet_account': walletAccount}),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       return jsonData['data'] ?? {};
     } else {
@@ -774,8 +840,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode(customerData),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('get_or_create_customer body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       return jsonData['data'] ?? {};
     } else {
@@ -800,8 +869,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode({}),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('getBnplBanks body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final List data = jsonDecode(response.body)['data'] ?? [];
       return data.map((e) => Map<String, dynamic>.from(e)).toList();
     } else {
@@ -830,11 +902,14 @@ class ApiService {
       headers: headers,
       body: requestBody,
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('create application body: ${response.body}');
     appLog("📥 Response status: ${response.statusCode}");
     appLog("📥 Response body: ${response.body}");
 
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       try {
         if (response.body.isEmpty || response.body.trim().isEmpty) {
           throw Exception('Empty response from server');
@@ -898,8 +973,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode(body),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final responseData = jsonDecode(response.body);
       final data = responseData['data'];
 
@@ -931,6 +1009,32 @@ class ApiService {
     }
   }
 
+  /// Cancel BNPL application (only when status is pending or draft).
+  Future<void> cancelBnplApplication(
+      int applicationId, String walletAccount) async {
+    final token = tokenClass.getToken();
+    final headers = {
+      "API-KEY": tokenClass.key,
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+    };
+    final response = await http.post(
+      Uri.parse(_buildUrl('api/wallet/bnpl/cancel_application')),
+      headers: headers,
+      body: jsonEncode({
+        'application_id': applicationId,
+        'wallet_account': walletAccount,
+      }),
+    );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body)) {
+      throw Exception('Session expired');
+    }
+    if (response.statusCode != 200) {
+      final body = jsonDecode(response.body);
+      throw Exception(body['message'] ?? 'Failed to cancel application');
+    }
+  }
+
   /// Get application details (data, branches for district, items for multi-product)
   Future<Map<String, dynamic>> getApplicationDetails(int applicationId) async {
     String token = tokenClass.getToken();
@@ -945,8 +1049,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'application_id': applicationId}),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       // Return full payload so UI can show branches and items
       final branchesRaw = jsonData['branches'];
@@ -1018,6 +1125,8 @@ class ApiService {
       body: jsonEncode(requestBody),
     );
 
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     appLog("📥 Upload Document Response:");
     appLog("   - Status Code: ${response.statusCode}");
     appLog("   - Response Body: ${response.body}");
@@ -1025,6 +1134,7 @@ class ApiService {
     print("Full Request Body: ${jsonEncode(requestBody)}");
     print("Response: ${response.body}");
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       return jsonData['data'] ?? {};
     } else {
@@ -1053,8 +1163,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode(body),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final List data = jsonDecode(response.body)['data'] ?? [];
       return data.map((e) => Map<String, dynamic>.from(e)).toList();
     } else {
@@ -1086,8 +1199,11 @@ class ApiService {
         'payment_method': paymentMethod,
       }),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       return jsonData['data'] ?? {};
     } else {
@@ -1115,8 +1231,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode(body),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print(response.body);
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final List data = jsonDecode(response.body)['data'] ?? [];
       return data.map((e) => Map<String, dynamic>.from(e)).toList();
     } else {
@@ -1125,8 +1244,9 @@ class ApiService {
   }
 
   /// Get BNPL Application Configuration
+  /// When totalOrderAmount is under 400, backend may include birth_certificate as allowed document.
   Future<Map<String, dynamic>> getBnplApplicationConfiguration(
-      {String? riskLevel}) async {
+      {String? riskLevel, double? totalOrderAmount}) async {
     String token = tokenClass.getToken();
     appLog("🔑 Token: $token");
     final headers = {
@@ -1134,14 +1254,19 @@ class ApiService {
       "Authorization": "Bearer $token",
       "Content-Type": "application/json",
     };
-    final body = riskLevel != null ? {'risk_level': riskLevel} : {};
+    final body = <String, dynamic>{};
+    if (riskLevel != null) body['risk_level'] = riskLevel;
+    if (totalOrderAmount != null) body['total_order_amount'] = totalOrderAmount;
     final response = await http.post(
       Uri.parse(_buildUrl('api/wallet/bnpl/application_configuration')),
       headers: headers,
       body: jsonEncode(body),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('getBnplApplicationConfiguration body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       if (jsonData['status'] == true) {
         return jsonData['data'] ?? {};
@@ -1172,8 +1297,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode(draftData),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('saveApplicationDraft body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       if (jsonData['status'] == true) {
         return jsonData['data'] ?? {};
@@ -1202,8 +1330,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'wallet_account': walletAccount}),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('getApplicationDraft body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       if (jsonData['status'] == true && jsonData['data'] != null) {
         return jsonData['data'] as Map<String, dynamic>;
@@ -1234,8 +1365,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'wallet_account': walletAccount}),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('getPreviousApplicationData body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       if (jsonData['status'] == true && jsonData['data'] != null) {
         return jsonData['data'] as Map<String, dynamic>;
@@ -1266,8 +1400,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'wallet_account': walletAccount}),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('checkDocumentsSkip body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       return jsonData['data'] ?? {};
     } else {
@@ -1294,8 +1431,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode(body),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('getQowsKaabProducts body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       if (jsonData['status'] == true) {
         final List data = jsonData['data'] ?? [];
@@ -1339,8 +1479,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode(body),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('checkQowsKaabEligibility body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       final Map<String, dynamic> data =
           Map<String, dynamic>.from(jsonData['data'] ?? {});
@@ -1370,8 +1513,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode(applicationData),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('createQowsKaabApplication body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       if (jsonData['status'] == true) {
         return jsonData['data'] ?? {};
@@ -1401,8 +1547,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'wallet_account': walletAccount}),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('getMyQowsKaabApplications body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       if (jsonData['status'] == true) {
         final List data = jsonData['data'] ?? [];
@@ -1433,8 +1582,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'qows_kaab_id': qowsKaabId}),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('getQowsKaabApplicationDetails body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       if (jsonData['status'] == true) {
         return jsonData['data'] ?? {};
@@ -1447,6 +1599,32 @@ class ApiService {
       final errorMessage =
           errorBody['message'] ?? 'Failed to load application details';
       throw Exception(errorMessage);
+    }
+  }
+
+  /// Cancel QOWS KAAB application (only when pending approval).
+  Future<void> cancelQowsKaabApplication(
+      int qowsKaabId, String walletAccount) async {
+    final token = tokenClass.getToken();
+    final headers = {
+      "API-KEY": tokenClass.key,
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+    };
+    final response = await http.post(
+      Uri.parse(_buildUrl('api/wallet/bnpl/qows_kaab/cancel_application')),
+      headers: headers,
+      body: jsonEncode({
+        'qows_kaab_id': qowsKaabId,
+        'wallet_account': walletAccount,
+      }),
+    );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body)) {
+      throw Exception('Session expired');
+    }
+    if (response.statusCode != 200) {
+      final body = jsonDecode(response.body);
+      throw Exception(body['message'] ?? 'Failed to cancel application');
     }
   }
 
@@ -1470,7 +1648,10 @@ class ApiService {
         if (qowsKaabId != null) 'qows_kaab_id': qowsKaabId,
       }),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       if (jsonData['status'] == true) {
         return jsonData;
@@ -1506,7 +1687,10 @@ class ApiService {
         if (paymentReference != null) 'payment_reference': paymentReference,
       }),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       if (jsonData['status'] == true) {
         return jsonData;
@@ -1536,7 +1720,10 @@ class ApiService {
       headers: headers,
       body: jsonEncode(body),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       if (jsonData['status'] == true) {
         final List data = jsonData['data'] ?? [];
@@ -1563,8 +1750,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'qows_kaab_id': qowsKaabId}),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('getMonthlyUsage body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       if (jsonData['status'] == true) {
         return jsonData['data'] ?? {};
@@ -1604,8 +1794,11 @@ class ApiService {
       headers: headers,
       body: jsonEncode(body),
     );
+    if (checkAndHandleSessionExpiry(response.statusCode, response.body))
+      throw Exception('Session expired');
     print('addDailyPurchase body: ${response.body}');
     if (response.statusCode == 200) {
+      extendTokenExpiryIfInApp();
       final Map<String, dynamic> jsonData = jsonDecode(response.body);
       if (jsonData['status'] == true) {
         return jsonData['data'] ?? {};

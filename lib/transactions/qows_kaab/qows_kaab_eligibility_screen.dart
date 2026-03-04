@@ -79,7 +79,7 @@ class _QowsKaabEligibilityScreenState extends State<QowsKaabEligibilityScreen> {
       } else {
         // Show backend message so user sees exact reason (e.g. "You already have an application", "Minimum income is $300 from eligibility rules")
         final message = result['message']?.toString().trim() ?? result['reason']?.toString().trim();
-        _showError(message?.isNotEmpty == true ? message! : 'You are not eligible for QOWS KAAB.');
+        _showError(message?.isNotEmpty == true ? message! : 'You are not eligible for QOYS KAAB.');
       }
     } catch (e) {
       setState(() {
@@ -107,7 +107,7 @@ class _QowsKaabEligibilityScreenState extends State<QowsKaabEligibilityScreen> {
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         title: Text(
-          'QOWS KAAB Eligibility',
+          'QOYS KAAB Eligibility',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w600,
             fontSize: 20,
@@ -135,7 +135,7 @@ class _QowsKaabEligibilityScreenState extends State<QowsKaabEligibilityScreen> {
                       Icon(Icons.info_outline, color: Colors.blue.shade700),
                       const SizedBox(width: 8),
                       Text(
-                        'QOWS KAAB Service Models',
+                        'QOYS KAAB Service Models',
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -253,7 +253,7 @@ class _QowsKaabEligibilityScreenState extends State<QowsKaabEligibilityScreen> {
                       child: Text(
                         eligibilityResult!['message']?.toString().trim() ??
                             eligibilityResult!['reason']?.toString().trim() ??
-                            'You are not eligible for QOWS KAAB.',
+                            'You are not eligible for QOYS KAAB.',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           color: Colors.red.shade900,

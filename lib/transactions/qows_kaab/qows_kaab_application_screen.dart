@@ -50,6 +50,8 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
   final TextEditingController phoneNumberController = TextEditingController();
   final TextEditingController familySizeController = TextEditingController();
   final TextEditingController monthlyIncomeController = TextEditingController();
+  final TextEditingController _productSearchController =
+      TextEditingController();
   String? usageType;
   bool isSubmitting = false;
 
@@ -142,12 +144,24 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
     } catch (_) {}
   }
 
+  List<QowsKaabProduct> _filterProducts(
+      List<QowsKaabProduct> list, String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return list;
+    return list
+        .where((p) =>
+            (p.name ?? '').toLowerCase().contains(q) ||
+            (p.categoryName ?? '').toLowerCase().contains(q))
+        .toList();
+  }
+
   @override
   void dispose() {
     fullNameController.dispose();
     phoneNumberController.dispose();
     familySizeController.dispose();
     monthlyIncomeController.dispose();
+    _productSearchController.dispose();
     super.dispose();
   }
 
@@ -984,19 +998,56 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       const SizedBox(height: 16),
       if (isLoadingProducts)
         const Center(child: CircularProgressIndicator())
-      else
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.78,
+      else ...[
+        TextField(
+          controller: _productSearchController,
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: 'Search products...',
+            prefixIcon: Icon(Icons.search, color: primaryColor),
+            suffixIcon: _productSearchController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _productSearchController.clear();
+                      setState(() {});
+                    },
+                  )
+                : null,
+            border: OutlineInputBorder(borderRadius: br12),
+            filled: true,
+            fillColor: cardBg,
           ),
-          itemCount: availableProducts.length,
-          itemBuilder: (context, index) {
-            final product = availableProducts[index];
+        ),
+        const SizedBox(height: 12),
+        Builder(
+          builder: (context) {
+            final filteredStep0 =
+                _filterProducts(availableProducts, _productSearchController.text);
+            if (filteredStep0.isEmpty && availableProducts.isNotEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Text(
+                    'No products match your search',
+                    style: GoogleFonts.poppins(
+                        fontSize: 14, color: Colors.grey.shade600),
+                  ),
+                ),
+              );
+            }
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 0.78,
+              ),
+              itemCount: filteredStep0.length,
+              itemBuilder: (context, index) {
+                final product = filteredStep0[index];
             return Card(
               elevation: 2,
               shadowColor: Colors.black26,
@@ -1057,7 +1108,10 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
               ),
             );
           },
+            );
+          },
         ),
+        ],
       const SizedBox(height: 24),
       SizedBox(
         width: double.infinity,
@@ -1494,6 +1548,27 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       ),
       if (_formStepShowAddMore) ...[
         const SizedBox(height: 12),
+        TextField(
+          controller: _productSearchController,
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: 'Search products...',
+            prefixIcon: Icon(Icons.search, color: primaryColor),
+            suffixIcon: _productSearchController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _productSearchController.clear();
+                      setState(() {});
+                    },
+                  )
+                : null,
+            border: OutlineInputBorder(borderRadius: br12),
+            filled: true,
+            fillColor: cardBg,
+          ),
+        ),
+        const SizedBox(height: 8),
         Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text('Select a product to add',
@@ -1501,17 +1576,33 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: Colors.grey.shade700))),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 0.78),
-          itemCount: availableProducts.length,
-          itemBuilder: (context, idx) {
-            final product = availableProducts[idx];
+        Builder(
+          builder: (context) {
+            final filteredAddMore =
+                _filterProducts(availableProducts, _productSearchController.text);
+            if (filteredAddMore.isEmpty && availableProducts.isNotEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: Text(
+                    'No products match your search',
+                    style: GoogleFonts.poppins(
+                        fontSize: 13, color: Colors.grey.shade600),
+                  ),
+                ),
+              );
+            }
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 0.78),
+              itemCount: filteredAddMore.length,
+              itemBuilder: (context, idx) {
+                final product = filteredAddMore[idx];
             final pid = product.productId ?? product.id;
             final isInBasket =
                 selectedProducts.any((p) => p['product_id'] == pid);
@@ -1577,6 +1668,8 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
                   ),
                 ),
               ),
+            );
+          },
             );
           },
         ),

@@ -38,7 +38,7 @@ class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
   List<Map<String, dynamic>> merchantInfo = [];
   List<Map<String, dynamic>> orderItems = [];
   List<Map<String, dynamic>> merchnataccountInfo = [];
-  static const String baseUrl = ApiService.imgURL;
+  static String get baseUrl => ApiService.imgURL;
   bool isLoading = true;
   String ModelErrorMessage = "";
   String pinNumber = "";
