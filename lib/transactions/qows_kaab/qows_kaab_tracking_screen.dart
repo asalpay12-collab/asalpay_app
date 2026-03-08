@@ -42,8 +42,10 @@ class _QowsKaabTrackingScreenState extends State<QowsKaabTrackingScreen> {
     try {
       final data = await api.getMyQowsKaabApplications(widget.walletAccountId);
       setState(() {
-        applications =
-            data.map((e) => QowsKaabApplication.fromJson(e)).toList();
+        applications = data
+            .map((e) => QowsKaabApplication.fromJson(e))
+            .where((a) => (a.status ?? '').toLowerCase() != 'cancelled')
+            .toList();
         isLoading = false;
       });
     } catch (e) {

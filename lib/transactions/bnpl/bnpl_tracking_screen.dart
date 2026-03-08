@@ -55,6 +55,8 @@ class _BnplTrackingScreenState extends State<BnplTrackingScreen> {
               }
             })
             .whereType<BnplApplication>()
+            .where((a) =>
+                (a.approvalStatus ?? '').toLowerCase() != 'cancelled')
             .toList();
         isLoading = false;
       });
@@ -103,14 +105,9 @@ class _BnplTrackingScreenState extends State<BnplTrackingScreen> {
                   value: 'all', child: Text('All Applications')),
               const PopupMenuItem(value: 'pending', child: Text('Pending')),
               const PopupMenuItem(
-                  value: 'branch_approved', child: Text('Branch Approved')),
-              const PopupMenuItem(
-                  value: 'credit_approved', child: Text('Credit Approved')),
-              const PopupMenuItem(
                   value: 'operations_approved',
-                  child: Text('Operations Approved')),
+                  child: Text('Approved Applications')),
               const PopupMenuItem(value: 'rejected', child: Text('Rejected')),
-              const PopupMenuItem(value: 'cancelled', child: Text('Cancelled')),
             ],
           ),
         ],

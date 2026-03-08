@@ -1121,7 +1121,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     //   },
                                     // ),
                                     _QuickActionCardV(
-                                      icon: Icons.currency_exchange_rounded,
+                                      icon: Icons.currency_bitcoin,
                                       label: 'E-Wareeji',
                                       accent: secondryColor,
                                       compact: true,

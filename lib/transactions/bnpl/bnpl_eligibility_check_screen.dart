@@ -201,11 +201,17 @@ class _BnplEligibilityCheckScreenState
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '${item['name']} x$quantity',
-                            style: GoogleFonts.poppins(fontSize: 14),
+                          Expanded(
+                            child: Text(
+                              '${item['name']} x$quantity',
+                              style: GoogleFonts.poppins(fontSize: 14),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
                             '\$${(quantity * unitPrice).toStringAsFixed(2)}',
                             style: GoogleFonts.poppins(
@@ -221,13 +227,17 @@ class _BnplEligibilityCheckScreenState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Total Amount:',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          'Total Amount:',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '\$${totalAmount.toStringAsFixed(2)}',
                         style: GoogleFonts.poppins(

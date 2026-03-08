@@ -119,12 +119,33 @@ class _AllServicesState extends State<AllServices> {
 
   Widget _buildMostUsedSection() {
     final items = [
-      (Icons.home_rounded, 'Home Design', () => HomeDesignShowcaseScreen(wallet_accounts_id: widget.wallet_accounts_id!)),
+      (
+        Icons.home_rounded,
+        'Home Design',
+        () => HomeDesignShowcaseScreen(
+            wallet_accounts_id: widget.wallet_accounts_id!)
+      ),
       (Icons.receipt_rounded, 'Top Up', () => const TopUpScreen()),
-      (Icons.transform_rounded, 'Transfer', () => T1.Transfer(wallet_accounts_id: widget.wallet_accounts_id!)),
-      (Icons.send_rounded, 'Send Money', () => Searchpage1(wallet_accounts_id: widget.wallet_accounts_id!)),
-      (Icons.qr_code_scanner_rounded, 'Pay Merchant', () => Merchant(wallet_accounts_id: widget.wallet_accounts_id!)),
-      (Icons.swap_horiz_rounded, 'Funds Transfer', () => FundMoving(wallet_accounts_id: widget.wallet_accounts_id)),
+      (
+        Icons.transform_rounded,
+        'Transfer',
+        () => T1.Transfer(wallet_accounts_id: widget.wallet_accounts_id!)
+      ),
+      (
+        Icons.send_rounded,
+        'Send Money',
+        () => Searchpage1(wallet_accounts_id: widget.wallet_accounts_id!)
+      ),
+      (
+        Icons.qr_code_scanner_rounded,
+        'Pay Merchant',
+        () => Merchant(wallet_accounts_id: widget.wallet_accounts_id!)
+      ),
+      (
+        Icons.swap_horiz_rounded,
+        'Funds Transfer',
+        () => FundMoving(wallet_accounts_id: widget.wallet_accounts_id)
+      ),
     ];
     return Container(
       decoration: BoxDecoration(
@@ -137,10 +158,10 @@ class _AllServicesState extends State<AllServices> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 4,
+          crossAxisCount: 3,
           mainAxisSpacing: 8,
           crossAxisSpacing: 8,
-          childAspectRatio: 0.88,
+          childAspectRatio: 1.05,
         ),
         itemCount: items.length,
         itemBuilder: (context, index) {
@@ -148,7 +169,8 @@ class _AllServicesState extends State<AllServices> {
           return _serviceCard(
             item.$1,
             item.$2,
-            () => Navigator.push(context, MaterialPageRoute(builder: (_) => item.$3())),
+            () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => item.$3())),
           );
         },
       ),
@@ -157,21 +179,43 @@ class _AllServicesState extends State<AllServices> {
 
   Widget _buildAllServicesGrid() {
     final items = [
-      (Icons.devices_other_rounded, '252Pay', () => ProductPurchaseScreen(wallet_accounts_id: widget.wallet_accounts_id)),
-      (Icons.shopping_basket_rounded, 'Qoys Kaab', () => QowsKaabProductsScreen(walletAccountId: widget.wallet_accounts_id ?? '')),
-      (Icons.payments_rounded, 'Pay Bill', () => ServicePaymentScreen(walletAccountsId: widget.wallet_accounts_id!)),
-      (Icons.receipt_long_rounded, 'Funds Transfer', () => FundMoving(wallet_accounts_id: widget.wallet_accounts_id)),
+      (
+        Icons.devices_other_rounded,
+        '252Pay',
+        () =>
+            ProductPurchaseScreen(wallet_accounts_id: widget.wallet_accounts_id)
+      ),
+      (
+        Icons.shopping_basket_rounded,
+        'Qoys Kaab',
+        () => QowsKaabProductsScreen(
+            walletAccountId: widget.wallet_accounts_id ?? '')
+      ),
+      (
+        Icons.payments_rounded,
+        'Pay Bill',
+        () => ServicePaymentScreen(walletAccountsId: widget.wallet_accounts_id!)
+      ),
+      (
+        Icons.receipt_long_rounded,
+        'Funds Transfer',
+        () => FundMoving(wallet_accounts_id: widget.wallet_accounts_id)
+      ),
       (Icons.history_rounded, 'All Transactions', () => const Transfer()),
-      (Icons.currency_exchange_rounded, 'E-Wareeji', () => EwareejiMainScreen(wallet_accounts_id: widget.wallet_accounts_id)),
+      (
+        Icons.currency_bitcoin,
+        'E-Wareeji',
+        () => EwareejiMainScreen(wallet_accounts_id: widget.wallet_accounts_id)
+      ),
     ];
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
+        crossAxisCount: 3,
         mainAxisSpacing: 10,
         crossAxisSpacing: 10,
-        childAspectRatio: 0.88,
+        childAspectRatio: 1.05,
       ),
       itemCount: items.length,
       itemBuilder: (context, index) {
@@ -179,7 +223,8 @@ class _AllServicesState extends State<AllServices> {
         return _serviceCard(
           item.$1,
           item.$2,
-          () => Navigator.push(context, MaterialPageRoute(builder: (_) => item.$3())),
+          () => Navigator.push(
+              context, MaterialPageRoute(builder: (_) => item.$3())),
         );
       },
     );

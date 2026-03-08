@@ -10,7 +10,8 @@ import '../services/api_urls.dart';
 
 class ApiService {
   // Localka physical device (smartphone): IP-ka PC-ka ee same WiFi (e.g. 192.168.1.83). Beddel IP-ka haddii PC-kuu yeesho kale.
-  // static const String localBaseUrl252 = 'http://192.168.1.83/asalexpress_252pay/';
+  // static const String localBaseUrl252 =
+  //     'http://192.168.1.83/asalexpress_252pay/';
   static const String localBaseUrl252 = 'https://252dev.asalxpress.com/';
   // .env BASE_URL_252PAY haddii buuxo; empty yahay isticmaal localBaseUrl252
   static String get baseUrl {

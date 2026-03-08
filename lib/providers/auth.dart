@@ -346,10 +346,10 @@ final buildNumber = packageInfo.buildNumber;
     }
   }
 
-  /// Extend token expiry (+10 min) and persist. Call on every successful API response so user is not logged out while in app (even 20+ min).
+  /// Extend token expiry (+60 min) and persist. Inta user-ku app-ka ku jiro sessionka lama dhicin.
   Future<void> extendTokenExpiry() async {
     if (_token == null || _expiryDate == null) return;
-    _expiryDate = DateTime.now().add(const Duration(minutes: 10));
+    _expiryDate = DateTime.now().add(const Duration(minutes: 60));
     notifyListeners();
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -360,24 +360,17 @@ final buildNumber = packageInfo.buildNumber;
     } catch (_) {}
   }
 
-  /// Call from app lifecycle observer. We only logout when user really left the app (resume after 5+ min in background).
-  /// Brief inactive (e.g. tap Transfer/Service opening WebView) must NOT logout — we record time on pause/inactive and check on resume.
+  /// Inta user-ka app-ka ku jiro: session ma dhamaanayo, token ma dhici, logout ma sameyno.
+  /// Logout waa kaliya marka isticmaale uu doorto Logout ama API 401 soo celiyo.
   void onAppLifecycleStateChanged(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       _backgroundSince ??= DateTime.now();
       _cancelInactivityTimer();
     } else if (state == AppLifecycleState.resumed) {
-      if (_backgroundSince != null) {
-        final backgroundDuration = DateTime.now().difference(_backgroundSince!);
-        if (backgroundDuration > const Duration(minutes: 5)) {
-          appLog('App was in background ${backgroundDuration.inMinutes} min; logging out.');
-          logout();
-        } else {
-          checkTokenExpiryAndLogout();
-        }
-        _backgroundSince = null;
-      } else {
-        checkTokenExpiryAndLogout();
+      _backgroundSince = null;
+      // Do not logout on resume (no 5-min rule, no token-expiry logout). Extend token so session stays valid.
+      if (_token != null && _expiryDate != null) {
+        extendTokenExpiry();
       }
     }
   }

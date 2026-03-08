@@ -88,7 +88,7 @@ class _QowsKaabDocumentUploadScreenState
     final Set<String> existing = {};
     for (final d in documents) {
       if (d is Map && (d['is_expired'] == 0 || d['is_expired'] == false)) {
-        final type = d['document_type']?.toString();
+        final type = (d['document_type'] ?? d['document_type_key'])?.toString();
         if (type != null && type.isNotEmpty) existing.add(type);
       }
     }

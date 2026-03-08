@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth.dart';
 import '../../services/qows_kaab_api_service.dart';
 import '../../services/252pay_api_service.dart';
 import '../../models/qows_kaab_product.dart';
@@ -50,6 +52,10 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
   final TextEditingController phoneNumberController = TextEditingController();
   final TextEditingController familySizeController = TextEditingController();
   final TextEditingController monthlyIncomeController = TextEditingController();
+  final TextEditingController nextOfKinNameController = TextEditingController();
+  final TextEditingController nextOfKinRelationshipController = TextEditingController();
+  final TextEditingController nextOfKinPhoneController = TextEditingController();
+  final TextEditingController nextOfKinAddressController = TextEditingController();
   final TextEditingController _productSearchController =
       TextEditingController();
   String? usageType;
@@ -61,6 +67,10 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
 
   /// Step 0 = products only; Step 1 = other input fields; then Next → documents screen
   int _currentStep = 0;
+
+  /// Cached customer from wallet (same as 252pay) – used to keep name/phone consistent with wallet and to fill empty fields
+  Map<String, dynamic>? _walletCustomerData;
+  bool _prefilledFromWallet = false;
 
   bool get isMonthlyPack => widget.serviceModel == 'monthly_pack';
   bool get isDailyCredit => widget.serviceModel == 'daily_credit';
@@ -78,17 +88,32 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         usageType = analysis['usage_type'];
       }
     }
+    // Pre-fill name and phone from Auth (logged-in user profile) as soon as we have context
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        final auth = Provider.of<Auth>(context, listen: false);
+        if (auth.Name != null && auth.Name!.trim().isNotEmpty) {
+          fullNameController.text = auth.Name!.trim();
+        }
+        if (auth.phone != null && auth.phone!.trim().isNotEmpty) {
+          phoneNumberController.text = auth.phone!.trim();
+        }
+        if (mounted) setState(() {});
+      } catch (_) {}
+    });
+    // Backend customer (for region, income, next of kin, etc.)
+    if (widget.walletAccountId != null && widget.walletAccountId!.isNotEmpty) {
+      _loadCustomerForPrefill();
+    }
     _loadRegions();
     if (usageType != null && widget.serviceModel.isNotEmpty) {
       _loadUsageTypeLimits();
     }
     _loadProducts();
-    if (widget.walletAccountId != null && widget.walletAccountId!.isNotEmpty) {
-      _loadCustomerForPrefill();
-    }
   }
 
-  /// If customer exists in tbl_bnpl_customers, pre-fill form (monthly_income, region, district).
+  /// Load customer from wallet (logged-in user). Name and phone are always filled from wallet; other fields when empty.
   Future<void> _loadCustomerForPrefill() async {
     if (widget.walletAccountId == null) return;
     try {
@@ -99,47 +124,49 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       if (!mounted) return;
       if (!dataFound || customer == null) return;
       final Map<String, dynamic> c = Map<String, dynamic>.from(customer);
-      if (c['full_name'] != null &&
-          c['full_name'].toString().trim().isNotEmpty) {
-        if (mounted) {
-          setState(
-              () => fullNameController.text = c['full_name'].toString().trim());
-        }
+      if (!mounted) return;
+      setState(() => _walletCustomerData = c);
+
+      // Pre-fill only when field is empty (wallet = source of truth; don’t overwrite if user already entered something)
+      // Name and phone: always from wallet (logged-in user) so they match the account
+      final name = (c['full_name'] ?? c['customer_name'])?.toString().trim();
+      if (name != null && name.isNotEmpty && fullNameController.text.trim().isEmpty && mounted) {
+        setState(() => fullNameController.text = name);
       }
-      if (c['phone_number'] != null &&
-          c['phone_number'].toString().trim().isNotEmpty) {
-        if (mounted) {
-          setState(() =>
-              phoneNumberController.text = c['phone_number'].toString().trim());
-        }
+      final phone = c['phone_number']?.toString().trim();
+      if (phone != null && phone.isNotEmpty && phoneNumberController.text.trim().isEmpty && mounted) {
+        setState(() => phoneNumberController.text = phone);
       }
-      if (c['monthly_income'] != null) {
+      if (c['monthly_income'] != null && monthlyIncomeController.text.trim().isEmpty) {
         final v = c['monthly_income'];
-        if (mounted) {
-          setState(() {
-            monthlyIncomeController.text =
-                (v is num) ? v.toString() : v.toString();
-          });
-        }
+        if (mounted) setState(() => monthlyIncomeController.text = (v is num) ? v.toString() : v.toString());
       }
       final regionId = c['region_id'];
       final districtId = c['district_id'];
       if (regionId != null && mounted) {
-        final rId =
-            regionId is int ? regionId : int.tryParse(regionId.toString());
+        final rId = regionId is int ? regionId : int.tryParse(regionId.toString());
         if (rId != null) {
           await _loadDistricts(rId);
           if (!mounted) return;
-          final dId = districtId != null
-              ? (districtId is int
-                  ? districtId
-                  : int.tryParse(districtId.toString()))
-              : null;
+          final dId = districtId != null ? (districtId is int ? districtId : int.tryParse(districtId.toString())) : null;
           setState(() {
             selectedRegionId = rId;
             selectedDistrictId = dId;
           });
         }
+      }
+      // Next of kin: fill only if empty
+      if (c['next_of_kin_name'] != null && c['next_of_kin_name'].toString().trim().isNotEmpty && nextOfKinNameController.text.trim().isEmpty && mounted) {
+        setState(() => nextOfKinNameController.text = c['next_of_kin_name'].toString().trim());
+      }
+      if (c['next_of_kin_relationship'] != null && c['next_of_kin_relationship'].toString().trim().isNotEmpty && nextOfKinRelationshipController.text.trim().isEmpty && mounted) {
+        setState(() => nextOfKinRelationshipController.text = c['next_of_kin_relationship'].toString().trim());
+      }
+      if (c['next_of_kin_phone'] != null && c['next_of_kin_phone'].toString().trim().isNotEmpty && nextOfKinPhoneController.text.trim().isEmpty && mounted) {
+        setState(() => nextOfKinPhoneController.text = c['next_of_kin_phone'].toString().trim());
+      }
+      if (c['next_of_kin_address'] != null && c['next_of_kin_address'].toString().trim().isNotEmpty && nextOfKinAddressController.text.trim().isEmpty && mounted) {
+        setState(() => nextOfKinAddressController.text = c['next_of_kin_address'].toString().trim());
       }
     } catch (_) {}
   }
@@ -161,6 +188,10 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
     phoneNumberController.dispose();
     familySizeController.dispose();
     monthlyIncomeController.dispose();
+    nextOfKinNameController.dispose();
+    nextOfKinRelationshipController.dispose();
+    nextOfKinPhoneController.dispose();
+    nextOfKinAddressController.dispose();
     _productSearchController.dispose();
     super.dispose();
   }
@@ -769,8 +800,17 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
 
   /// Next: go to document screen with form data; database is written only when user taps "Submit Application" there.
   /// Validates total amount against tbl_qows_kaab_usage_type_limits (min/max by usage_type + service_model).
+  /// Same as 252pay: use wallet name/phone when field is empty so submitted data never conflicts with wallet.
   Future<void> _goToNextStep() async {
-    final fullName = fullNameController.text.trim();
+    String fullName = fullNameController.text.trim();
+    String phoneNumber = phoneNumberController.text.trim();
+    if (fullName.isEmpty && _walletCustomerData != null) {
+      final n = (_walletCustomerData!['full_name'] ?? _walletCustomerData!['customer_name'])?.toString().trim();
+      if (n != null && n.isNotEmpty) fullName = n;
+    }
+    if (phoneNumber.isEmpty && _walletCustomerData != null && _walletCustomerData!['phone_number']?.toString().trim().isNotEmpty == true) {
+      phoneNumber = _walletCustomerData!['phone_number'].toString().trim();
+    }
     if (fullName.isEmpty) {
       _showError('Customer Name is required');
       return;
@@ -840,12 +880,16 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
             })
         .toList();
 
+    final nokName = nextOfKinNameController.text.trim();
+    final nokRel = nextOfKinRelationshipController.text.trim();
+    final nokPhone = nextOfKinPhoneController.text.trim();
+    final nokAddr = nextOfKinAddressController.text.trim();
+    final hasNextOfKin = nokName.isNotEmpty || nokRel.isNotEmpty || nokPhone.isNotEmpty || nokAddr.isNotEmpty;
+
     final applicationFormData = {
       'wallet_account': widget.walletAccountId,
       'full_name': fullName,
-      'phone_number': phoneNumberController.text.trim().isEmpty
-          ? null
-          : phoneNumberController.text.trim(),
+      'phone_number': phoneNumber.isEmpty ? null : phoneNumber,
       'service_model': widget.serviceModel,
       'region_id': selectedRegionId,
       'district_id': selectedDistrictId,
@@ -856,6 +900,10 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       'usage_type': usageType,
       'monthly_pack_items': monthlyPackItems,
       if (isMonthlyPack) 'pack_total_amount': totalAmount,
+      if (hasNextOfKin) 'next_of_kin_name': nokName.isEmpty ? null : nokName,
+      if (hasNextOfKin) 'next_of_kin_relationship': nokRel.isEmpty ? null : nokRel,
+      if (hasNextOfKin) 'next_of_kin_phone': nokPhone.isEmpty ? null : nokPhone,
+      if (hasNextOfKin) 'next_of_kin_address': nokAddr.isEmpty ? null : nokAddr,
     };
 
     if (!mounted) return;
@@ -1144,8 +1192,56 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
 
   bool _formStepShowAddMore = false;
 
-  /// Step 2: Basic Info + other input fields + Back + Next (→ documents screen)
+  /// Step 2: Basic Info. Name and phone from Auth (logged-in user profile) first, then backend customer if any.
   List<Widget> _buildFormFieldsStepContent() {
+    // Pre-fill from AsalPay Auth (profile/login) first – same as 252pay; works even when backend has no customer
+    if (!_prefilledFromWallet && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _prefilledFromWallet) return;
+        try {
+          final auth = Provider.of<Auth>(context, listen: false);
+          bool updated = false;
+          // 1) Auth: name and phone from user who logged in (wallet profile)
+          if (fullNameController.text.trim().isEmpty &&
+              auth.Name != null && auth.Name!.trim().isNotEmpty) {
+            fullNameController.text = auth.Name!.trim();
+            updated = true;
+          }
+          if (phoneNumberController.text.trim().isEmpty &&
+              auth.phone != null && auth.phone!.trim().isNotEmpty) {
+            phoneNumberController.text = auth.phone!.trim();
+            updated = true;
+          }
+          // 2) Backend customer_by_wallet – fill if Auth had nothing, and other fields (income, region, etc.)
+          if (_walletCustomerData != null) {
+            final d = _walletCustomerData!;
+            if (fullNameController.text.trim().isEmpty) {
+              final name = (d['full_name'] ?? d['customer_name'])?.toString().trim();
+              if (name != null && name.isNotEmpty) {
+                fullNameController.text = name;
+                updated = true;
+              }
+            }
+            if (phoneNumberController.text.trim().isEmpty) {
+              final phone = d['phone_number']?.toString().trim();
+              if (phone != null && phone.isNotEmpty) {
+                phoneNumberController.text = phone;
+                updated = true;
+              }
+            }
+            if (monthlyIncomeController.text.trim().isEmpty && d['monthly_income'] != null) {
+              final v = d['monthly_income'];
+              monthlyIncomeController.text = (v is num) ? v.toString() : v.toString();
+              updated = true;
+            }
+          }
+          if (updated) setState(() => _prefilledFromWallet = true);
+          else _prefilledFromWallet = true;
+        } catch (_) {
+          _prefilledFromWallet = true;
+        }
+      });
+    }
     return [
       Row(
         children: [
@@ -1179,7 +1275,7 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       ),
       const SizedBox(height: 6),
       Text(
-        'Wallet account is linked to your session. New customers must enter name and phone.',
+        'Name and phone are filled from your login (profile). You can change them if needed.',
         style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade600),
       ),
       const SizedBox(height: 12),
@@ -1315,6 +1411,58 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         decoration: InputDecoration(
           hintText: 'Number of family members',
           prefixIcon: const Icon(Icons.people),
+          border: OutlineInputBorder(borderRadius: br12),
+          filled: true,
+          fillColor: cardBg,
+        ),
+      ),
+      const SizedBox(height: 24),
+      Text('Next of Kin (Optional)',
+          style: GoogleFonts.poppins(
+              fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
+      const SizedBox(height: 6),
+      Text('Name, relationship, phone and address of next of kin.',
+          style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600)),
+      const SizedBox(height: 8),
+      TextField(
+        controller: nextOfKinNameController,
+        decoration: InputDecoration(
+          hintText: 'Full name',
+          prefixIcon: const Icon(Icons.person_outline),
+          border: OutlineInputBorder(borderRadius: br12),
+          filled: true,
+          fillColor: cardBg,
+        ),
+      ),
+      const SizedBox(height: 10),
+      TextField(
+        controller: nextOfKinRelationshipController,
+        decoration: InputDecoration(
+          hintText: 'e.g. spouse, parent, sibling',
+          prefixIcon: const Icon(Icons.family_restroom),
+          border: OutlineInputBorder(borderRadius: br12),
+          filled: true,
+          fillColor: cardBg,
+        ),
+      ),
+      const SizedBox(height: 10),
+      TextField(
+        controller: nextOfKinPhoneController,
+        keyboardType: TextInputType.phone,
+        decoration: InputDecoration(
+          hintText: 'Phone number',
+          prefixIcon: const Icon(Icons.phone_outlined),
+          border: OutlineInputBorder(borderRadius: br12),
+          filled: true,
+          fillColor: cardBg,
+        ),
+      ),
+      const SizedBox(height: 10),
+      TextField(
+        controller: nextOfKinAddressController,
+        decoration: InputDecoration(
+          hintText: 'Address',
+          prefixIcon: const Icon(Icons.location_on_outlined),
           border: OutlineInputBorder(borderRadius: br12),
           filled: true,
           fillColor: cardBg,

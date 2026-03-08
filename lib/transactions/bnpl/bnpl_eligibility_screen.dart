@@ -300,13 +300,17 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           child: Text(
                             '${item['name']} x${item['quantity']}',
                             style: GoogleFonts.poppins(fontSize: 14),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Text(
                           BnplUtils.formatCurrency(
                             ((item['unit_price'] as num) * (item['quantity'] as num)).toDouble(),
@@ -324,13 +328,17 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Total Amount:',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                    Flexible(
+                      child: Text(
+                        'Total Amount:',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       BnplUtils.formatCurrency(widget.totalOrderAmount),
                       style: GoogleFonts.poppins(

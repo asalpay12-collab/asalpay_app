@@ -304,7 +304,8 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
 
   /// Re-applies draft checklist after first frame so config setState does not overwrite; uses same keys as UI.
   void _applyDraftChecklist(Map<String, dynamic> draft) {
-    if (draft['checklist_items'] == null || draft['checklist_items'] is! List) return;
+    if (draft['checklist_items'] == null || draft['checklist_items'] is! List)
+      return;
     final list = draft['checklist_items'] as List;
     // Build map with all keys UI expects (from config), default false, then overlay draft
     final newChecklist = <String, bool>{};
@@ -322,7 +323,8 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     }
     if (!mounted) return;
     setState(() => eligibilityChecklist = Map<String, bool>.from(newChecklist));
-    api.appLog("📋 Checklist re-applied from draft (post-frame): ${eligibilityChecklist.toString()}");
+    api.appLog(
+        "📋 Checklist re-applied from draft (post-frame): ${eligibilityChecklist.toString()}");
   }
 
   Future<void> _checkForDraft() async {
@@ -341,7 +343,9 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         await _loadDraftData(draft);
         api.appLog("✅ Draft data loaded completely");
         // Re-apply checklist after first frame so config setState cannot overwrite it (fixes "checked not restored" when reopening draft)
-        if (draft['checklist_items'] != null && (draft['checklist_items'] as List).isNotEmpty && mounted) {
+        if (draft['checklist_items'] != null &&
+            (draft['checklist_items'] as List).isNotEmpty &&
+            mounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             _applyDraftChecklist(draft);
@@ -536,9 +540,11 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
       final newChecklist = <String, bool>{};
       for (var item in eligibilityChecklistItems) {
         final key = item['checklist_key']?.toString();
-        if (key != null && key.isNotEmpty) newChecklist[key] = eligibilityChecklist[key] ?? false;
+        if (key != null && key.isNotEmpty)
+          newChecklist[key] = eligibilityChecklist[key] ?? false;
       }
-      if (draft['checklist_items'] != null && draft['checklist_items'] is List) {
+      if (draft['checklist_items'] != null &&
+          draft['checklist_items'] is List) {
         final list = draft['checklist_items'] as List;
         for (var item in list) {
           if (item is! Map<String, dynamic>) continue;
@@ -551,23 +557,46 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
       }
       if (draft['age_verified'] == 1 || draft['age_verified'] == true) {
         for (var ageKey in ['age_18_plus', 'age_18', 'age_verified', 'age']) {
-          if (newChecklist.containsKey(ageKey)) { newChecklist[ageKey] = true; break; }
+          if (newChecklist.containsKey(ageKey)) {
+            newChecklist[ageKey] = true;
+            break;
+          }
         }
       }
-      if (draft['documentation_complete'] == 1 || draft['documentation_complete'] == true) {
-        for (var docKey in ['has_valid_id', 'has_id', 'valid_id', 'has_income_proof', 'income_proof', 'has_bank_statement', 'bank_statement']) {
+      if (draft['documentation_complete'] == 1 ||
+          draft['documentation_complete'] == true) {
+        for (var docKey in [
+          'has_valid_id',
+          'has_id',
+          'valid_id',
+          'has_income_proof',
+          'income_proof',
+          'has_bank_statement',
+          'bank_statement'
+        ]) {
           if (newChecklist.containsKey(docKey)) newChecklist[docKey] = true;
         }
       }
-      if (draft['guarantor_provided'] == 1 || draft['guarantor_provided'] == true) {
-        for (var gKey in ['willing_to_provide_guarantor', 'guarantor', 'provide_guarantor']) {
-          if (newChecklist.containsKey(gKey)) { newChecklist[gKey] = true; break; }
+      if (draft['guarantor_provided'] == 1 ||
+          draft['guarantor_provided'] == true) {
+        for (var gKey in [
+          'willing_to_provide_guarantor',
+          'guarantor',
+          'provide_guarantor'
+        ]) {
+          if (newChecklist.containsKey(gKey)) {
+            newChecklist[gKey] = true;
+            break;
+          }
         }
       }
       eligibilityChecklist = Map<String, bool>.from(newChecklist);
     }
-    api.appLog("📋 Eligibility checklist from draft: ${eligibilityChecklist.toString()}");
-    if (mounted) setState(() => eligibilityChecklist = Map<String, bool>.from(eligibilityChecklist));
+    api.appLog(
+        "📋 Eligibility checklist from draft: ${eligibilityChecklist.toString()}");
+    if (mounted)
+      setState(() =>
+          eligibilityChecklist = Map<String, bool>.from(eligibilityChecklist));
 
     // Pre-fill guarantor if available
     if (draft['guarantor_name'] != null) {
@@ -577,7 +606,8 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
       guarantorPhoneController.text = draft['guarantor_phone'].toString();
     }
     if (draft['guarantor_id_type'] != null) {
-      final idType = _normalizeGuarantorIdType(draft['guarantor_id_type'].toString());
+      final idType =
+          _normalizeGuarantorIdType(draft['guarantor_id_type'].toString());
       if (idType != null) selectedGuarantorIdType = idType;
     }
     if (draft['guarantor_id_number'] != null) {
@@ -712,7 +742,8 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         guarantorIncomeController.text = g['guarantor_income'].toString();
       }
       if (g['guarantor_id_type'] != null) {
-        final idType = _normalizeGuarantorIdType(g['guarantor_id_type'].toString());
+        final idType =
+            _normalizeGuarantorIdType(g['guarantor_id_type'].toString());
         if (idType != null) selectedGuarantorIdType = idType;
       }
       if (g['guarantor_id_number'] != null) {
@@ -780,8 +811,6 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         if (selectedGender != null) 'gender': selectedGender,
         if (selectedMaritalStatus != null)
           'marital_status': selectedMaritalStatus,
-        if (residentialAddressController.text.isNotEmpty)
-          'residential_address': residentialAddressController.text.trim(),
         if (selectedRegionId != null) 'region_id': selectedRegionId,
         if (selectedDistrictId != null) 'district_id': selectedDistrictId,
         if (selectedEmploymentStatus != null)
@@ -1519,8 +1548,29 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     }
   }
 
+  /// Document types that do not have a document number (bank statement, proof of income, etc.)
+  static const _documentTypesWithoutNumber = [
+    'bank_statement',
+    'income_proof',
+    'proof_of_income',
+    'has_bank_statement',
+    'has_income_proof'
+  ];
+
   Future<void> _pickDocument(String documentType) async {
     try {
+      // Document number required only for NEW uploads of ID-type documents (not for bank statement / proof of income)
+      final hasExisting = existingDocuments[documentType] == true;
+      final requiresDocNumber =
+          !_documentTypesWithoutNumber.contains(documentType);
+      if (!hasExisting && requiresDocNumber) {
+        final docNum = documentNumbers[documentType]?.trim() ?? '';
+        if (docNum.isEmpty) {
+          _showError(
+              'Document number is required for new uploads. Please enter the document number before uploading.');
+          return;
+        }
+      }
       // Show dialog to choose between image or PDF
       final choice = await showDialog<String>(
         context: context,
@@ -1744,7 +1794,6 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         final fullName = fullNameController.text.trim();
         final phone = phoneController.text.trim();
         final dob = dateOfBirthController.text.trim();
-        final address = residentialAddressController.text.trim();
 
         if (fullName.isEmpty) {
           _showError('Please enter your full name');
@@ -1765,10 +1814,6 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         }
         if (selectedMaritalStatus == null) {
           _showError('Please select your marital status');
-          return false;
-        }
-        if (address.isEmpty) {
-          _showError('Please enter your residential address');
           return false;
         }
         return true;
@@ -1833,43 +1878,25 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
           _showError('Please enter guarantor monthly income');
           return false;
         }
+        // Guarantor ID type and ID number are optional
         return true;
       case 6:
-        // Require BOTH: 1) Valid ID (NIRA, Passport, Birth Certificate for <400, etc.) AND 2) Bank Statement
-        const idDocKeys = [
-          'has_valid_id',
-          'nira',
-          'passport',
-          'driving_license',
-          'national_id',
-          'birth_certificate',
-        ];
-        const bankStatementKey = 'bank_statement';
-        bool hasIdDoc = false;
-        bool hasBankStatement = false;
+        // Documents step is optional – user can skip and proceed
+        // If user did upload an ID-type document, document number is required for that upload
         for (var docType in documentTypes) {
           final key = docType['document_type_key']?.toString();
           if (key == null) continue;
-          final hasDoc =
-              existingDocuments[key] == true || documents[key] != null;
-          if (idDocKeys.contains(key) && hasDoc) hasIdDoc = true;
-          if (key == bankStatementKey && hasDoc) hasBankStatement = true;
-        }
-        // Also check documents map directly for bank_statement (in case not in documentTypes)
-        if (!hasBankStatement &&
-            (existingDocuments[bankStatementKey] == true ||
-                documents[bankStatementKey] != null)) {
-          hasBankStatement = true;
-        }
-        if (!hasIdDoc) {
-          _showError(
-              'Please upload a valid ID document (NIRA, Passport, Driving License, or Birth Certificate if under \$400).');
-          return false;
-        }
-        if (!hasBankStatement) {
-          _showError(
-              'Bank Statement is required. Please upload your bank statement to continue.');
-          return false;
+          if (_documentTypesWithoutNumber.contains(key)) continue;
+          final hasNewUpload = documents[key] != null;
+          if (hasNewUpload) {
+            final num = documentNumbers[key]?.trim() ?? '';
+            if (num.isEmpty) {
+              final label = docType['document_type_name']?.toString() ?? key;
+              _showError(
+                  'Document number is required for $label. Please enter it before proceeding.');
+              return false;
+            }
+          }
         }
         return true;
       case 7:
@@ -1955,7 +1982,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         'date_of_birth': dateOfBirthController.text.trim(),
         'gender': selectedGender ?? 'male',
         'marital_status': selectedMaritalStatus ?? 'single',
-        'residential_address': residentialAddressController.text.trim(),
+        'residential_address': null,
         'district_id': selectedDistrictId!,
         'region_id': selectedRegionId!,
         'employment_status': selectedEmploymentStatus ?? 'employed',
@@ -2720,13 +2747,6 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             },
             icon: Icons.family_restroom,
           ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            controller: residentialAddressController,
-            label: 'Residential Address *',
-            icon: Icons.home,
-            maxLines: 2,
-          ),
         ],
       ),
     );
@@ -2957,27 +2977,20 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             onChanged: _onIncomeChanged,
           ),
           if (incomeCategory != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cardBg,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.category, color: primaryColor),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Income Category: $incomeCategory',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            //const SizedBox(height: 16),
+            // Container(
+            //   padding: const EdgeInsets.all(16),
+            //   decoration: BoxDecoration(
+            //     color: cardBg,
+            //     borderRadius: BorderRadius.circular(12),
+            //   ),
+            //   child: Row(
+            //     children: [
+            //       // Icon(Icons.category, color: primaryColor),
+            //       // const SizedBox(width: 8),
+            //     ],
+            //   ),
+            // ),
           ],
           const SizedBox(height: 16),
           _buildBankDropdown(),
@@ -3230,7 +3243,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
           const SizedBox(height: 16),
           _buildTextField(
             controller: guarantorIdNumberController,
-            label: 'Guarantor ID Number',
+            label: 'Guarantor ID Number (optional)',
             icon: Icons.badge_outlined,
             keyboardType: TextInputType.text,
           ),
@@ -3279,7 +3292,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     return DropdownButtonFormField<String>(
       value: selectedGuarantorIdType ?? _guarantorIdTypeValues.first,
       decoration: InputDecoration(
-        labelText: 'Guarantor ID Type *',
+        labelText: 'Guarantor ID Type (optional)',
         prefixIcon: Icon(Icons.badge_outlined, color: primaryColor),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
@@ -3396,7 +3409,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Required Documents',
+            'Documents (optional – you can skip and proceed)',
             style: GoogleFonts.poppins(
               fontSize: 22,
               fontWeight: FontWeight.w700,
@@ -3405,13 +3418,13 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'You need 2 documents to complete your application:',
+            'You can upload these documents if you have them. You can skip this step and proceed.',
             style:
                 GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade700),
           ),
           const SizedBox(height: 12),
 
-          // Info banner - both documents required (always visible)
+          // Info banner - documents optional, user can skip and proceed
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -3454,7 +3467,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Both documents are required',
+                            'Documents are optional',
                             style: GoogleFonts.poppins(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -3463,7 +3476,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Both documents are mandatory. Bank statement must be uploaded—no exceptions.',
+                            'You can skip this step and proceed without uploading. Upload if you have them.',
                             style: GoogleFonts.poppins(
                               fontSize: 12,
                               color: Colors.grey.shade700,
@@ -3477,7 +3490,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                 const SizedBox(height: 16),
                 _buildDocRequirementRow(
                   1,
-                  'Valid ID (NIRA, Passport, or Driving License)',
+                  'Valid ID (NIRA, Passport, or Driving License) (optional)',
                   (existingDocuments.entries
                           .any((e) => _idDocKeys.contains(e.key) && e.value) ||
                       documents.entries.any((e) =>
@@ -3486,7 +3499,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                 const SizedBox(height: 10),
                 _buildDocRequirementRow(
                   2,
-                  'Bank Statement (always required)',
+                  'Bank Statement (optional)',
                   existingDocuments[_bankStatementKey] == true ||
                       documents[_bankStatementKey] != null,
                 ),
@@ -3715,16 +3728,19 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                requiresExpiration
-                                    ? 'Expiration Date *'
-                                    : 'Expiration Date (Optional)',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: requiresExpiration
-                                      ? Colors.orange.shade700
-                                      : Colors.blue.shade700,
+                              Expanded(
+                                child: Text(
+                                  requiresExpiration
+                                      ? 'Expiration Date *'
+                                      : 'Expiration Date',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: requiresExpiration
+                                        ? Colors.orange.shade700
+                                        : Colors.blue.shade700,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
@@ -3772,11 +3788,14 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                                 Icon(Icons.warning,
                                     size: 16, color: Colors.orange.shade700),
                                 const SizedBox(width: 4),
-                                Text(
-                                  'This document type requires an expiration date',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12,
-                                    color: Colors.orange.shade700,
+                                Expanded(
+                                  child: Text(
+                                    'This document type requires an expiration date',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.orange.shade700,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
@@ -3808,12 +3827,19 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                'Document Number',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.blue.shade700,
+                              Expanded(
+                                child: Text(
+                                  selectedDocumentType != null &&
+                                          _documentTypesWithoutNumber
+                                              .contains(selectedDocumentType)
+                                      ? 'Document Number (optional – you can skip if not required)'
+                                      : 'Document Number (required)',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
@@ -3821,7 +3847,11 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                           const SizedBox(height: 8),
                           _buildTextField(
                             controller: documentNumberController,
-                            label: 'Enter document number if available',
+                            label: selectedDocumentType != null &&
+                                    _documentTypesWithoutNumber
+                                        .contains(selectedDocumentType)
+                                ? 'Document number – optional; leave blank if you don\'t have one (e.g. bank statement)'
+                                : 'Document number (required)',
                             icon: Icons.badge_outlined,
                             keyboardType: TextInputType.text,
                             onChanged: (value) {
@@ -3918,7 +3948,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
               ),
             ],
 
-            // ========== Bank Statement (always required, inside same card) ==========
+            // ========== Bank Statement (optional, inside same card) ==========
             const SizedBox(height: 24),
             Container(
               padding: const EdgeInsets.all(12),
@@ -4429,7 +4459,6 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                         'N/A')
                     : 'N/A'
               ),
-              ('Risk level', locationRisk?.riskLevel ?? 'N/A'),
             ],
           ),
           _buildReviewSection(
@@ -4439,7 +4468,6 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
               ('Status', selectedEmploymentStatus ?? '—'),
               ('Employer', employerNameController.text),
               ('Monthly income', '\$${monthlyIncomeController.text}'),
-              ('Income category', incomeCategory ?? '—'),
             ],
           ),
           _buildReviewSection(
@@ -4737,13 +4765,25 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: GoogleFonts.poppins(fontSize: 14)),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(fontSize: 14),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

@@ -431,18 +431,18 @@ class _EwareejiMainScreenState extends State<EwareejiMainScreen> {
             }),
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 12),
         // Networks under selected currency (empty haddii API soo celiyo currency cusub oo aan la keyin _currencyNetworks)
         if (networks != null && networks.isNotEmpty) ...[
           Text(
             'Networks',
             style: TextStyle(
               color: Colors.white.withOpacity(0.95),
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           ...networks.map((n) {
             final network = n['network'] as String;
             final buyRate = n['buyRate'] as String;
@@ -474,80 +474,71 @@ class _EwareejiMainScreenState extends State<EwareejiMainScreen> {
     List<Map<String, String>> sellRates,
   ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [secondryColor.withOpacity(0.2), secondryColor.withOpacity(0.08)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.lan_rounded, color: secondryColor, size: 24),
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [secondryColor.withOpacity(0.2), secondryColor.withOpacity(0.08)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.lan_rounded, color: secondryColor, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    network,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A2E),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
                     children: [
-                      Text(
-                        network,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1A1A2E),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          _rateChip(Icons.trending_up_rounded, buyRate, true),
-                          const SizedBox(width: 8),
-                          _rateChip(Icons.trending_down_rounded, sellRate, false),
-                        ],
-                      ),
+                      _rateChip(Icons.trending_up_rounded, buyRate, true),
+                      const SizedBox(width: 6),
+                      _rateChip(Icons.trending_down_rounded, sellRate, false),
                     ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _actionIconButton(
-                      icon: Icons.shopping_cart_rounded,
-                      isBuy: true,
-                      onTap: () => _showRatesSheet(true, currency, network, buyRates),
-                    ),
-                    const SizedBox(width: 10),
-                    _actionIconButton(
-                      icon: Icons.sell_rounded,
-                      isBuy: false,
-                      onTap: () => _showRatesSheet(false, currency, network, sellRates),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            _actionIconButton(
+              icon: Icons.shopping_cart_rounded,
+              isBuy: true,
+              onTap: () => _showRatesSheet(true, currency, network, buyRates),
+            ),
+            const SizedBox(width: 6),
+            _actionIconButton(
+              icon: Icons.sell_rounded,
+              isBuy: false,
+              onTap: () => _showRatesSheet(false, currency, network, sellRates),
             ),
           ],
         ),
@@ -557,20 +548,20 @@ class _EwareejiMainScreenState extends State<EwareejiMainScreen> {
 
   Widget _rateChip(IconData icon, String rate, bool isBuy) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: (isBuy ? primaryColor : Colors.orange).withOpacity(0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: isBuy ? primaryColor : Colors.orange.shade700),
-          const SizedBox(width: 4),
+          Icon(icon, size: 12, color: isBuy ? primaryColor : Colors.orange.shade700),
+          const SizedBox(width: 3),
           Text(
             rate,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               color: isBuy ? primaryColor : Colors.orange.shade800,
             ),
@@ -587,15 +578,15 @@ class _EwareejiMainScreenState extends State<EwareejiMainScreen> {
   }) {
     return Material(
       color: isBuy ? secondryColor.withOpacity(0.12) : secondryColor,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(8),
           child: Icon(
             icon,
-            size: 22,
+            size: 20,
             color: isBuy ? secondryColor : Colors.white,
           ),
         ),
