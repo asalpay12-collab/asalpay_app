@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:asalpay/constants/Constant.dart';
 import 'package:asalpay/providers/FillDropdownbyRegistreration.dart';
+import 'package:asalpay/utils/network_utils.dart';
 import 'package:asalpay/services/api_urls.dart';
 import 'package:asalpay/services/tokens.dart';
 import 'package:asalpay/snack_bar/open_snack_bar.dart';
@@ -180,17 +181,17 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     required VoidCallback onChange,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE6E6E6)),
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: secondryColor.withOpacity(0.12)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
+            color: secondryColor.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
         ],
       ),
       child: Row(
@@ -203,16 +204,18 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   label,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF64748B),
-                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF475569),
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   value.isEmpty ? 'Not set' : value,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: Color(0xFF0C3D3B),
+                    letterSpacing: 0.1,
                   ),
                 ),
               ],
@@ -220,7 +223,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           ),
           IconButton(
             onPressed: onChange,
-            icon: const Icon(Icons.edit, color: secondryColor),
+            icon: Icon(Icons.edit_outlined, color: primaryColor, size: 22),
           ),
         ],
       ),
@@ -309,7 +312,13 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       }
     } catch (e) {
       debugPrint('❌ CompleteProfile error: $e');
-      if (mounted) openSnackbar(context, 'Error: $e', Colors.red);
+      if (mounted) {
+        if (isNetworkError(e)) {
+          showNoConnectionDialog(context);
+        } else {
+          openSnackbar(context, 'Error: $e', Colors.red);
+        }
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -317,14 +326,36 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: secondryColor,
-        ),
+      padding: const EdgeInsets.only(top: 22, bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 22,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              letterSpacing: -0.3,
+              height: 1.25,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -344,10 +375,11 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
               fontSize: 14,
-              color: Color(0xFF334155),
+              color: Colors.white.withOpacity(0.95),
+              letterSpacing: 0.1,
             ),
           ),
           const SizedBox(height: 8),
@@ -356,18 +388,34 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
             keyboardType: keyboardType,
             validator: validator,
             enabled: enabled,
+            style: const TextStyle(
+              fontSize: 15,
+              color: Color(0xFF0C3D3B),
+              fontWeight: FontWeight.w600,
+            ),
             decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              prefixIcon: Icon(icon, color: secondryColor),
+              filled: true,
+              fillColor: pureWhite,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              prefixIcon: Icon(icon, color: secondryColor, size: 22),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: secondryColor.withOpacity(0.15)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: secondryColor.withOpacity(0.18)),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: secondryColor, width: 1.5),
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: secondryColor, width: 2),
               ),
               hintText: "Enter $label",
+              hintStyle: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -386,14 +434,14 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: hasFile ? Colors.green : secondryColor,
+          backgroundColor: pureWhite,
+          foregroundColor: hasFile ? const Color(0xFF166534) : secondryColor,
           side: BorderSide(
-            color: hasFile ? Colors.green : secondryColor,
+            color: hasFile ? const Color(0xFF22C55E) : secondryColor.withOpacity(0.5),
             width: 1.5,
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
@@ -405,8 +453,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
             Text(
               hasFile ? '$label Selected' : label,
               style: TextStyle(
-                fontWeight: FontWeight.w500,
-                color: hasFile ? Colors.green : secondryColor,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: hasFile ? const Color(0xFF166534) : secondryColor,
               ),
             ),
           ],
@@ -438,47 +487,81 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     final countryName   = _nameById(dd.country, _countryId);
     final walletTypeStr = _nameById(dd.walletType, _walletTypeId);
 
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: secondryColor,
-        title: const Text('Complete Profile'),
-        centerTitle: true,
-        elevation: 0,
-      ),
+      backgroundColor: secondryColor,
       body: SafeArea(
-        child: _isLoadingDropData
-            ? const Center(
-                child: LogoandSpinner(
-                  imageAssets: 'assets/asalicon.png',
-                  reverse: true,
-                  arcColor: primaryColor,
-                  spinSpeed: Duration(milliseconds: 500),
-                ),
-              )
-            : SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // const Text(
-                      //   'Complete Your Profile',
-                      //   style: TextStyle(
-                      //     fontSize: 24,
-                      //     fontWeight: FontWeight.bold,
-                      //     color: secondryColor,
-                      //   ),
-                      // ),
-                      const SizedBox(height: 8),
-                      // const Text(
-                      //   'Please fill in the remaining details to activate your account',
-                      //   style: TextStyle(
-                      //     fontSize: 14,
-                      //     color: Color(0xFF64748B),
-                      //   ),
-                      // ),
-                      const SizedBox(height: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(15, 8, 15, 12),
+              child: Row(
+                children: [
+                  Material(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context),
+                      borderRadius: BorderRadius.circular(12),
+                      child: const Padding(
+                        padding: EdgeInsets.all(10),
+                        child: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Text(
+                      'Complete Profile',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _isLoadingDropData
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const LogoandSpinner(
+                            imageAssets: 'assets/asalicon.png',
+                            reverse: true,
+                            arcColor: primaryColor,
+                            spinSpeed: Duration(milliseconds: 500),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Loading form…',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(15, 0, 15, 16 + bottomPad),
+                      child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                      const SizedBox(height: 4),
 
                       if (_countryId != null || 
                           _walletTypeId != null || 
@@ -580,12 +663,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Country',
                                 style: TextStyle(
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
                                   fontSize: 14,
-                                  color: Color(0xFF334155),
+                                  color: Colors.white.withOpacity(0.95),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -619,12 +702,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Province',
                               style: TextStyle(
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                                 fontSize: 14,
-                                color: Color(0xFF334155),
+                                color: Colors.white.withOpacity(0.95),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -657,12 +740,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'City',
                               style: TextStyle(
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                                 fontSize: 14,
-                                color: Color(0xFF334155),
+                                color: Colors.white.withOpacity(0.95),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -678,7 +761,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                                 child: const Center(
                                   child: Text(
                                     'Select a province first',
-                                    style: TextStyle(color: Color(0xFF94A3B8)),
+                                    style: const TextStyle(
+                                      color: Color(0xFF64748B),
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -717,12 +803,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Wallet Type',
                                 style: TextStyle(
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
                                   fontSize: 14,
-                                  color: Color(0xFF334155),
+                                  color: Colors.white.withOpacity(0.95),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -746,12 +832,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Document Type',
                               style: TextStyle(
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                                 fontSize: 14,
-                                color: Color(0xFF334155),
+                                color: Colors.white.withOpacity(0.95),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -823,6 +909,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                       const SizedBox(height: 24),
 
                       // Submit
+                      const SizedBox(height: 8),
                       SizedBox(
                         width: double.infinity,
                         height: 52,
@@ -832,24 +919,26 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                             backgroundColor: secondryColor,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                             elevation: 0,
+                            shadowColor: secondryColor.withOpacity(0.4),
                           ),
                           child: _submitting
                               ? const SizedBox(
-                                  width: 24, 
-                                  height: 24, 
+                                  width: 24,
+                                  height: 24,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 3,
                                     color: Colors.white,
                                   ),
                                 )
                               : const Text(
-                                  'Complete Profile', 
+                                  'Complete Profile',
                                   style: TextStyle(
-                                    fontWeight: FontWeight.w600, 
-                                    fontSize: 16
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                    letterSpacing: 0.2,
                                   ),
                                 ),
                         ),
@@ -858,6 +947,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   ),
                 ),
               ),
+            ),
+          ],
+        ),
       ),
     );
   }

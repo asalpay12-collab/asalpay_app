@@ -12,24 +12,40 @@ import 'my_orders_screen.dart';
 import 'basket_screen.dart';
 import 'bnpl/bnpl_tracking_screen.dart';
 import 'bnpl/bnpl_application_screen.dart';
+import '252pay/252pay_search_bar.dart';
+import '252pay/252pay_screen_background.dart';
+import '../constants/Constant.dart';
 import 'package:asalpay/widgets/commonBtn.dart';
 import 'package:flutter_otp_text_field/flutter_otp_text_field.dart';
 import 'package:provider/provider.dart';
 import '../models/http_exception.dart';
 import '../providers/HomeSliderandTransaction.dart';
 import '../providers/auth.dart';
+import '../utils/network_utils.dart';
+// Biometric disabled
+// import '../services/biometric_service.dart';
 
 class ProductPurchaseScreen extends StatefulWidget {
-  const ProductPurchaseScreen({super.key, required this.wallet_accounts_id});
+  const ProductPurchaseScreen({
+    super.key,
+    required this.wallet_accounts_id,
+    this.initialPaymentItems,
+    this.initialPaymentTotal,
+  });
   final String? wallet_accounts_id;
+
+  /// When set, screen runs the pay flow immediately (e.g. from 252PAY basket).
+  final List<Map<String, dynamic>>? initialPaymentItems;
+  final double? initialPaymentTotal;
+
   @override
   State<ProductPurchaseScreen> createState() => _ProductPurchaseScreenState();
 }
 
 class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
   final Color primaryColor = const Color(0xFF005653);
-  final Color cardBg = const Color(0xFFF8FAFA);
-  final Color bodyBg = Colors.white;
+  final Color cardBg = const Color(0xFFF2F7F7);
+  final Color bodyBg = const Color(0xFFF0F5F5);
   final BorderRadius br12 = BorderRadius.circular(12);
   final api = ApiService();
   final bnplApi = BnplApiService();
@@ -42,18 +58,37 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
   List<Map<String, dynamic>> merchnataccountInfo = [];
   List<Map<String, dynamic>> merchantInfo = [];
   List<Map<String, dynamic>> orderItems = [];
-  static const String baseUrl = ApiService.imgURL;
+  static String get baseUrl => ApiService.imgURL;
   bool isLoading = true;
   Category? selectedCategory;
   Category? selectedSubCategory;
   Product? selectedProduct;
   String ModelErrorMessage = "";
   String pinNumber = "";
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _loadCategories();
+    _searchController.addListener(() => setState(() {}));
+    if (widget.initialPaymentItems != null &&
+        widget.initialPaymentItems!.isNotEmpty &&
+        widget.initialPaymentTotal != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        orderItems =
+            List<Map<String, dynamic>>.from(widget.initialPaymentItems!);
+        submitPayNowOrder(widget.initialPaymentTotal!, orderItems);
+      });
+    } else {
+      _loadCategories();
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCategories() async {
@@ -897,6 +932,10 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
       setState(() {
         isloading1 = false;
       });
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+        return false;
+      }
       _showErrorDialog(error.toString());
       return false;
     }
@@ -912,6 +951,15 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
   Future<bool> _showMyDialogConfirmPin() async {
     bool result = false;
     String currentPin = "";
+
+    bool showFingerprintBtn = false;
+    bool useFingerprintConfirm = false;
+    // Biometric disabled
+    // final useFingerprintConfirm = await BiometricService.getUseFingerprintConfirm();
+    // if (useFingerprintConfirm) {
+    //   final storedPin = await BiometricService.getPinForFingerprintConfirm();
+    //   showFingerprintBtn = storedPin != null && storedPin.length == 4;
+    // }
 
     await showDialog<void>(
       context: context,
@@ -934,8 +982,9 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
               });
 
               if (isValid) {
+                // if (useFingerprintConfirm) await BiometricService.savePinForFingerprintConfirm(code);
                 result = true;
-                Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context);
               }
             }
 
@@ -980,6 +1029,35 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                     style: Theme.of(context).textTheme.bodyMedium ??
                         const TextStyle(fontSize: 16),
                   ),
+                  // Biometric disabled
+                  // if (showFingerprintBtn) ...[
+                  //   const SizedBox(height: 16),
+                  //   Material(
+                  //     color: primaryColor.withOpacity(0.12),
+                  //     borderRadius: BorderRadius.circular(10),
+                  //     child: InkWell(
+                  //       onTap: isloading1 ? null : () async {
+                  //         final ok = await BiometricService.authenticate(reason: 'Verify fingerprint to confirm');
+                  //         if (!ok || !context.mounted) return;
+                  //         final storedPin = await BiometricService.getPinForFingerprintConfirm();
+                  //         if (storedPin == null || storedPin.length != 4) return;
+                  //         await verifyPin(storedPin);
+                  //       },
+                  //       borderRadius: BorderRadius.circular(10),
+                  //       child: Padding(
+                  //         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  //         child: Row(
+                  //           mainAxisAlignment: MainAxisAlignment.center,
+                  //           children: [
+                  //             Icon(Icons.fingerprint, color: primaryColor, size: 24),
+                  //             const SizedBox(width: 10),
+                  //             Text('Use fingerprint', style: TextStyle(color: primaryColor, fontSize: 15, fontWeight: FontWeight.w600)),
+                  //           ],
+                  //         ),
+                  //       ),
+                  //     ),
+                  //   ),
+                  // ],
                   const SizedBox(height: 20),
                   OtpTextField(
                     numberOfFields: 4,
@@ -1199,14 +1277,15 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bodyBg,
+      backgroundColor: secondryColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: pureWhite,
         title: PopupMenuButton<String>(
           child: Text(
-            '252pay',
+            kEasyShopServiceName,
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w600,
               fontSize: 20,
@@ -1245,6 +1324,7 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
+            _searchController.clear();
             setState(() {
               if (selectedProduct != null) {
                 selectedProduct = null;
@@ -1379,16 +1459,27 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : selectedCategory == null
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                : selectedCategory == null
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildBnplApplicationsCard(),
                       const SizedBox(height: 20),
+                      Pay252SearchBar(
+                        controller: _searchController,
+                        hint: 'Search categories…',
+                        onChanged: (_) => setState(() {}),
+                        primaryColor: primaryColor,
+                        cardBg: cardBg,
+                      ),
+                      const SizedBox(height: 16),
                       Expanded(child: _buildCategoryGrid()),
                     ],
                   )
@@ -1397,6 +1488,14 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildMainCategoriesBar(),
+                          Pay252SearchBar(
+                            controller: _searchController,
+                            hint: 'Search subcategories…',
+                            onChanged: (_) => setState(() {}),
+                            primaryColor: primaryColor,
+                            cardBg: cardBg,
+                          ),
+                          const SizedBox(height: 16),
                           Expanded(
                             child: _buildSubCategoryGrid(),
                           ),
@@ -1407,33 +1506,67 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _buildSubCategoriesBar(),
+                              Pay252SearchBar(
+                                controller: _searchController,
+                                hint: 'Search products…',
+                                onChanged: (_) => setState(() {}),
+                                primaryColor: primaryColor,
+                                cardBg: cardBg,
+                              ),
+                              const SizedBox(height: 16),
                               Expanded(child: _buildProductGrid()),
                             ],
                           )
                         : _buildPaymentPlaceholder(),
+          ),
+        ),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => DiscountProductPurchaseScreen(
-                      wallet_accounts_id: widget.wallet_accounts_id),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DiscountProductPurchaseScreen(
+                        wallet_accounts_id: widget.wallet_accounts_id),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(20),
+              splashColor: Colors.white.withOpacity(0.15),
+              highlightColor: Colors.white.withOpacity(0.08),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.2),
+                    width: 1.2,
+                  ),
                 ),
-              );
-            },
-            icon: const Icon(Icons.local_offer),
-            label: Text(
-              'Discount Products',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: br12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.local_offer,
+                        color: Colors.white.withOpacity(0.95), size: 22),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Discount Products',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: Colors.white.withOpacity(0.95),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -1460,7 +1593,7 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              color: Colors.white.withOpacity(0.95),
             ),
           ),
           const SizedBox(height: 10),
@@ -1589,7 +1722,7 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              color: Colors.white.withOpacity(0.95),
             ),
           ),
           const SizedBox(height: 10),
@@ -1708,11 +1841,20 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
   Widget _buildSubCategoryGrid() {
     final width = MediaQuery.of(context).size.width;
     final crossAxisCount = width < 600 ? 2 : 3;
-    if (subCategories.isEmpty) {
+    final q = _searchController.text.trim().toLowerCase();
+    final filtered = q.isEmpty
+        ? subCategories
+        : subCategories
+            .where((c) => c.subCategoryName.toLowerCase().contains(q))
+            .toList();
+    if (filtered.isEmpty) {
       return Center(
         child: Text(
-          'No  sub category available.',
-          style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+          subCategories.isEmpty
+              ? 'No sub category available.'
+              : 'No subcategory matches your search.',
+          style: GoogleFonts.poppins(
+              fontSize: 16, color: Colors.white.withOpacity(0.9)),
         ),
       );
     }
@@ -1723,13 +1865,13 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
         crossAxisSpacing: 16,
         childAspectRatio: 0.9,
       ),
-      itemCount: subCategories.length,
+      itemCount: filtered.length,
       itemBuilder: (_, idx) {
-        final subcat = subCategories[idx];
+        final subcat = filtered[idx];
         return InkWell(
           borderRadius: br12,
           onTap: () async {
-            print(subcat.subCategoryId);
+            _searchController.clear();
             await _loadProducts(subcat.subCategoryId);
             setState(() {
               selectedSubCategory = subcat;
@@ -1783,6 +1925,7 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
     );
   }
 
+  /// BNPL card — same background style as Settings cards (white 0.12, border 0.2).
   Widget _buildBnplApplicationsCard() {
     return InkWell(
       onTap: () {
@@ -1795,33 +1938,37 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           ),
         );
       },
-      borderRadius: br12,
+      borderRadius: BorderRadius.circular(20),
+      splashColor: Colors.white.withOpacity(0.15),
+      highlightColor: Colors.white.withOpacity(0.08),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         decoration: BoxDecoration(
-          color: primaryColor,
-          borderRadius: br12,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            )
-          ],
+          color: Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 1.2,
+          ),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.2),
+                  width: 1,
+                ),
               ),
               child: const Icon(
                 Icons.credit_card,
                 color: Colors.white,
-                size: 32,
+                size: 24,
               ),
             ),
             const SizedBox(width: 16),
@@ -1832,9 +1979,9 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                   Text(
                     'My BNPL Applications',
                     style: GoogleFonts.poppins(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: Colors.white.withOpacity(0.95),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -1842,16 +1989,16 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                     'View and manage your applications',
                     style: GoogleFonts.poppins(
                       fontSize: 13,
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withOpacity(0.85),
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.white,
-              size: 20,
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: Colors.white.withOpacity(0.8),
             ),
           ],
         ),
@@ -1862,11 +2009,20 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
   Widget _buildCategoryGrid() {
     final width = MediaQuery.of(context).size.width;
     final crossAxisCount = width < 600 ? 2 : 3;
-    if (categories.isEmpty) {
+    final q = _searchController.text.trim().toLowerCase();
+    final filtered = q.isEmpty
+        ? categories
+        : categories
+            .where((c) => c.categoryName.toLowerCase().contains(q))
+            .toList();
+    if (filtered.isEmpty) {
       return Center(
         child: Text(
-          'No Category available.',
-          style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+          categories.isEmpty
+              ? 'No Category available.'
+              : 'No category matches your search.',
+          style: GoogleFonts.poppins(
+              fontSize: 16, color: Colors.white.withOpacity(0.9)),
         ),
       );
     }
@@ -1878,12 +2034,13 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
         crossAxisSpacing: 16,
         childAspectRatio: 0.9,
       ),
-      itemCount: categories.length,
+      itemCount: filtered.length,
       itemBuilder: (_, idx) {
-        final cat = categories[idx];
+        final cat = filtered[idx];
         return InkWell(
           borderRadius: br12,
           onTap: () async {
+            _searchController.clear();
             await _loadSubCategories(cat.categoryId);
             setState(() {
               selectedCategory = cat;
@@ -1941,11 +2098,18 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
 
   Widget _buildProductGrid() {
     int crossAxisCount = MediaQuery.of(context).size.width < 600 ? 2 : 3;
-    if (products.isEmpty) {
+    final q = _searchController.text.trim().toLowerCase();
+    final filtered = q.isEmpty
+        ? products
+        : products.where((p) => p.name.toLowerCase().contains(q)).toList();
+    if (filtered.isEmpty) {
       return Center(
         child: Text(
-          'No  product available.',
-          style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+          products.isEmpty
+              ? 'No product available.'
+              : 'No product matches your search.',
+          style: GoogleFonts.poppins(
+              fontSize: 16, color: Colors.white.withOpacity(0.9)),
         ),
       );
     }
@@ -1979,9 +2143,9 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                     crossAxisSpacing: 16,
                     childAspectRatio: 0.85,
                   ),
-                  itemCount: products.length,
+                  itemCount: filtered.length,
                   itemBuilder: (_, idx) {
-                    final product = products[idx];
+                    final product = filtered[idx];
                     final unitPrice = double.tryParse(product.unitPrice) ?? 0.0;
                     final remainingQuantity = product.remainingQuantity;
 
@@ -2062,22 +2226,21 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                               ),
                             ),
                             const SizedBox(height: 4),
-
-                            // See Details – commented out for now; uncomment when needed
-                            // GestureDetector(
-                            //   onTap: () {
-                            //     _showPaymentPolicySheet(product);
-                            //   },
-                            //   child: Text(
-                            //     "See Details",
-                            //     style: GoogleFonts.poppins(
-                            //       fontSize: 12,
-                            //       fontWeight: FontWeight.w500,
-                            //       color: Colors.blue,
-                            //       decoration: TextDecoration.underline,
-                            //     ),
-                            //   ),
-                            // ),
+                            GestureDetector(
+                              onTap: () {
+                                _showProductDetailsSheet(
+                                    product, unitPrice, remainingQuantity);
+                              },
+                              child: Text(
+                                'View details',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: primaryColor,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -2266,6 +2429,128 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           controller: TextEditingController(text: value),
         ),
       ),
+    );
+  }
+
+  void _showProductDetailsSheet(
+    Product product,
+    double unitPrice,
+    String remainingQuantity,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      builder: (context) {
+        final mq = MediaQuery.of(context);
+        final screenHeight = mq.size.height;
+        final bottomPadding = mq.viewPadding.bottom;
+        return Container(
+          constraints: BoxConstraints(maxHeight: screenHeight * 0.85),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade400,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                product.name,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: primaryColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: br12,
+                child: Image.network(
+                  '$baseUrl/${product.imagePath}',
+                  height: 160,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.broken_image,
+                    size: 48,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '\$${unitPrice.toStringAsFixed(2)}',
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: primaryColor,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Description',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        product.description.isEmpty
+                            ? 'No description'
+                            : product.description,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          height: 1.4,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: EdgeInsets.only(bottom: bottomPadding + 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _showOrderDialog(product, unitPrice, remainingQuantity);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: br12),
+                    ),
+                    child: const Text('Order'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

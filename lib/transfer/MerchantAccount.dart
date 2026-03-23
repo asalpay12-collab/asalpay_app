@@ -11,7 +11,6 @@ import 'package:asalpay/widgets/AllFormFields.dart';
 import 'package:asalpay/widgets/AllWalletOperationDropDown.dart';
 import 'package:asalpay/widgets/CommonTextView.dart';
 import 'package:asalpay/widgets/commonBtn.dart';
-import 'package:connectivity_plus/connectivity_plus.dart'; 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -22,6 +21,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../TransferReceiptLetter/paymentPage.dart';
 import '../constants/Constant.dart';
+import '../utils/network_utils.dart';
 
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -272,6 +272,11 @@ Future<void> _ChecKMerchantAccountNumber() async {
       setState(() => isloading1 = false);
       return;
     } catch (error) {
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+        setState(() => isloading1 = false);
+        return;
+      }
       _showErrorDialog(error.toString());
       setState(() => isloading1 = false);
       return;
@@ -287,8 +292,8 @@ Future<void> _ChecKMerchantAccountNumber() async {
     _form.currentState?.save();
     setState(() => _isLoading = true);
 
-    if (await Connectivity().checkConnectivity() == ConnectivityResult.none) {
-      openSnackbar(context, 'No Internet Connection', secondryColor);
+    if (await checkConnectivityIndicatesOffline()) {
+      showNoConnectionDialog(context);
       setState(() => _isLoading = false);
       return;
     }
@@ -297,6 +302,11 @@ Future<void> _ChecKMerchantAccountNumber() async {
       await Provider.of<TransferOperations>(context, listen: false)
           .addSavemerchantRegistration(_addSaveMerchantRegisteration, widget.wallet_accounts_id!);
     } catch (error) {
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+        setState(() => _isLoading = false);
+        return;
+      }
       openSnackbar(context, error.toString(), secondryColor);
       setState(() => _isLoading = false);
       return;
@@ -411,7 +421,11 @@ void _processAmount(String input) async {
         AmountReceive.text = "$currency_name_to $amountReceive";
       });
     } catch (e) {
-      openSnackbar(context, "Error: ${e.toString()}", secondryColor);
+      if (isNetworkError(e)) {
+        showNoConnectionDialog(context);
+      } else {
+        openSnackbar(context, "Error: ${e.toString()}", secondryColor);
+      }
     } finally {
       setState(() => _isLoadingExchange = false);
     }

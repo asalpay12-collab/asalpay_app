@@ -149,6 +149,10 @@ class BnplUtils {
         return 'Operations Approved';
       case 'rejected':
         return 'Rejected';
+      case 'cancelled':
+        return 'Cancelled';
+      case 'draft':
+        return 'Draft';
       case 'approved':
         return 'Approved';
       default:

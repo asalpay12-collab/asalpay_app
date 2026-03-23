@@ -4,13 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../constants/Constant.dart';
 import '../../services/qows_kaab_api_service.dart';
+import '../252pay/252pay_screen_background.dart';
 import 'qows_kaab_tracking_screen.dart';
 
 class QowsKaabDocumentUploadScreen extends StatefulWidget {
   /// When null, application is created on "Submit Application" (formData must be set).
   final int? qowsKaabId;
   final String walletAccountId;
+
   /// When set, application is not yet created; Submit Application will create it then go to tracking.
   final Map<String, dynamic>? applicationFormData;
 
@@ -40,13 +43,16 @@ class _QowsKaabDocumentUploadScreenState
   String? _selectedDocumentKey;
   File? _pickedFile;
   String _pickedFileName = '';
-  final TextEditingController _documentNumberController = TextEditingController();
+  final TextEditingController _documentNumberController =
+      TextEditingController();
   bool isUploading = false;
   bool isSubmitting = false;
+
   /// Pending file uploads when application not yet created (will upload after create on Submit).
   final List<Map<String, dynamic>> _pendingUploads = [];
 
-  bool get _createOnSubmit => widget.applicationFormData != null && widget.qowsKaabId == null;
+  bool get _createOnSubmit =>
+      widget.applicationFormData != null && widget.qowsKaabId == null;
 
   @override
   void initState() {
@@ -80,29 +86,37 @@ class _QowsKaabDocumentUploadScreenState
   }
 
   Future<void> _loadCustomerDocuments() async {
-    final res = await _api.getCustomerDocuments(
-        walletAccount: widget.walletAccountId);
+    final res =
+        await _api.getCustomerDocuments(walletAccount: widget.walletAccountId);
     final data = res['data'];
-    final documents =
-        data != null ? (data['documents'] as List?) ?? [] : [];
+    final documents = data != null ? (data['documents'] as List?) ?? [] : [];
     final Set<String> existing = {};
     for (final d in documents) {
       if (d is Map && (d['is_expired'] == 0 || d['is_expired'] == false)) {
-        final type = d['document_type']?.toString();
+        final type = (d['document_type'] ?? d['document_type_key'])?.toString();
         if (type != null && type.isNotEmpty) existing.add(type);
       }
     }
     if (mounted) setState(() => _existingDocumentTypes = existing);
   }
 
-  bool _alreadyHasDocument(String typeKey) =>
-      _existingDocumentTypes
-          .any((t) => t.toLowerCase() == typeKey.toLowerCase());
+  bool _alreadyHasDocument(String typeKey) => _existingDocumentTypes
+      .any((t) => t.toLowerCase() == typeKey.toLowerCase());
 
   String _docLabel(Map<String, dynamic> doc) =>
-      (doc['document_type_label'] ?? doc['label'] ?? doc['document_type_key'] ?? '')?.toString() ?? '';
+      (doc['document_type_label'] ??
+              doc['label'] ??
+              doc['document_type_key'] ??
+              '')
+          ?.toString() ??
+      '';
   String _docSubtitle(Map<String, dynamic> doc) =>
-      (doc['document_type_description'] ?? doc['subtitle'] ?? doc['document_type_label'] ?? '')?.toString() ?? '';
+      (doc['document_type_description'] ??
+              doc['subtitle'] ??
+              doc['document_type_label'] ??
+              '')
+          ?.toString() ??
+      '';
   String _docKey(Map<String, dynamic> doc) =>
       (doc['document_type_key'] ?? doc['key'] ?? '')?.toString() ?? '';
 
@@ -131,7 +145,8 @@ class _QowsKaabDocumentUploadScreenState
               onTap: () => Navigator.pop(ctx, 'image'),
             ),
             ListTile(
-              leading: const Icon(Icons.picture_as_pdf, color: Color(0xFF005653)),
+              leading:
+                  const Icon(Icons.picture_as_pdf, color: Color(0xFF005653)),
               title: const Text('PDF'),
               onTap: () => Navigator.pop(ctx, 'pdf'),
             ),
@@ -185,7 +200,8 @@ class _QowsKaabDocumentUploadScreenState
     }
     String name = _pickedFileName;
     if (name.isEmpty) name = 'document';
-    String? ext = name.contains('.') ? name.split('.').last.toLowerCase() : null;
+    String? ext =
+        name.contains('.') ? name.split('.').last.toLowerCase() : null;
     if (ext == null || ext.isEmpty) ext = 'pdf';
     if (ext != 'pdf' && ext != 'jpg' && ext != 'jpeg' && ext != 'png') {
       ext = 'jpg';
@@ -259,9 +275,11 @@ class _QowsKaabDocumentUploadScreenState
           final key = _selectedDocumentKey!;
           String name = _pickedFileName;
           if (name.isEmpty) name = 'document';
-          String? ext = name.contains('.') ? name.split('.').last.toLowerCase() : null;
+          String? ext =
+              name.contains('.') ? name.split('.').last.toLowerCase() : null;
           if (ext == null || ext.isEmpty) ext = 'pdf';
-          if (ext != 'pdf' && ext != 'jpg' && ext != 'jpeg' && ext != 'png') ext = 'jpg';
+          if (ext != 'pdf' && ext != 'jpg' && ext != 'jpeg' && ext != 'png')
+            ext = 'jpg';
           final bytes = await _pickedFile!.readAsBytes();
           final docNumber = _documentNumberController.text.trim();
           _pendingUploads.removeWhere((e) => e['typeKey'] == key);
@@ -302,7 +320,8 @@ class _QowsKaabDocumentUploadScreenState
             }
           }
           if (uploadErrors.isNotEmpty && mounted) {
-            _showError('Some documents could not be uploaded: ${uploadErrors.join('; ')}');
+            _showError(
+                'Some documents could not be uploaded: ${uploadErrors.join('; ')}');
           }
         }
         if (!mounted) return;
@@ -352,150 +371,160 @@ class _QowsKaabDocumentUploadScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: secondryColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: pureWhite,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
           onPressed: () => Navigator.maybePop(context),
         ),
         title: Text(
           'Daily Credit',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 20),
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+            color: pureWhite,
+          ),
         ),
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).padding.bottom),
-                child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // --- Documents (Optional) - isla designka Screenshot 140512 ---
-                  Text(
-                    'Documents (Optional)',
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: primaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'You can upload supporting documents to verify your application. If you already have documents uploaded, they will be shown below. Documents are optional – upload if needed or tap Submit Application to continue.',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Select Document Type (Optional)
-                  Text(
-                    'Select Document Type (Optional)',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: primaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    value: _selectedDocumentKey,
-                    decoration: InputDecoration(
-                      hintText: 'Select Document Type (Optional)',
-                      prefixIcon: const Icon(Icons.description_outlined,
-                          color: Color(0xFF005653)),
-                      suffixIcon: _selectedDocumentKey != null
-                          ? Icon(Icons.check_circle,
-                              color: Colors.green.shade700, size: 22)
-                          : const Icon(Icons.arrow_drop_down),
-                      border: OutlineInputBorder(borderRadius: br12),
-                      filled: true,
-                      fillColor: cardBg,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
-                    ),
-                    items: _documentTypes
-                        .where((t) => _docKey(t).isNotEmpty)
-                        .map((t) => DropdownMenuItem<String>(
-                              value: _docKey(t),
-                              child: Text(_docLabel(t), overflow: TextOverflow.ellipsis),
-                            ))
-                        .toList(),
-                    onChanged: (v) {
-                      setState(() {
-                        _selectedDocumentKey = v;
-                        _pickedFile = null;
-                        _pickedFileName = '';
-                        _documentNumberController.clear();
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'You can upload documents to verify your application.',
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // When a document type is selected: show card (already uploaded) or upload area
-                  if (_selectedDocumentKey != null) ...[
-                    _buildSelectedDocumentContent(),
-                    const SizedBox(height: 24),
-                  ],
-
-                  // Submit Application – only action that saves to database; documents optional
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: isSubmitting ? null : _submitApplication,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        shape: RoundedRectangleBorder(borderRadius: br12),
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: isLoading
+              ? Center(child: CircularProgressIndicator(color: pureWhite))
+              : SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                      20, 20, 20, 20 + MediaQuery.of(context).padding.bottom),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- Documents (Optional) - isla designka Screenshot 140512 ---
+                      Text(
+                        'Documents (Optional)',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white.withOpacity(0.96),
+                        ),
                       ),
-                      child: isSubmitting
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.send_rounded,
-                                    color: Colors.white, size: 22),
-                                const SizedBox(width: 10),
-                                Flexible(
-                                  child: Text(
-                                    'Submit Application',
-                                    style: GoogleFonts.poppins(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 16,
-                                        color: Colors.white),
-                                    overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 8),
+                      Text(
+                        'You can upload supporting documents to verify your application. If you already have documents uploaded, they will be shown below. Documents are optional – upload if needed or tap Submit Application to continue.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.88),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Select Document Type (Optional)
+                      Text(
+                        'Select Document Type (Optional)',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withOpacity(0.96),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        value: _selectedDocumentKey,
+                        decoration: InputDecoration(
+                          hintText: 'Select Document Type (Optional)',
+                          prefixIcon: const Icon(Icons.description_outlined,
+                              color: Color(0xFF005653)),
+                          suffixIcon: _selectedDocumentKey != null
+                              ? Icon(Icons.check_circle,
+                                  color: Colors.green.shade700, size: 22)
+                              : const Icon(Icons.arrow_drop_down),
+                          border: OutlineInputBorder(borderRadius: br12),
+                          filled: true,
+                          fillColor: cardBg,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                        ),
+                        items: _documentTypes
+                            .where((t) => _docKey(t).isNotEmpty)
+                            .map((t) => DropdownMenuItem<String>(
+                                  value: _docKey(t),
+                                  child: Text(_docLabel(t),
+                                      overflow: TextOverflow.ellipsis),
+                                ))
+                            .toList(),
+                        onChanged: (v) {
+                          setState(() {
+                            _selectedDocumentKey = v;
+                            _pickedFile = null;
+                            _pickedFileName = '';
+                            _documentNumberController.clear();
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      // Text(
+                      //   'You can upload documents to verify your application.',
+                      //   style: GoogleFonts.poppins(
+                      //     fontSize: 13,
+                      //     color: Colors.grey.shade600,
+                      //   ),
+                      // ),
+                      const SizedBox(height: 20),
+
+                      // When a document type is selected: show card (already uploaded) or upload area
+                      if (_selectedDocumentKey != null) ...[
+                        _buildSelectedDocumentContent(),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // Submit Application – only action that saves to database; documents optional
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: isSubmitting ? null : _submitApplication,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            shape: RoundedRectangleBorder(borderRadius: br12),
+                          ),
+                          child: isSubmitting
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
                                   ),
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.send_rounded,
+                                        color: Colors.white, size: 22),
+                                    const SizedBox(width: 10),
+                                    Flexible(
+                                      child: Text(
+                                        'Submit Application',
+                                        style: GoogleFonts.poppins(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 16,
+                                            color: Colors.white),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                    ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            ),
+                ),
+        ),
+      ),
     );
   }
 
@@ -539,7 +568,8 @@ class _QowsKaabDocumentUploadScreenState
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.green.shade600,
                     borderRadius: BorderRadius.circular(20),
@@ -678,8 +708,8 @@ class _QowsKaabDocumentUploadScreenState
           const SizedBox(height: 16),
           Text(
             'Document number (optional) - la xariiri karo',
-            style: GoogleFonts.poppins(
-                fontSize: 14, color: Colors.grey.shade700),
+            style:
+                GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade700),
           ),
           const SizedBox(height: 6),
           TextField(

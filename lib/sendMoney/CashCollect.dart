@@ -7,7 +7,6 @@ import 'package:asalpay/widgets/AllFormFields.dart';
 import 'package:asalpay/widgets/AllinOneDropdownSearch.dart';
 import 'package:asalpay/widgets/commonBtn.dart';
 // import 'package:connectivity/connectivity.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otp_text_field/flutter_otp_text_field.dart';
@@ -16,6 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../TransferReceiptLetter/paymentPage.dart';
 import '../constants/Constant.dart';
+import '../utils/network_utils.dart';
 
 import '../providers/HomeSliderandTransaction.dart';
 import '../providers/auth.dart';
@@ -185,13 +185,16 @@ class _CashCollectState extends State<CashCollect> {
 //       openSnackbar(context, errorMessage, secondryColor);
       return;
     } catch (error) {
-// _showErrorDialog(error.toString());
       print("ModelErrorMessage");
       setState(() {
         ModelErrorMessage = error.toString();
       });
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+        setState(() => isloading1 = false);
+        return;
+      }
       print(ModelErrorMessage);
-      // openSnackbar(context, error.toString(), secondryColor);
       _showErrorDialog(error.toString());
       setState(() {
         isloading1 = false;
@@ -199,7 +202,6 @@ class _CashCollectState extends State<CashCollect> {
         print(isloading1);
       });
       return;
-// Navigator.push(context, Mate return;rialPageRoute(builder: (context)=>Login()));
     }
     setState(() {
       isloading1 = false;
@@ -336,10 +338,9 @@ class _CashCollectState extends State<CashCollect> {
 
   Future<void> _saveForm() async {
   // 1. Check connectivity once at the start
-  final connectivityResult = await Connectivity().checkConnectivity();
-  if (connectivityResult == ConnectivityResult.none) {
-    // No internet -> show snackbar & return early
-    openSnackbar(context, 'No Internet Connection', secondryColor);
+  if (await checkConnectivityIndicatesOffline()) {
+    // No internet -> show dialog & return early
+    showNoConnectionDialog(context);
     return;
   }
 
@@ -386,7 +387,11 @@ class _CashCollectState extends State<CashCollect> {
     });
     return;
   } catch (error) {
-    // _showErrorDialog(error.toString());
+    if (isNetworkError(error)) {
+      showNoConnectionDialog(context);
+      setState(() => _isLoading = false);
+      return;
+    }
     openSnackbar(context, error.toString(), secondryColor);
     setState(() {
       _isLoading = false;

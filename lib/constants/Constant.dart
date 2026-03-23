@@ -19,3 +19,6 @@ const lightContentColor = Color(0xffF1F2F7);
 const double bigFontSize = 25;
 const double normalFontSize = 18;
 const double smallFontSize = 15;
+
+/// User-facing name for the shopping / marketplace service (replaces "252Pay" in UI).
+const String kEasyShopServiceName = 'Easy shop';

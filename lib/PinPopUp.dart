@@ -8,6 +8,8 @@ import 'package:asalpay/constants/Constant.dart';
 import 'package:asalpay/widgets/commonBtn2.dart';
 import './widgets/logoSpinner2.dart';
 import 'package:asalpay/services/api_urls.dart';
+// Biometric disabled
+// import 'package:asalpay/services/biometric_service.dart';
 
   Widget _buildInfoRow(String label, String value, Color labelColor) {
     return Row(
@@ -67,6 +69,14 @@ class PinPopUp {
     }
 
     debugPrint('🔐 Showing PinPopUp – acc=$account, merch=$merchantNo');
+
+    bool showFingerprintBtn = false;
+    // Biometric disabled
+    // final useFingerprintConfirm = await BiometricService.getUseFingerprintConfirm();
+    // if (useFingerprintConfirm) {
+    //   final storedPin = await BiometricService.getPinForFingerprintConfirm();
+    //   showFingerprintBtn = storedPin != null && storedPin.length == 4;
+    // }
 
     String pin = '';
     bool isLoading = false;
@@ -182,6 +192,7 @@ Future<void> _submit() async {
       debugPrint('✅ Response JSON: $decoded');
 
       if (decoded['status'] == true) {
+        // if (useFingerprintConfirm) await BiometricService.savePinForFingerprintConfirm(pin);
         Navigator.pop(ctx);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -325,6 +336,40 @@ Future<void> _submit() async {
                                 color: Colors.black87,
                               ),
                             ),
+                            // Biometric disabled
+                            // if (showFingerprintBtn) ...[
+                            //   const SizedBox(height: 12),
+                            //   Material(
+                            //     color: primaryColor.withOpacity(0.12),
+                            //     borderRadius: BorderRadius.circular(10),
+                            //     child: InkWell(
+                            //       onTap: isLoading ? null : () async {
+                            //         final ok = await BiometricService.authenticate(reason: 'Verify fingerprint to confirm purchase');
+                            //         if (!ok) return;
+                            //         final storedPin = await BiometricService.getPinForFingerprintConfirm();
+                            //         if (storedPin == null || storedPin.length != 4) {
+                            //           setState(() => error = 'PIN not available. Enter PIN below.');
+                            //           return;
+                            //         }
+                            //         setState(() { pin = storedPin; error = ''; });
+                            //         await _submit();
+                            //       },
+                            //       borderRadius: BorderRadius.circular(10),
+                            //       child: Padding(
+                            //         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            //         child: Row(
+                            //           mainAxisAlignment: MainAxisAlignment.center,
+                            //           children: [
+                            //             Icon(Icons.fingerprint, color: primaryColor, size: 24),
+                            //             const SizedBox(width: 10),
+                            //             Text('Use fingerprint', style: TextStyle(color: primaryColor, fontSize: 15, fontWeight: FontWeight.w600)),
+                            //           ],
+                            //         ),
+                            //       ),
+                            //     ),
+                            //   ),
+                            //   const SizedBox(height: 12),
+                            // ],
                             const SizedBox(height: 16),
                             OtpTextField(
                               numberOfFields: 4,

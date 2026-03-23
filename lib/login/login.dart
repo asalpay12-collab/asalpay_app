@@ -34,6 +34,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:asalpay/firebase/fcm_token_manager.dart';
 import 'package:asalpay/firebase/device_registration_service.dart';
+import 'package:asalpay/utils/network_utils.dart';
+// Biometric disabled: users could not log in with session
+// import 'package:asalpay/services/biometric_service.dart';
 
 class KeyboardDismissOnTap extends StatelessWidget {
   final Widget child;
@@ -203,11 +206,14 @@ class _LoginState extends State<Login> {
 
   late String _phoneNumber;
 
+  // bool? _showFingerprintLogin; // biometric disabled
+
   @override
   void initState() {
     //20/7/2024
 
     _checkNetworkStatus();
+    // _checkFingerprintLoginAvailable(); // biometric disabled
 
     //here 4/7/24
 
@@ -227,9 +233,81 @@ class _LoginState extends State<Login> {
     createBox();
   }
 
+  // --- Biometric login disabled: users could not log in with session ---
+  // Future<void> _checkFingerprintLoginAvailable() async {
+  //   final available = await BiometricService.isBiometricAvailable();
+  //   if (!available) {
+  //     if (mounted) setState(() => _showFingerprintLogin = false);
+  //     return;
+  //   }
+  //   final useLogin = await BiometricService.getUseFingerprintLogin();
+  //   if (!useLogin) {
+  //     if (mounted) setState(() => _showFingerprintLogin = false);
+  //     return;
+  //   }
+  //   final userData = await BiometricService.getUserDataForFingerprintLogin();
+  //   if (mounted) setState(() => _showFingerprintLogin = userData != null && userData.isNotEmpty);
+  // }
+  //
+  // Future<void> _loginWithFingerprint(BuildContext context) async {
+  //   if (!mounted) return;
+  //   final navContext = context;
+  //   try {
+  //     if (!navContext.mounted) return;
+  //     final result = await BiometricService.authenticateAdvanced(reason: 'Log in to AsalPay');
+  //     if (!navContext.mounted) return;
+  //     if (result != BiometricAuthResult.success) {
+  //       String msg = 'Fingerprint cancelled or failed. Try again or use password.';
+  //       switch (result) {
+  //         case BiometricAuthResult.notAvailable:
+  //           msg = 'Biometric not set up. Add fingerprint in phone Settings → Security.';
+  //           break;
+  //         case BiometricAuthResult.lockedOut:
+  //           msg = 'Too many attempts. Try again later or use password.';
+  //           break;
+  //         case BiometricAuthResult.cancelled:
+  //           msg = 'Cancelled. Try again or use password.';
+  //           break;
+  //         default:
+  //           break;
+  //       }
+  //       ScaffoldMessenger.of(navContext).showSnackBar(
+  //         SnackBar(content: Text(msg), backgroundColor: Colors.orange),
+  //       );
+  //       return;
+  //     }
+  //     final auth = Provider.of<Auth>(navContext, listen: false);
+  //     final restored = await auth.restoreSessionFromSecureStorage();
+  //     if (!mounted) return;
+  //     if (!restored) return;
+  //     final walletAccountsId = auth.wallet_accounts_id ?? '';
+  //     if (!navContext.mounted) return;
+  //     Navigator.of(navContext).pushAndRemoveUntil(
+  //       MaterialPageRoute(
+  //         builder: (_) => HomeScreen(
+  //           wallet_accounts_id: walletAccountsId,
+  //           fromLogin: true,
+  //           initialBalances: <BalanceDisplayModel>[],
+  //           initialSliderImages: <HomeSliderModel>[],
+  //           initialTransactions: <HomeTransactionModel>[],
+  //           initialHomeBalance: null,
+  //           initialHomeTransaction: null,
+  //         ),
+  //         settings: const RouteSettings(name: HomeScreen.routeName),
+  //       ),
+  //       (_) => false,
+  //     );
+  //   } catch (e) {
+  //     if (navContext.mounted) {
+  //       ScaffoldMessenger.of(navContext).showSnackBar(
+  //         SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+  //       );
+  //     }
+  //   }
+  // }
+
   Future<void> _checkNetworkStatus() async {
-    var connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult == ConnectivityResult.none) {
+    if (await checkConnectivityIndicatesOffline() && mounted) {
       await _showNetworkMessage(context);
     }
   }
@@ -270,12 +348,13 @@ class _LoginState extends State<Login> {
         ),
         content: const Text('You are currently disconnected from the network.'),
         actions: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: isSmallScreen ? 8 : 16,
+            runSpacing: 10,
             children: [
               ElevatedButton(
                 onPressed: () {
-                  // Function to open Wi-Fi settings
                   launchWifiSettings();
                 },
                 style: ButtonStyle(
@@ -287,9 +366,9 @@ class _LoginState extends State<Login> {
                   backgroundColor: WidgetStateProperty.all<Color>(primaryColor),
                   foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
                   padding: WidgetStateProperty.all<EdgeInsets>(
-                    const EdgeInsets.symmetric(
+                    EdgeInsets.symmetric(
                       vertical: 12.0,
-                      horizontal: 24.0,
+                      horizontal: isSmallScreen ? 16.0 : 24.0,
                     ),
                   ),
                 ),
@@ -300,9 +379,6 @@ class _LoginState extends State<Login> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
-              SizedBox(
-                width: isSmallScreen ? 10 : 20,
               ),
               ElevatedButton(
                 onPressed: () {
@@ -317,13 +393,19 @@ class _LoginState extends State<Login> {
                   backgroundColor: WidgetStateProperty.all<Color>(primaryColor),
                   foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
                   padding: WidgetStateProperty.all<EdgeInsets>(
-                    const EdgeInsets.symmetric(
+                    EdgeInsets.symmetric(
                       vertical: 12.0,
-                      horizontal: 24.0,
+                      horizontal: isSmallScreen ? 16.0 : 24.0,
                     ),
                   ),
                 ),
-                child: const Text('Open Data'),
+                child: Text(
+                  'Open Data',
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 14.0 : 16.0,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
@@ -455,8 +537,9 @@ class _LoginState extends State<Login> {
         if (snapshot.hasData && snapshot.data != null) {
           List<ConnectivityResult> results = snapshot.data!;
 
-          // Check if connected
-          isConnected = !results.contains(ConnectivityResult.none);
+          // Any real interface (wifi/mobile/…) counts as connected; do not use
+          // contains(none) — [wifi, none] is still online.
+          isConnected = connectivityResultsIndicateOnline(results);
 
           // Debug prints
           print('Connectivity Results: $results');
@@ -844,6 +927,30 @@ class _LoginState extends State<Login> {
                                                       .size
                                                       .height *
                                                   0.03),
+                                          // Biometric login disabled
+                                          // if (_showFingerprintLogin == true)
+                                          //   Padding(
+                                          //     padding: const EdgeInsets.only(bottom: 12),
+                                          //     child: Material(
+                                          //       color: secondryColor.withOpacity(0.12),
+                                          //       borderRadius: BorderRadius.circular(14),
+                                          //       child: InkWell(
+                                          //         onTap: () => _loginWithFingerprint(context),
+                                          //         borderRadius: BorderRadius.circular(14),
+                                          //         child: Padding(
+                                          //           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                                          //           child: Row(
+                                          //             mainAxisAlignment: MainAxisAlignment.center,
+                                          //             children: [
+                                          //               Text('Use biometric to log in',
+                                          //                 style: TextStyle(color: secondryColor, fontSize: 16, fontWeight: FontWeight.w600),
+                                          //               ),
+                                          //             ],
+                                          //           ),
+                                          //         ),
+                                          //       ),
+                                          //     ),
+                                          //   ),
                                           InkWell(
                                             child: RichText(
                                               text: TextSpan(
@@ -983,9 +1090,8 @@ class _LoginState extends State<Login> {
     }
     _formkey.currentState!.save();
 
-    // Check for network connectivity
-    var connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult == ConnectivityResult.none) {
+    // Check for network connectivity (connectivity_plus returns a List)
+    if (await checkConnectivityIndicatesOffline()) {
       print("No network connection");
       await _showNetworkMessage(context);
       return;
@@ -1007,26 +1113,47 @@ class _LoginState extends State<Login> {
 
       print("Login successful");
 
+      String walletAccountsId = _authData['phone']?.replaceAll('+', '') ?? '';
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('wallet_accounts_id', walletAccountsId);
+      print("✅ Saved wallet_accounts_id to SharedPreferences: $walletAccountsId");
+
+      // 252pay device registration – run BEFORE mounted check so it always runs (tbl_devices_info + tbl_customer_devices)
+      try {
+        var currentToken = await FcmTokenManager.getCurrentToken();
+        if (currentToken != null && currentToken.isNotEmpty) {
+          await DeviceRegistrationService.registerDevice(
+            walletAccountsId: walletAccountsId,
+            fcmToken: currentToken,
+          );
+          await FcmTokenManager.saveToken(currentToken);
+        } else {
+          print("FCM token not ready at login, retrying in 3s...");
+          Future.delayed(const Duration(seconds: 3), () async {
+            final token = await FcmTokenManager.getCurrentToken();
+            if (token != null && token.isNotEmpty) {
+              await DeviceRegistrationService.registerDevice(
+                walletAccountsId: walletAccountsId,
+                fcmToken: token,
+              );
+              await FcmTokenManager.saveToken(token);
+            }
+          });
+        }
+      } catch (e) {
+        print("FCM Error: $e");
+      }
+
       if (!mounted) {
         print("Widget unmounted after login");
         return;
       }
 
-      // String walletAccountsId = _authData['phone']?.replaceAll('+', '') ?? 'default_id';
-
-      String walletAccountsId = _authData['phone']?.replaceAll('+', '') ?? '';
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('wallet_accounts_id', walletAccountsId);
-      print(
-          "✅ Saved wallet_accounts_id to SharedPreferences: $walletAccountsId");
-
       final homeSliderAndTransactionProvider =
           Provider.of<HomeSliderAndTransaction>(context, listen: false);
 
       print("Fetching balances for wallet account ID: $walletAccountsId");
-
-      // 2) Slider images
 
       print("Starting to fetch slider images");
 
@@ -1034,32 +1161,10 @@ class _LoginState extends State<Login> {
           await homeSliderAndTransactionProvider.fetchAndSetSliderImages();
       print("Slider images received: ${sliderImages.length} images");
 
-// 3) Recent transactions
       final List<HomeTransactionModel> transactions =
           await homeSliderAndTransactionProvider.fetchAndSetAllTr();
 
-// 4) Prefetch slider images into cache so HomeScreen shows immediately
       await prefetchImages(sliderImages, context);
-
-      //updating with FCM
-
-      // FCM Registration after successful login
-      try {
-        final currentToken = await FcmTokenManager.getCurrentToken();
-        final savedToken = await FcmTokenManager.getSavedToken();
-
-        if (currentToken != null &&
-            currentToken.isNotEmpty &&
-            savedToken != currentToken) {
-          await DeviceRegistrationService.registerDevice(
-            walletAccountsId: walletAccountsId,
-            fcmToken: currentToken,
-          );
-          await FcmTokenManager.saveToken(currentToken);
-        }
-      } catch (e) {
-        print("FCM Error: $e"); // Handle FCM errors separately
-      }
 
       Completer<List<BalanceDisplayModel>> completer = Completer();
       StreamSubscription<List<BalanceDisplayModel>>? subscription;
@@ -1188,6 +1293,10 @@ class _LoginState extends State<Login> {
     } catch (error) {
       print("Error during operations: $error");
       if (!mounted) return;
+      if (isNetworkError(error)) {
+        await _showNetworkMessage(context);
+        return;
+      }
       final isLoggedIn = Provider.of<Auth>(context, listen: false).isAuth;
       if (isLoggedIn) {
         final walletAccountsId = _authData['phone']?.replaceAll('+', '') ?? '';
@@ -1221,112 +1330,7 @@ class _LoginState extends State<Login> {
   }
 
   Future<void> _NetworkMessage(BuildContext context) async {
-    final screenSize = MediaQuery.of(context).size;
-    final bool isSmallScreen = screenSize.width < 600;
-
-    return showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Image.asset("assets/WD5.png", width: screenSize.width * 0.07),
-            const SizedBox(width: 08),
-            Expanded(
-              child: Text(
-                'No Connection',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: screenSize.width * 0.145),
-              ),
-            ),
-            GestureDetector(
-              onTap: () {
-                Navigator.pop(context);
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey.withOpacity(0.3),
-                ),
-                padding: EdgeInsets.all(screenSize.width * 0.015),
-                child: Icon(
-                  Icons.close,
-                  color: primaryColor,
-                  size: screenSize.width * 0.05,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          'You are currently disconnected from the network.',
-          style: TextStyle(fontSize: screenSize.width * 0.04),
-        ),
-        actions: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ElevatedButton(
-                onPressed: () {
-                  launchWifiSettings();
-                },
-                style: ButtonStyle(
-                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                    RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20.0),
-                    ),
-                  ),
-                  backgroundColor: WidgetStateProperty.all<Color>(primaryColor),
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                  padding: WidgetStateProperty.all<EdgeInsets>(
-                    EdgeInsets.symmetric(
-                      vertical: screenSize.height * 0.02,
-                      horizontal: screenSize.width * 0.06,
-                    ),
-                  ),
-                ),
-                child: Text(
-                  'Open Wi-Fi',
-                  style: TextStyle(
-                    fontSize: screenSize.width * 0.04,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              SizedBox(width: screenSize.width * 0.05),
-              ElevatedButton(
-                onPressed: () {
-                  launchDataSettings();
-                },
-                style: ButtonStyle(
-                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                    RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20.0),
-                    ),
-                  ),
-                  backgroundColor: WidgetStateProperty.all<Color>(primaryColor),
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                  padding: WidgetStateProperty.all<EdgeInsets>(
-                    EdgeInsets.symmetric(
-                      vertical: screenSize.height * 0.02,
-                      horizontal: screenSize.width * 0.06,
-                    ),
-                  ),
-                ),
-                child: Text(
-                  'Open Data',
-                  style: TextStyle(
-                    fontSize: screenSize.width * 0.04,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+    return showNoConnectionDialog(context);
   }
 
 // //todo:Network Message;

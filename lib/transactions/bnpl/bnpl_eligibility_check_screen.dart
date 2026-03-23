@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../constants/Constant.dart';
 import '../../services/bnpl_api_service.dart';
+import '../252pay/252pay_screen_background.dart';
 import 'bnpl_application_screen.dart';
 
 class BnplEligibilityCheckScreen extends StatefulWidget {
@@ -75,10 +76,11 @@ class _BnplEligibilityCheckScreenState
     final Color primaryColor = const Color(0xFF005653);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: secondryColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
         foregroundColor: Colors.white,
         title: Text(
           'BNPL Eligibility Check',
@@ -88,47 +90,57 @@ class _BnplEligibilityCheckScreenState
           ),
         ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline,
-                            size: 64, color: Colors.red.shade300),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Error',
-                          style: GoogleFonts.poppins(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.red,
-                          ),
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(color: Colors.white))
+              : _errorMessage != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.error_outline,
+                                size: 64, color: Colors.red.shade200),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Error',
+                              style: GoogleFonts.poppins(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.white.withOpacity(0.9),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton(
+                              onPressed: _checkEligibility,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: pureWhite,
+                                foregroundColor: primaryColor,
+                              ),
+                              child: const Text('Retry'),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _errorMessage!,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: _checkEligibility,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : _isEligible
-                  ? _buildEligibleView()
-                  : _buildNotEligibleView(),
+                      ),
+                    )
+                  : _isEligible
+                      ? _buildEligibleView()
+                      : _buildNotEligibleView(),
+        ),
+      ),
     );
   }
 
@@ -169,7 +181,7 @@ class _BnplEligibilityCheckScreenState
             'You can pay in installments',
             style: GoogleFonts.poppins(
               fontSize: 16,
-              color: Colors.grey.shade600,
+              color: Colors.white.withOpacity(0.9),
             ),
           ),
           const SizedBox(height: 32),
@@ -201,11 +213,17 @@ class _BnplEligibilityCheckScreenState
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '${item['name']} x$quantity',
-                            style: GoogleFonts.poppins(fontSize: 14),
+                          Expanded(
+                            child: Text(
+                              '${item['name']} x$quantity',
+                              style: GoogleFonts.poppins(fontSize: 14),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
                             '\$${(quantity * unitPrice).toStringAsFixed(2)}',
                             style: GoogleFonts.poppins(
@@ -221,13 +239,17 @@ class _BnplEligibilityCheckScreenState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Total Amount:',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          'Total Amount:',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '\$${totalAmount.toStringAsFixed(2)}',
                         style: GoogleFonts.poppins(
@@ -272,7 +294,7 @@ class _BnplEligibilityCheckScreenState
                   ),
                   const SizedBox(height: 12),
                   _buildBenefitItem('Pay in installments over time'),
-                  _buildBenefitItem('No interest charges'),
+                  // _buildBenefitItem('No interest charges'),
                   _buildBenefitItem('Flexible repayment options'),
                 ],
               ),
@@ -298,11 +320,12 @@ class _BnplEligibilityCheckScreenState
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
+                backgroundColor: pureWhite,
+                foregroundColor: primaryColor,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
+                elevation: 2,
               ),
               child: Text(
                 'Apply for BNPL',
@@ -360,12 +383,16 @@ class _BnplEligibilityCheckScreenState
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 14,
-                color: Colors.grey.shade700,
+                color: Colors.white.withOpacity(0.9),
               ),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: pureWhite,
+                foregroundColor: const Color(0xFF005653),
+              ),
               child: const Text('Go Back'),
             ),
           ],

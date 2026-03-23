@@ -6,6 +6,7 @@ import 'package:pinput/pinput.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../login/ForGetPPIN.dart';
+import '../utils/network_utils.dart';
 import '../widgets/commonBtn.dart';
 import 'PINOPT.dart';
 import 'sms_retriever_impl.dart';
@@ -107,7 +108,11 @@ Future<void> _verifyOtp(BuildContext context, String code) async {
     }
   } catch (e) {
     appLog(" [OTP VERIFY] Exception during OTP validation: $e");
-    openSnackbar(context, "Network error: $e", Colors.red);
+    if (isNetworkError(e)) {
+      showNoConnectionDialog(context);
+    } else {
+      openSnackbar(context, "Network error: $e", Colors.red);
+    }
   }
 }
  

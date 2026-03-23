@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:asalpay/constants/Constant.dart';
+import 'package:asalpay/utils/network_utils.dart';
 //import 'package:asalpay/providers/WalletOperations.dart';
 import 'package:asalpay/providers/TransferOperations.dart';
 import 'package:asalpay/snack_bar/open_snack_bar.dart';
@@ -8,7 +9,6 @@ import 'package:asalpay/widgets/AllFormFields.dart';
 import 'package:asalpay/widgets/AllWalletOperationDropDown.dart';
 import 'package:asalpay/widgets/commonBtn.dart';
 // import 'package:connectivity/connectivity.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_otp_text_field/flutter_otp_text_field.dart';
 import 'package:logo_n_spinner/logo_n_spinner.dart';
@@ -138,6 +138,11 @@ class _TopUpScreenState extends State<TopUpScreen> {
       setState(() {
         ModelErrorMessage = error.toString();
       });
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+        setState(() => isloading1 = false);
+        return;
+      }
       print(ModelErrorMessage);
       _showErrorDialog(error.toString());
       setState(() {
@@ -286,12 +291,11 @@ class _TopUpScreenState extends State<TopUpScreen> {
   var errorMessage = 'Successfully Requested!';
 
   // 2. Check Internet Connectivity
-  final connectivityResult = await Connectivity().checkConnectivity();
-  if (connectivityResult == ConnectivityResult.none) {
+  if (await checkConnectivityIndicatesOffline()) {
     setState(() {
       _isLoading = false;
     });
-    openSnackbar(context, 'No Internet Connection', secondryColor);
+    showNoConnectionDialog(context);
     return;
   }
 
@@ -321,6 +325,11 @@ class _TopUpScreenState extends State<TopUpScreen> {
     return;
   } catch (error) {
     print('Error: $error');
+    if (isNetworkError(error)) {
+      showNoConnectionDialog(context);
+      setState(() => _isLoading = false);
+      return;
+    }
     openSnackbar(context, error.toString(), secondryColor);
 
     setState(() {

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../constants/Constant.dart';
 import '../models/product.dart';
 import '../services/252pay_api_service.dart';
+import '252pay/252pay_screen_background.dart';
 import 'bnpl/bnpl_eligibility_check_screen.dart';
 
 class BasketScreen extends StatefulWidget {
@@ -91,11 +93,11 @@ class _BasketScreenState extends State<BasketScreen> {
     final totalAmount = _calculateTotal();
 
     return Scaffold(
-      backgroundColor: Colors.white,
-
+      backgroundColor: secondryColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
         foregroundColor: Colors.white,
         title: Row(
           children: [
@@ -125,28 +127,30 @@ class _BasketScreenState extends State<BasketScreen> {
         ],
       ),
 
-      // ---------------- BODY ----------------
-      body: _basketItems.isEmpty
-          ? _buildEmptyState()
-          : SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 120),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildItemsSection(),
-                  if (widget.products != null &&
-                      widget.products!.isNotEmpty &&
-                      widget.onAddProduct != null)
-                    _buildAddMoreSection(),
-                  _buildTotalCard(totalAmount),
-                ],
-              ),
-            ),
-
-      // ---------------- FIXED SAFE BUTTONS ----------------
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: _basketItems.isEmpty
+              ? _buildEmptyState()
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 120),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildItemsSection(),
+                      if (widget.products != null &&
+                          widget.products!.isNotEmpty &&
+                          widget.onAddProduct != null)
+                        _buildAddMoreSection(),
+                      _buildTotalCard(totalAmount),
+                    ],
+                  ),
+                ),
+        ),
+      ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: _buildPaymentButtons(totalAmount),
         ),
       ),
@@ -161,13 +165,13 @@ class _BasketScreenState extends State<BasketScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.shopping_bag_outlined,
-              size: 64, color: Colors.grey.shade400),
+              size: 64, color: Colors.white.withOpacity(0.5)),
           const SizedBox(height: 16),
           Text(
             'Your basket is empty',
             style: GoogleFonts.poppins(
               fontSize: 18,
-              color: Colors.grey.shade600,
+              color: Colors.white.withOpacity(0.95),
             ),
           ),
           const SizedBox(height: 8),
@@ -175,7 +179,7 @@ class _BasketScreenState extends State<BasketScreen> {
             'Add items to get started',
             style: GoogleFonts.poppins(
               fontSize: 14,
-              color: Colors.grey.shade500,
+              color: Colors.white.withOpacity(0.8),
             ),
           ),
         ],
@@ -197,22 +201,23 @@ class _BasketScreenState extends State<BasketScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
-                  color: primaryColor,
+                  color: Colors.white.withOpacity(0.95),
                 ),
               ),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.12),
+                  color: Colors.white.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withOpacity(0.25)),
                 ),
                 child: Text(
                   '${_basketItems.length} item${_basketItems.length == 1 ? '' : 's'}',
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: primaryColor,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -380,20 +385,20 @@ class _BasketScreenState extends State<BasketScreen> {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: primaryColor.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: primaryColor.withOpacity(0.2)),
+                color: Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.15),
+                      color: Colors.white.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(Icons.add_shopping_cart,
-                        color: primaryColor, size: 24),
+                        color: Colors.white, size: 24),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -405,14 +410,14 @@ class _BasketScreenState extends State<BasketScreen> {
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: primaryColor,
+                            color: Colors.white.withOpacity(0.95),
                           ),
                         ),
                         Text(
                           'Browse and add more items without leaving',
                           style: GoogleFonts.poppins(
                             fontSize: 12,
-                            color: Colors.grey.shade700,
+                            color: Colors.white.withOpacity(0.8),
                           ),
                         ),
                       ],
@@ -420,7 +425,7 @@ class _BasketScreenState extends State<BasketScreen> {
                   ),
                   Icon(
                     _showAddMore ? Icons.expand_less : Icons.expand_more,
-                    color: primaryColor,
+                    color: Colors.white.withOpacity(0.9),
                     size: 28,
                   ),
                 ],
@@ -436,7 +441,7 @@ class _BasketScreenState extends State<BasketScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
+                  color: Colors.white.withOpacity(0.9),
                 ),
               ),
             ),
@@ -566,11 +571,7 @@ class _BasketScreenState extends State<BasketScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE7F2EF),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: primaryColor.withOpacity(0.2)),
-      ),
+      decoration: pay252CardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -578,7 +579,7 @@ class _BasketScreenState extends State<BasketScreen> {
             'Total Amount',
             style: GoogleFonts.poppins(
               fontSize: 16,
-              color: primaryColor.withOpacity(0.8),
+              color: primaryColor.withOpacity(0.75),
             ),
           ),
           const SizedBox(height: 6),
@@ -598,55 +599,95 @@ class _BasketScreenState extends State<BasketScreen> {
   Widget _buildPaymentButtons(double totalAmount) {
     return Row(
       children: [
-        // PAY NOW
         Expanded(
           child: SizedBox(
-            height: 54,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                widget.onPayNow?.call(totalAmount, _basketItems);
-                // Do not pop here – Pay Now flow shows PIN dialog on top of basket,
-                // then ProductPurchaseScreen pops basket after PIN is verified.
-              },
-              icon: const Icon(Icons.payment),
-              label: const Text('Pay Now'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+            height: 52,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  widget.onPayNow?.call(totalAmount, _basketItems);
+                },
+                borderRadius: BorderRadius.circular(20),
+                splashColor: Colors.white.withOpacity(0.2),
+                child: Container(
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: pureWhite,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.payment, color: primaryColor, size: 22),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Pay Now',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
-
-        const SizedBox(width: 14),
-
-        // BNPL
+        const SizedBox(width: 12),
         Expanded(
           child: SizedBox(
-            height: 54,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => BnplEligibilityCheckScreen(
-                      walletAccountId: widget.walletAccountId ?? '',
-                      basketItems: _basketItems,
-                      totalAmount: totalAmount,
+            height: 52,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BnplEligibilityCheckScreen(
+                        walletAccountId: widget.walletAccountId ?? '',
+                        basketItems: _basketItems,
+                        totalAmount: totalAmount,
+                      ),
                     ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(20),
+                splashColor: Colors.white.withOpacity(0.15),
+                child: Container(
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                        color: Colors.white.withOpacity(0.25), width: 1.2),
                   ),
-                );
-              },
-              icon: const Icon(Icons.credit_card),
-              label: const Text('Pay with BNPL'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.credit_card,
+                          color: Colors.white.withOpacity(0.95), size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'BNPL',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: Colors.white.withOpacity(0.95),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

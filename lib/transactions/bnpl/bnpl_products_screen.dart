@@ -50,10 +50,17 @@ class _BnplProductsScreenState extends State<BnplProductsScreen> {
     }
   }
 
+  int? _productKey(Map<String, dynamic> product) {
+    final id = product['product_id'] ?? product['id'];
+    if (id == null) return null;
+    return id is int ? id : int.tryParse(id.toString());
+  }
+
   void _toggleProduct(Map<String, dynamic> product) {
     setState(() {
-      final index =
-          _selectedProducts.indexWhere((p) => p['id'] == product['id']);
+      final key = _productKey(product);
+      if (key == null) return;
+      final index = _selectedProducts.indexWhere((p) => _productKey(p) == key);
       if (index >= 0) {
         _selectedProducts.removeAt(index);
       } else {
@@ -65,9 +72,9 @@ class _BnplProductsScreenState extends State<BnplProductsScreen> {
 
   void _calculateTotal() {
     _totalAmount = _selectedProducts.fold(0.0, (sum, product) {
-      final price = (product['price'] ?? 0.0) is double
-          ? product['price'] as double
-          : double.tryParse(product['price'].toString()) ?? 0.0;
+      final price = (product['unit_price'] ?? product['price'] ?? 0.0) is double
+          ? (product['unit_price'] ?? product['price']) as double
+          : double.tryParse((product['unit_price'] ?? product['price']).toString()) ?? 0.0;
       return sum + price;
     });
   }
@@ -146,12 +153,11 @@ class _BnplProductsScreenState extends State<BnplProductsScreen> {
                         itemBuilder: (context, index) {
                           final product = _products[index];
                           final isSelected = _selectedProducts.any(
-                            (p) => p['id'] == product['id'],
+                            (p) => _productKey(p) == _productKey(product),
                           );
-                          final price = (product['price'] ?? 0.0) is double
-                              ? product['price'] as double
-                              : double.tryParse(product['price'].toString()) ??
-                                  0.0;
+                          final price = (product['unit_price'] ?? product['price'] ?? 0.0) is double
+                              ? (product['unit_price'] ?? product['price']) as double
+                              : double.tryParse((product['unit_price'] ?? product['price']).toString()) ?? 0.0;
 
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),

@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants/Constant.dart';
 import '../providers/HomeSliderandTransaction.dart';
+import '../utils/network_utils.dart';
 import '../providers/auth.dart';
 import '../snack_bar/open_snack_bar.dart';
 import '../widgets/commonBtn.dart';
@@ -344,7 +345,11 @@ Future<bool> checkAppVersion(BuildContext context, {String? phoneForVersion}) as
     } on FormatException catch (_) {
       if (mounted) openSnackbar(context, "Server temporarily unavailable. Please try again later.", secondryColor);
     } catch (e) {
-      openSnackbar(context, "Connection error. Please check your internet and try again.", secondryColor);
+      if (isNetworkError(e)) {
+        if (mounted) showNoConnectionDialog(context);
+      } else {
+        openSnackbar(context, "Connection error. Please check your internet and try again.", secondryColor);
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -399,7 +404,11 @@ Future<bool> checkAppVersion(BuildContext context, {String? phoneForVersion}) as
     } on FormatException catch (_) {
       if (mounted) openSnackbar(context, "Server temporarily unavailable. Please try again later.", secondryColor);
     } catch (e) {
-      openSnackbar(context, "Connection error. Please check your internet and try again.", secondryColor);
+      if (isNetworkError(e)) {
+        if (mounted) showNoConnectionDialog(context);
+      } else {
+        openSnackbar(context, "Connection error. Please check your internet and try again.", secondryColor);
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -448,7 +457,11 @@ Future<bool> checkAppVersion(BuildContext context, {String? phoneForVersion}) as
     openSnackbar(context, errorMessage, secondryColor);
   } catch (error) {
     appLog("[Check] Unexpected error: $error");
-    openSnackbar(context, 'An unexpected error occurred', secondryColor);
+    if (isNetworkError(error)) {
+      showNoConnectionDialog(context);
+    } else {
+      openSnackbar(context, 'An unexpected error occurred', secondryColor);
+    }
   } finally {
     if (mounted) setState(() => _isLoading = false);
   }

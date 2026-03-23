@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../constants/Constant.dart';
 import '../../services/252pay_api_service.dart';
+import '../252pay/252pay_screen_background.dart';
 
 /// QOWS KAAB Payment History screen (no Due Payments tab).
 /// Opened from Application Details "View Payment History".
@@ -234,17 +235,19 @@ class _QowsKaabPaymentsHistoryScreenState
   Widget build(BuildContext context) {
     final br12 = BorderRadius.circular(12);
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: secondryColor,
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
         title: Text(
-          'QOWS KAAB Payment History',
+          'QOYS KAAB Payment History',
           style: GoogleFonts.poppins(
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: pureWhite,
           ),
         ),
-        backgroundColor: secondryColor,
         foregroundColor: pureWhite,
         actions: [
           IconButton(
@@ -258,13 +261,18 @@ class _QowsKaabPaymentsHistoryScreenState
           ),
         ],
       ),
-      body: _buildHistoryContent(br12),
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: _buildHistoryContent(br12),
+        ),
+      ),
     );
   }
 
   Widget _buildHistoryContent(BorderRadius br12) {
     if (_historyLoading) {
-      return Center(child: CircularProgressIndicator(color: primaryColor));
+      return Center(child: CircularProgressIndicator(color: pureWhite));
     }
     if (_historyError != null) {
       return Center(
@@ -273,18 +281,18 @@ class _QowsKaabPaymentsHistoryScreenState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
-              SizedBox(height: 12),
+              Icon(Icons.error_outline, size: 48, color: Colors.white.withOpacity(0.8)),
+              const SizedBox(height: 12),
               Text(
                 _historyError!,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(color: Colors.grey.shade700),
+                style: GoogleFonts.poppins(color: Colors.white.withOpacity(0.9)),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               TextButton.icon(
                 onPressed: _loadHistory,
-                icon: Icon(Icons.refresh, size: 20),
-                label: Text('Retry'),
+                icon: Icon(Icons.refresh, size: 20, color: pureWhite),
+                label: Text('Retry', style: GoogleFonts.poppins(color: pureWhite)),
               ),
             ],
           ),
@@ -295,7 +303,7 @@ class _QowsKaabPaymentsHistoryScreenState
       return Center(
         child: Text(
           'No payment history yet',
-          style: GoogleFonts.poppins(color: Colors.grey.shade600),
+          style: GoogleFonts.poppins(color: Colors.white.withOpacity(0.9)),
         ),
       );
     }
@@ -308,19 +316,21 @@ class _QowsKaabPaymentsHistoryScreenState
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.filter_list_off,
-                  size: 48, color: Colors.grey.shade400),
-              SizedBox(height: 12),
+                  size: 48, color: Colors.white.withOpacity(0.8)),
+              const SizedBox(height: 12),
               Text(
                 'No payments in selected date range',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                    color: Colors.grey.shade600, fontSize: 16),
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 16,
+                ),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               TextButton.icon(
                 onPressed: _showDateFilterSheet,
-                icon: Icon(Icons.edit, size: 20),
-                label: Text('Change filter'),
+                icon: Icon(Icons.edit, size: 20, color: pureWhite),
+                label: Text('Change filter', style: GoogleFonts.poppins(color: pureWhite)),
               ),
             ],
           ),

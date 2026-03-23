@@ -11,8 +11,11 @@ import '../models/category.dart';
 import '../models/product.dart';
 import '../providers/HomeSliderandTransaction.dart';
 import '../providers/auth.dart';
+import '../utils/network_utils.dart';
 import '../services/252pay_api_service.dart';
 import '../widgets/commonBtn.dart';
+import '../constants/Constant.dart';
+import '252pay/252pay_screen_background.dart';
 import 'DiscountProductsDrawer.dart';
 import 'my_orders_screen.dart';
 
@@ -27,7 +30,6 @@ class DiscountProductPurchaseScreen extends StatefulWidget {
 class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
   final Color primaryColor = const Color(0xFF005653);
   final Color cardBg = const Color(0xFFF8FAFA);
-  final Color bodyBg = Colors.white;
   final BorderRadius br12 = BorderRadius.circular(12);
   final api = ApiService();
 
@@ -38,7 +40,7 @@ class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
   List<Map<String, dynamic>> merchantInfo = [];
   List<Map<String, dynamic>> orderItems = [];
   List<Map<String, dynamic>> merchnataccountInfo = [];
-  static const String baseUrl = ApiService.imgURL;
+  static String get baseUrl => ApiService.imgURL;
   bool isLoading = true;
   String ModelErrorMessage = "";
   String pinNumber = "";
@@ -477,6 +479,10 @@ class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
       setState(() {
         isloading1 = false;
       });
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+        return false;
+      }
       _showErrorDialog(error.toString());
       return false;
     }
@@ -728,48 +734,52 @@ class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(   // <-- Wrap the whole Scaffold in SafeArea
-      child: Scaffold(
-        backgroundColor: bodyBg,
-        appBar: AppBar(
-          elevation: 2,
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
-          title: Text(
-            '252pay',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w600,
-              fontSize: 20,
-            ),
+    return Scaffold(
+      backgroundColor: secondryColor,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: pureWhite,
+        title: Text(
+          '$kEasyShopServiceName · Discounts',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+            color: pureWhite,
           ),
-          actions: [
-            TextButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MyOrdersScreen(
-                      walletAccountId: widget.wallet_accounts_id!,
-                    ),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MyOrdersScreen(
+                    walletAccountId: widget.wallet_accounts_id!,
                   ),
-                );
-              },
-              icon: const Icon(Icons.receipt_long, color: Colors.white, size: 20),
-              label: Text(
-                'View Orders',
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
                 ),
+              );
+            },
+            icon: const Icon(Icons.receipt_long, color: Colors.white, size: 20),
+            label: Text(
+              'View Orders',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(width: 8),
-          ],
-        ),
-
-        body: Padding(
-          padding: const EdgeInsets.all(20),
-          child: _buildProductGrid(),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: _buildProductGrid(),
+          ),
         ),
       ),
     );
@@ -785,7 +795,10 @@ class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
       return Center(
         child: Text(
           'No discounted products available.',
-          style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            color: Colors.white.withOpacity(0.9),
+          ),
         ),
       );
     }
@@ -805,7 +818,7 @@ class _ProductPurchaseScreenState extends State<DiscountProductPurchaseScreen> {
                     style: GoogleFonts.poppins(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
-                      color: primaryColor,
+                      color: Colors.white.withOpacity(0.96),
                     ),
                   ),
                 ),

@@ -24,11 +24,13 @@ class TokenClass {
     print("🆕 Initial JWT: $_currentToken");
   }
 
+  /// CML JWT: 1 hour expiry so token does not expire while user is in app.
   String _generateToken() {
+    const expirySeconds = 3600; // 1 hour
     final payload = {
       "user": user["user"],
       "pass": user["pass"],
-      "exp": (DateTime.now().millisecondsSinceEpoch ~/ 1000) + 300
+      "exp": (DateTime.now().millisecondsSinceEpoch ~/ 1000) + expirySeconds
     };
     return jwtCodec.encode(payload);
   }
@@ -38,8 +40,8 @@ class TokenClass {
       final decoded = jwtCodec.decode(token);
       final exp = decoded['exp'] as int;
       final expiryTime = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
-      // Add 10-second buffer to prevent edge cases
-      return expiryTime.isAfter(DateTime.now().add(const Duration(seconds: 10)));
+      // Refresh 5 min before expiry so user does not see "Token expired" while in app
+      return expiryTime.isAfter(DateTime.now().add(const Duration(minutes: 5)));
     } catch (e) {
       print("❌ Token validation error: $e");
       return false;

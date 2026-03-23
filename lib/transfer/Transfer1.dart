@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../TransferReceiptLetter/paymentPage.dart';
 import '../constants/Constant.dart';
+import '../utils/network_utils.dart';
 import 'dart:io' show Platform;
 
 
@@ -205,11 +206,15 @@ void _subscribeToBalance() {
 
       return;
     } catch (error) {
-
       print("ModelErrorMessage");
       setState(() {
         ModelErrorMessage = error.toString();
       });
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+        setState(() => isloading1 = false);
+        return;
+      }
       print(ModelErrorMessage);
       openSnackbar(context, error.toString(), secondryColor);
       _showErrorDialog(error.toString());
@@ -270,6 +275,11 @@ void _subscribeToBalance() {
 
       openSnackbar(context, error.toString(), secondryColor);
     } catch (error) {
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+        setState(() => _isLoading = false);
+        return;
+      }
       openSnackbar(context, error.toString(), secondryColor);
       setState(() {
         _isLoading = false;

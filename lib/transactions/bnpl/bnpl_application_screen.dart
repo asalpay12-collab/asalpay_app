@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
@@ -13,6 +15,8 @@ import '../../models/product_rules.dart';
 import '../../models/location_risk.dart';
 import '../../models/credit_limit.dart';
 import 'bnpl_tracking_screen.dart';
+import '../252pay/252pay_screen_background.dart';
+import '../../constants/Constant.dart';
 
 class BnplApplicationScreen extends StatefulWidget {
   final String? walletAccountId;
@@ -35,6 +39,14 @@ class BnplApplicationScreen extends StatefulWidget {
 class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
   final Color primaryColor = const Color(0xFF005653);
   final Color cardBg = const Color(0xFFF8FAFA);
+
+  /// Labels above inputs (visible on dark gradient background).
+  TextStyle get _bnplFieldLabelStyle => GoogleFonts.poppins(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+        color: Colors.white.withOpacity(0.96),
+      );
   final api = ApiService();
   final PageController _pageController = PageController();
   final ImagePicker _imagePicker = ImagePicker();
@@ -81,6 +93,27 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
   String? selectedEmploymentStatus;
   final TextEditingController employerNameController = TextEditingController();
   final TextEditingController monthlyIncomeController = TextEditingController();
+  // Employed
+  final TextEditingController positionController = TextEditingController();
+  final TextEditingController tenureOfEmploymentController =
+      TextEditingController();
+  // Self-employed (reuse employerNameController for Business Name, monthlyIncomeController for Monthly Revenue)
+  final TextEditingController typeOfBusinessController =
+      TextEditingController();
+  final TextEditingController businessLocationController =
+      TextEditingController();
+  final TextEditingController businessAddressController =
+      TextEditingController();
+  final TextEditingController yearsInBusinessController =
+      TextEditingController();
+  // Student
+  final TextEditingController institutionNameController =
+      TextEditingController();
+  final TextEditingController studentIdRegNoController =
+      TextEditingController();
+  final TextEditingController programOfStudyController =
+      TextEditingController();
+  final TextEditingController yearOfStudyController = TextEditingController();
   String? incomeCategory;
   List<Map<String, dynamic>> banks = [];
   int? selectedBankId;
@@ -91,10 +124,16 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
   bool customerExists = false;
   Map<String, dynamic>? existingCustomerData;
 
+  /// Cached future for existing documents (avoids repeated checkDocumentsSkip API calls)
+  Future<Map<String, dynamic>>? _existingDocumentsFuture;
+
   // Step 5: Product & Rules
   ProductRules? productRules;
   CreditLimit? creditLimit;
   bool isLoadingProductRules = false;
+
+  /// When backend says not eligible or no rule for this income/price
+  String? productRulesIneligibilityReason;
 
   // Step 6: Guarantor (if needed)
   final TextEditingController guarantorNameController = TextEditingController();
@@ -103,6 +142,11 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
   final TextEditingController guarantorAddressController =
       TextEditingController();
   final TextEditingController guarantorIncomeController =
+      TextEditingController();
+
+  /// Guarantor ID type: national_id, passport, driver_license (required by backend; default national_id)
+  String? selectedGuarantorIdType;
+  final TextEditingController guarantorIdNumberController =
       TextEditingController();
 
   // Step 7: Documents (dynamically initialized)
@@ -154,8 +198,12 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
       if (draftApplicationId == null) {
         await _checkPreviousApplication();
       }
-      if (draftApplicationId == null) {
-        await _checkExistingCustomer();
+      // Always load wallet customer so Step 2 matches the logged-in wallet (even when resuming a draft).
+      await _checkExistingCustomer();
+      _syncPersonalInfoFromWalletAndAuth();
+      // Load existing documents once (cached) to avoid repeated checkDocumentsSkip calls
+      if (_existingDocumentsFuture == null && widget.walletAccountId != null) {
+        _existingDocumentsFuture = _checkExistingDocuments();
       }
 
       // If initialStep is provided, navigate to that step
@@ -284,6 +332,31 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     );
   }
 
+  /// Re-applies draft checklist after first frame so config setState does not overwrite; uses same keys as UI.
+  void _applyDraftChecklist(Map<String, dynamic> draft) {
+    if (draft['checklist_items'] == null || draft['checklist_items'] is! List)
+      return;
+    final list = draft['checklist_items'] as List;
+    // Build map with all keys UI expects (from config), default false, then overlay draft
+    final newChecklist = <String, bool>{};
+    for (var item in eligibilityChecklistItems) {
+      final k = item['checklist_key']?.toString();
+      if (k != null && k.isNotEmpty) newChecklist[k] = false;
+    }
+    for (var item in list) {
+      if (item is! Map<String, dynamic>) continue;
+      final key = item['checklist_key']?.toString();
+      final isChecked = item['is_checked'] == 1 ||
+          item['is_checked'] == true ||
+          item['is_checked'] == '1';
+      if (key != null && key.isNotEmpty) newChecklist[key] = isChecked;
+    }
+    if (!mounted) return;
+    setState(() => eligibilityChecklist = Map<String, bool>.from(newChecklist));
+    api.appLog(
+        "📋 Checklist re-applied from draft (post-frame): ${eligibilityChecklist.toString()}");
+  }
+
   Future<void> _checkForDraft() async {
     if (widget.walletAccountId == null || widget.walletAccountId!.isEmpty) {
       return;
@@ -299,6 +372,15 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         });
         await _loadDraftData(draft);
         api.appLog("✅ Draft data loaded completely");
+        // Re-apply checklist after first frame so config setState cannot overwrite it (fixes "checked not restored" when reopening draft)
+        if (draft['checklist_items'] != null &&
+            (draft['checklist_items'] as List).isNotEmpty &&
+            mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _applyDraftChecklist(draft);
+          });
+        }
       }
     } catch (e) {
       api.appLog("⚠️ Failed to check for draft: $e");
@@ -451,6 +533,44 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         }
       }
     }
+    if (draft['position'] != null && draft['position'].toString().isNotEmpty) {
+      positionController.text = draft['position'].toString();
+    }
+    if (draft['tenure_of_employment'] != null &&
+        draft['tenure_of_employment'].toString().isNotEmpty) {
+      tenureOfEmploymentController.text =
+          draft['tenure_of_employment'].toString();
+    }
+    if (draft['type_of_business'] != null &&
+        draft['type_of_business'].toString().isNotEmpty) {
+      typeOfBusinessController.text = draft['type_of_business'].toString();
+    }
+    if (draft['business_location'] != null &&
+        draft['business_location'].toString().isNotEmpty) {
+      businessLocationController.text = draft['business_location'].toString();
+    }
+    if (draft['business_address'] != null &&
+        draft['business_address'].toString().isNotEmpty) {
+      businessAddressController.text = draft['business_address'].toString();
+    }
+    if (draft['years_in_business'] != null) {
+      yearsInBusinessController.text = draft['years_in_business'].toString();
+    }
+    if (draft['institution_name'] != null &&
+        draft['institution_name'].toString().isNotEmpty) {
+      institutionNameController.text = draft['institution_name'].toString();
+    }
+    if (draft['student_id_reg_no'] != null &&
+        draft['student_id_reg_no'].toString().isNotEmpty) {
+      studentIdRegNoController.text = draft['student_id_reg_no'].toString();
+    }
+    if (draft['program_of_study'] != null &&
+        draft['program_of_study'].toString().isNotEmpty) {
+      programOfStudyController.text = draft['program_of_study'].toString();
+    }
+    if (draft['year_of_study'] != null) {
+      yearOfStudyController.text = draft['year_of_study'].toString();
+    }
     if (draft['bank_id'] != null) {
       final bankId = int.tryParse(draft['bank_id'].toString());
       if (bankId != null) {
@@ -467,7 +587,8 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
           "✅ Loaded bank_account_number: ${draft['bank_account_number']}");
     }
 
-    // Pre-fill eligibility checklist: first from database checklist_items, then fallback to legacy flags
+    // Draft: restore checklist so previously checked items stay checked (first or second open from "draft applications")
+    // 1) Always apply draft checklist_items when present (even if eligibilityChecklistItems not yet loaded)
     if (draft['checklist_items'] != null && draft['checklist_items'] is List) {
       final list = draft['checklist_items'] as List;
       for (var item in list) {
@@ -478,107 +599,72 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             item['is_checked'] == '1';
         if (key != null && key.isNotEmpty) {
           eligibilityChecklist[key] = isChecked;
-          api.appLog("📋 Checklist from DB: $key = $isChecked");
+          api.appLog("📋 Checklist from draft: $key = $isChecked");
         }
       }
     }
-    // Fallback: map draft legacy fields (age_verified, documentation_complete, guarantor_provided) to checklist keys
-    for (var item in eligibilityChecklistItems) {
-      final key = item['checklist_key']?.toString();
-      if (key == null) continue;
-
-      // Map draft fields to checklist keys
-      if (key.toLowerCase().contains('age') ||
-          key.toLowerCase().contains('18')) {
-        // Age verification
-        if (draft['age_verified'] == 1 || draft['age_verified'] == true) {
-          eligibilityChecklist[key] = true;
-        }
-      } else if (key.toLowerCase().contains('id') ||
-          key.toLowerCase().contains('valid')) {
-        // Valid ID
-        if (draft['documentation_complete'] == 1 ||
-            draft['documentation_complete'] == true) {
-          eligibilityChecklist[key] = true;
-        }
-      } else if (key.toLowerCase().contains('income') ||
-          key.toLowerCase().contains('proof')) {
-        // Income proof
-        if (draft['documentation_complete'] == 1 ||
-            draft['documentation_complete'] == true) {
-          eligibilityChecklist[key] = true;
-        }
-      } else if (key.toLowerCase().contains('bank') ||
-          key.toLowerCase().contains('statement')) {
-        // Bank statement
-        if (draft['documentation_complete'] == 1 ||
-            draft['documentation_complete'] == true) {
-          eligibilityChecklist[key] = true;
-        }
-      } else if (key.toLowerCase().contains('guarantor') ||
-          key.toLowerCase().contains('willing')) {
-        // Guarantor
-        if (draft['guarantor_provided'] == 1 ||
-            draft['guarantor_provided'] == true) {
-          eligibilityChecklist[key] = true;
+    // 2) Build full checklist when we have config items: all keys false, then overlay draft + legacy
+    if (eligibilityChecklistItems.isNotEmpty) {
+      final newChecklist = <String, bool>{};
+      for (var item in eligibilityChecklistItems) {
+        final key = item['checklist_key']?.toString();
+        if (key != null && key.isNotEmpty)
+          newChecklist[key] = eligibilityChecklist[key] ?? false;
+      }
+      if (draft['checklist_items'] != null &&
+          draft['checklist_items'] is List) {
+        final list = draft['checklist_items'] as List;
+        for (var item in list) {
+          if (item is! Map<String, dynamic>) continue;
+          final key = item['checklist_key']?.toString();
+          final isChecked = item['is_checked'] == 1 ||
+              item['is_checked'] == true ||
+              item['is_checked'] == '1';
+          if (key != null && key.isNotEmpty) newChecklist[key] = isChecked;
         }
       }
-    }
-
-    // Also try direct mapping with common key names
-    if (draft['age_verified'] == 1 || draft['age_verified'] == true) {
-      // Try common key names
-      final ageKeys = ['age_18_plus', 'age_18', 'age_verified', 'age'];
-      for (var ageKey in ageKeys) {
-        if (eligibilityChecklist.containsKey(ageKey)) {
-          eligibilityChecklist[ageKey] = true;
-          break;
+      if (draft['age_verified'] == 1 || draft['age_verified'] == true) {
+        for (var ageKey in ['age_18_plus', 'age_18', 'age_verified', 'age']) {
+          if (newChecklist.containsKey(ageKey)) {
+            newChecklist[ageKey] = true;
+            break;
+          }
         }
       }
-    }
-
-    if (draft['documentation_complete'] == 1 ||
-        draft['documentation_complete'] == true) {
-      // Try common key names for documentation
-      final docKeys = [
-        'has_valid_id',
-        'has_id',
-        'valid_id',
-        'has_income_proof',
-        'income_proof',
-        'has_bank_statement',
-        'bank_statement'
-      ];
-      for (var docKey in docKeys) {
-        if (eligibilityChecklist.containsKey(docKey)) {
-          eligibilityChecklist[docKey] = true;
+      if (draft['documentation_complete'] == 1 ||
+          draft['documentation_complete'] == true) {
+        for (var docKey in [
+          'has_valid_id',
+          'has_id',
+          'valid_id',
+          'has_income_proof',
+          'income_proof',
+          'has_bank_statement',
+          'bank_statement'
+        ]) {
+          if (newChecklist.containsKey(docKey)) newChecklist[docKey] = true;
         }
       }
-    }
-
-    if (draft['guarantor_provided'] == 1 ||
-        draft['guarantor_provided'] == true) {
-      // Try common key names for guarantor
-      final guarantorKeys = [
-        'willing_to_provide_guarantor',
-        'guarantor',
-        'provide_guarantor'
-      ];
-      for (var guarantorKey in guarantorKeys) {
-        if (eligibilityChecklist.containsKey(guarantorKey)) {
-          eligibilityChecklist[guarantorKey] = true;
-          break;
+      if (draft['guarantor_provided'] == 1 ||
+          draft['guarantor_provided'] == true) {
+        for (var gKey in [
+          'willing_to_provide_guarantor',
+          'guarantor',
+          'provide_guarantor'
+        ]) {
+          if (newChecklist.containsKey(gKey)) {
+            newChecklist[gKey] = true;
+            break;
+          }
         }
       }
+      eligibilityChecklist = Map<String, bool>.from(newChecklist);
     }
-
-    api.appLog("📋 Eligibility checklist loaded from draft:");
-    api.appLog("   - Checklist items: ${eligibilityChecklist.toString()}");
-    if (mounted) {
-      setState(() {
-        eligibilityChecklist = Map<String, bool>.from(eligibilityChecklist);
-      });
-    }
+    api.appLog(
+        "📋 Eligibility checklist from draft: ${eligibilityChecklist.toString()}");
+    if (mounted)
+      setState(() =>
+          eligibilityChecklist = Map<String, bool>.from(eligibilityChecklist));
 
     // Pre-fill guarantor if available
     if (draft['guarantor_name'] != null) {
@@ -586,6 +672,15 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     }
     if (draft['guarantor_phone'] != null) {
       guarantorPhoneController.text = draft['guarantor_phone'].toString();
+    }
+    if (draft['guarantor_id_type'] != null) {
+      final idType =
+          _normalizeGuarantorIdType(draft['guarantor_id_type'].toString());
+      if (idType != null) selectedGuarantorIdType = idType;
+    }
+    if (draft['guarantor_id_number'] != null) {
+      guarantorIdNumberController.text =
+          draft['guarantor_id_number'].toString();
     }
     if (draft['guarantor_address'] != null) {
       guarantorAddressController.text = draft['guarantor_address'].toString();
@@ -696,6 +791,35 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         }
       }
     }
+
+    // Pre-fill guarantor from previous application (editable – user can change)
+    if (previousData['guarantor'] != null &&
+        previousData['guarantor'] is Map<String, dynamic>) {
+      final g = previousData['guarantor'] as Map<String, dynamic>;
+      if (g['guarantor_name'] != null) {
+        guarantorNameController.text = g['guarantor_name'].toString().trim();
+      }
+      if (g['guarantor_phone'] != null) {
+        guarantorPhoneController.text = g['guarantor_phone'].toString().trim();
+      }
+      if (g['guarantor_address'] != null) {
+        guarantorAddressController.text =
+            g['guarantor_address'].toString().trim();
+      }
+      if (g['guarantor_income'] != null) {
+        guarantorIncomeController.text = g['guarantor_income'].toString();
+      }
+      if (g['guarantor_id_type'] != null) {
+        final idType =
+            _normalizeGuarantorIdType(g['guarantor_id_type'].toString());
+        if (idType != null) selectedGuarantorIdType = idType;
+      }
+      if (g['guarantor_id_number'] != null) {
+        guarantorIdNumberController.text =
+            g['guarantor_id_number'].toString().trim();
+      }
+      api.appLog("✅ Loaded guarantor from previous application (editable)");
+    }
   }
 
   /// Builds the products payload for API: list of { product_id, quantity, price }.
@@ -703,13 +827,13 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
   List<Map<String, dynamic>> _buildProductsPayload() {
     final list = <Map<String, dynamic>>[];
     for (final item in widget.orderItems) {
-      final pid = item['product_id'];
+      final pid = item['product_id'] ?? item['id'];
       final productId = pid is int ? pid : int.tryParse(pid?.toString() ?? '');
       if (productId == null) continue;
       final qty = item['quantity'];
       final quantity =
           qty is int ? qty : int.tryParse(qty?.toString() ?? '1') ?? 1;
-      final up = item['unit_price'];
+      final up = item['unit_price'] ?? item['price'];
       final price = (up is num)
           ? up.toDouble()
           : (double.tryParse(up?.toString() ?? '0') ?? 0.0);
@@ -755,8 +879,6 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         if (selectedGender != null) 'gender': selectedGender,
         if (selectedMaritalStatus != null)
           'marital_status': selectedMaritalStatus,
-        if (residentialAddressController.text.isNotEmpty)
-          'residential_address': residentialAddressController.text.trim(),
         if (selectedRegionId != null) 'region_id': selectedRegionId,
         if (selectedDistrictId != null) 'district_id': selectedDistrictId,
         if (selectedEmploymentStatus != null)
@@ -766,6 +888,27 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         if (monthlyIncomeController.text.isNotEmpty)
           'monthly_income':
               double.tryParse(monthlyIncomeController.text) ?? 0.0,
+        if (positionController.text.isNotEmpty)
+          'position': positionController.text.trim(),
+        if (tenureOfEmploymentController.text.isNotEmpty)
+          'tenure_of_employment': tenureOfEmploymentController.text.trim(),
+        if (typeOfBusinessController.text.isNotEmpty)
+          'type_of_business': typeOfBusinessController.text.trim(),
+        if (businessLocationController.text.isNotEmpty)
+          'business_location': businessLocationController.text.trim(),
+        if (businessAddressController.text.isNotEmpty)
+          'business_address': businessAddressController.text.trim(),
+        if (yearsInBusinessController.text.isNotEmpty)
+          'years_in_business':
+              int.tryParse(yearsInBusinessController.text.trim()),
+        if (institutionNameController.text.isNotEmpty)
+          'institution_name': institutionNameController.text.trim(),
+        if (studentIdRegNoController.text.isNotEmpty)
+          'student_id_reg_no': studentIdRegNoController.text.trim(),
+        if (programOfStudyController.text.isNotEmpty)
+          'program_of_study': programOfStudyController.text.trim(),
+        if (yearOfStudyController.text.isNotEmpty)
+          'year_of_study': int.tryParse(yearOfStudyController.text.trim()),
         if (selectedBankId != null) 'bank_id': selectedBankId,
         if (bankAccountController.text.isNotEmpty)
           'bank_account_number': bankAccountController.text.trim(),
@@ -781,6 +924,10 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
           'guarantor_name': guarantorNameController.text.trim(),
         if (guarantorPhoneController.text.isNotEmpty)
           'guarantor_phone': guarantorPhoneController.text.trim(),
+        if (selectedGuarantorIdType != null)
+          'guarantor_id_type': selectedGuarantorIdType,
+        if (guarantorIdNumberController.text.isNotEmpty)
+          'guarantor_id_number': guarantorIdNumberController.text.trim(),
         if (guarantorAddressController.text.isNotEmpty)
           'guarantor_address': guarantorAddressController.text.trim(),
         if (guarantorIncomeController.text.isNotEmpty)
@@ -940,7 +1087,9 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
 
   Future<void> _loadApplicationConfiguration() async {
     try {
-      final config = await api.getBnplApplicationConfiguration();
+      // Pass totalOrderAmount so backend can include birth_certificate when amount < 400 USD
+      final config = await api.getBnplApplicationConfiguration(
+          totalOrderAmount: widget.totalOrderAmount);
       if (mounted) {
         setState(() {
           appConfig = config;
@@ -1105,11 +1254,16 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             Future.delayed(const Duration(milliseconds: 800), () {
               if (mounted) {
                 _prefillCustomerData(customerData);
+                _syncPersonalInfoFromWalletAndAuth();
               }
             });
           } else {
             _prefillCustomerData(customerData);
+            _syncPersonalInfoFromWalletAndAuth();
           }
+        } else {
+          // Still sync name/phone from Auth when API returns no "exists" but map may hold defaults
+          _syncPersonalInfoFromWalletAndAuth();
         }
       }
     } catch (e) {
@@ -1119,31 +1273,105 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
           customerExists = false;
           existingCustomerData = null;
         });
+        _syncPersonalInfoFromWalletAndAuth();
       }
     }
   }
 
+  /// Forces Step 2 fields from wallet API + Auth so they match the logged-in account (not draft edits).
+  void _syncPersonalInfoFromWalletAndAuth() {
+    if (!mounted) return;
+    try {
+      final auth = Provider.of<Auth>(context, listen: false);
+      final d = existingCustomerData;
+
+      if (d != null) {
+        final fn = d['full_name']?.toString().trim();
+        if (fn != null && fn.isNotEmpty) {
+          fullNameController.text = fn;
+        }
+        final ph = d['phone_number']?.toString().trim();
+        if (ph != null && ph.isNotEmpty) {
+          phoneController.text = ph;
+        }
+        final em = d['email']?.toString().trim();
+        if (em != null && em.isNotEmpty) {
+          emailController.text = em;
+        }
+        final dob = d['date_of_birth']?.toString().trim();
+        if (dob != null && dob.isNotEmpty) {
+          dateOfBirthController.text = dob;
+        }
+        if (genderOptions.isNotEmpty && d['gender'] != null) {
+          final genderValue = d['gender'].toString();
+          try {
+            final matchingGender = genderOptions.firstWhere(
+              (g) =>
+                  g['gender_key']?.toString().toLowerCase() ==
+                  genderValue.toLowerCase(),
+            );
+            final key = matchingGender['gender_key']?.toString();
+            if (key != null) selectedGender = key;
+          } catch (_) {
+            api.appLog("⚠️ Gender '$genderValue' not found in options");
+          }
+        }
+        if (maritalStatusOptions.isNotEmpty && d['marital_status'] != null) {
+          final maritalValue = d['marital_status'].toString();
+          try {
+            final matchingMarital = maritalStatusOptions.firstWhere(
+              (m) =>
+                  m['marital_status_key']?.toString().toLowerCase() ==
+                  maritalValue.toLowerCase(),
+            );
+            final key = matchingMarital['marital_status_key']?.toString();
+            if (key != null) selectedMaritalStatus = key;
+          } catch (_) {
+            api.appLog("⚠️ Marital status '$maritalValue' not found in options");
+          }
+        }
+      }
+
+      if (fullNameController.text.trim().isEmpty &&
+          auth.Name != null &&
+          auth.Name!.trim().isNotEmpty) {
+        fullNameController.text = auth.Name!.trim();
+      }
+      if (phoneController.text.trim().isEmpty &&
+          auth.phone != null &&
+          auth.phone!.trim().isNotEmpty) {
+        phoneController.text = auth.phone!.trim();
+      }
+
+      setState(() {});
+    } catch (e) {
+      api.appLog("⚠️ _syncPersonalInfoFromWalletAndAuth: $e");
+    }
+  }
+
   void _prefillCustomerData(Map<String, dynamic> customerData) {
-    // Pre-fill personal information if available
-    if (customerData['full_name'] != null) {
+    // Merge pre-fill: only set when field is empty (so AsalPay Auth can take precedence for name/phone)
+    if (customerData['full_name'] != null &&
+        fullNameController.text.trim().isEmpty) {
       fullNameController.text = customerData['full_name'].toString();
     }
-    if (customerData['phone_number'] != null) {
+    if (customerData['phone_number'] != null &&
+        phoneController.text.trim().isEmpty) {
       phoneController.text = customerData['phone_number'].toString();
     }
-    if (customerData['email'] != null) {
+    if (customerData['email'] != null && emailController.text.trim().isEmpty) {
       emailController.text = customerData['email'].toString();
     }
     if (customerData['date_of_birth'] != null) {
       final dobValue = customerData['date_of_birth'].toString();
-      // Handle different date formats
-      if (dobValue.isNotEmpty) {
+      if (dobValue.isNotEmpty && dateOfBirthController.text.trim().isEmpty) {
         dateOfBirthController.text = dobValue;
       }
     }
-    if (customerData['gender'] != null && genderOptions.isNotEmpty) {
+    if (customerData['gender'] != null &&
+        genderOptions.isNotEmpty &&
+        selectedGender == null) {
       final genderValue = customerData['gender'].toString();
-      // Find matching gender in options (case-insensitive)
       try {
         final matchingGender = genderOptions.firstWhere(
           (g) =>
@@ -1156,14 +1384,13 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
           });
         }
       } catch (e) {
-        // Gender not found in options, skip pre-fill
         api.appLog("⚠️ Gender '$genderValue' not found in options");
       }
     }
     if (customerData['marital_status'] != null &&
-        maritalStatusOptions.isNotEmpty) {
+        maritalStatusOptions.isNotEmpty &&
+        selectedMaritalStatus == null) {
       final maritalValue = customerData['marital_status'].toString();
-      // Find matching marital status in options (case-insensitive)
       try {
         final matchingMarital = maritalStatusOptions.firstWhere(
           (m) =>
@@ -1177,38 +1404,41 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
           });
         }
       } catch (e) {
-        // Marital status not found in options, skip pre-fill
         api.appLog("⚠️ Marital status '$maritalValue' not found in options");
       }
     }
-    if (customerData['residential_address'] != null) {
+    if (customerData['residential_address'] != null &&
+        residentialAddressController.text.trim().isEmpty) {
       residentialAddressController.text =
           customerData['residential_address'].toString();
     }
 
-    // Pre-fill location if available
-    if (customerData['region_id'] != null) {
+    // Pre-fill location if available (merge: only when not already set)
+    if (customerData['region_id'] != null && selectedRegionId == null) {
       final regionId = int.tryParse(customerData['region_id'].toString());
       if (regionId != null) {
         selectedRegionId = regionId;
         _loadDistricts(regionId);
       }
     }
-    if (customerData['district_id'] != null) {
+    if (customerData['district_id'] != null && selectedDistrictId == null) {
       final districtId = int.tryParse(customerData['district_id'].toString());
       if (districtId != null) {
         selectedDistrictId = districtId;
       }
     }
 
-    // Pre-fill employment & financial if available
-    if (customerData['employment_status'] != null) {
+    // Pre-fill employment & financial if available (merge)
+    if (customerData['employment_status'] != null &&
+        selectedEmploymentStatus == null) {
       selectedEmploymentStatus = customerData['employment_status'].toString();
     }
-    if (customerData['employer_name'] != null) {
+    if (customerData['employer_name'] != null &&
+        employerNameController.text.trim().isEmpty) {
       employerNameController.text = customerData['employer_name'].toString();
     }
-    if (customerData['monthly_income'] != null) {
+    if (customerData['monthly_income'] != null &&
+        monthlyIncomeController.text.trim().isEmpty) {
       monthlyIncomeController.text = customerData['monthly_income'].toString();
       final income = double.tryParse(customerData['monthly_income'].toString());
       if (income != null) {
@@ -1216,8 +1446,56 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         _loadProductRules();
       }
     }
-    // Handle bank selection - try to match by bank_id first, then by name
-    if (customerData['bank_id'] != null) {
+    if (customerData['position'] != null &&
+        positionController.text.trim().isEmpty) {
+      positionController.text = customerData['position'].toString();
+    }
+    if (customerData['tenure_of_employment'] != null &&
+        tenureOfEmploymentController.text.trim().isEmpty) {
+      tenureOfEmploymentController.text =
+          customerData['tenure_of_employment'].toString();
+    }
+    if (customerData['type_of_business'] != null &&
+        typeOfBusinessController.text.trim().isEmpty) {
+      typeOfBusinessController.text =
+          customerData['type_of_business'].toString();
+    }
+    if (customerData['business_location'] != null &&
+        businessLocationController.text.trim().isEmpty) {
+      businessLocationController.text =
+          customerData['business_location'].toString();
+    }
+    if (customerData['business_address'] != null &&
+        businessAddressController.text.trim().isEmpty) {
+      businessAddressController.text =
+          customerData['business_address'].toString();
+    }
+    if (customerData['years_in_business'] != null &&
+        yearsInBusinessController.text.trim().isEmpty) {
+      yearsInBusinessController.text =
+          customerData['years_in_business'].toString();
+    }
+    if (customerData['institution_name'] != null &&
+        institutionNameController.text.trim().isEmpty) {
+      institutionNameController.text =
+          customerData['institution_name'].toString();
+    }
+    if (customerData['student_id_reg_no'] != null &&
+        studentIdRegNoController.text.trim().isEmpty) {
+      studentIdRegNoController.text =
+          customerData['student_id_reg_no'].toString();
+    }
+    if (customerData['program_of_study'] != null &&
+        programOfStudyController.text.trim().isEmpty) {
+      programOfStudyController.text =
+          customerData['program_of_study'].toString();
+    }
+    if (customerData['year_of_study'] != null &&
+        yearOfStudyController.text.trim().isEmpty) {
+      yearOfStudyController.text = customerData['year_of_study'].toString();
+    }
+    // Handle bank selection - try to match by bank_id first, then by name (merge: only when not set)
+    if (customerData['bank_id'] != null && selectedBankId == null) {
       final bankId = int.tryParse(customerData['bank_id'].toString());
       if (bankId != null && bankId != 0) {
         selectedBankId = bankId;
@@ -1242,7 +1520,10 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
           selectedBankName = customerData['bank_name']?.toString();
         }
       }
-    } else if (customerData['bank_name'] != null && banks.isNotEmpty) {
+    } else if (customerData['bank_name'] != null &&
+        banks.isNotEmpty &&
+        selectedBankId == null &&
+        selectedBankName == null) {
       // Fallback to bank_name if bank_id is not available
       final bankName = customerData['bank_name'].toString();
       selectedBankName = bankName;
@@ -1262,11 +1543,12 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
       } catch (e) {
         // Bank not found in list, but we have the name
       }
-    } else if (customerData['bank_name'] != null) {
+    } else if (customerData['bank_name'] != null && selectedBankName == null) {
       // Banks not loaded yet, just store the name
       selectedBankName = customerData['bank_name'].toString();
     }
-    if (customerData['bank_account_number'] != null) {
+    if (customerData['bank_account_number'] != null &&
+        bankAccountController.text.trim().isEmpty) {
       bankAccountController.text =
           customerData['bank_account_number'].toString();
     }
@@ -1349,8 +1631,8 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
 
   Future<void> _loadDocumentTypesByRiskLevel(String riskLevel) async {
     try {
-      final config =
-          await api.getBnplApplicationConfiguration(riskLevel: riskLevel);
+      final config = await api.getBnplApplicationConfiguration(
+          riskLevel: riskLevel, totalOrderAmount: widget.totalOrderAmount);
       if (mounted && config['document_types'] != null) {
         setState(() {
           documentTypes = (config['document_types'] as List)
@@ -1375,22 +1657,56 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
   Future<void> _loadProductRules() async {
     if (incomeCategory == null || incomeCategory!.isEmpty) return;
 
-    setState(() => isLoadingProductRules = true);
+    setState(() {
+      isLoadingProductRules = true;
+      productRulesIneligibilityReason = null;
+    });
     try {
-      final data =
-          await api.getProductRules(incomeCategory!, widget.totalOrderAmount);
+      final monthlyIncome =
+          double.tryParse(monthlyIncomeController.text.trim());
+      final response = await api.getProductRules(
+        incomeCategory!,
+        widget.totalOrderAmount,
+        monthlyIncome: monthlyIncome,
+      );
+      final data = response;
+
       if (data.isEmpty) {
-        setState(() => productRules = null);
-        if (mounted) {
-          _showError(
-              'No product rule found for this income category. Please check your monthly income or try again.');
-        }
-      } else {
-        setState(() => productRules = ProductRules.fromJson(data));
+        setState(() {
+          productRules = null;
+          productRulesIneligibilityReason =
+              'No product rule found for this income category. Please check your monthly income or try again.';
+        });
+        return;
       }
+
+      final ruleFound = data['rule_found'];
+      final reason = data['reason']?.toString();
+
+      if (ruleFound == false) {
+        setState(() {
+          productRules = null;
+          productRulesIneligibilityReason = reason?.isNotEmpty == true
+              ? reason
+              : 'No payment terms for this order amount. Please try a different amount.';
+        });
+        if (mounted && reason != null && reason.isNotEmpty) {
+          _showError(reason);
+        }
+        return;
+      }
+
+      setState(() {
+        productRulesIneligibilityReason = null;
+        productRules = ProductRules.fromJson(data);
+      });
     } catch (e) {
       api.appLog("⚠️ Product rules error: $e");
       if (mounted) {
+        setState(() {
+          productRules = null;
+          productRulesIneligibilityReason = null;
+        });
         _showError(
             'Failed to load product rules. Please check your monthly income and try again.');
       }
@@ -1446,8 +1762,29 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     }
   }
 
+  /// Document types that do not have a document number (bank statement, proof of income, etc.)
+  static const _documentTypesWithoutNumber = [
+    'bank_statement',
+    'income_proof',
+    'proof_of_income',
+    'has_bank_statement',
+    'has_income_proof'
+  ];
+
   Future<void> _pickDocument(String documentType) async {
     try {
+      // Document number required only for NEW uploads of ID-type documents (not for bank statement / proof of income)
+      final hasExisting = existingDocuments[documentType] == true;
+      final requiresDocNumber =
+          !_documentTypesWithoutNumber.contains(documentType);
+      if (!hasExisting && requiresDocNumber) {
+        final docNum = documentNumbers[documentType]?.trim() ?? '';
+        if (docNum.isEmpty) {
+          _showError(
+              'Document number is required for new uploads. Please enter the document number before uploading.');
+          return;
+        }
+      }
       // Show dialog to choose between image or PDF
       final choice = await showDialog<String>(
         context: context,
@@ -1653,57 +1990,22 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
   bool _validateCurrentStep() {
     switch (_currentStep) {
       case 0:
-        // Check each requirement individually using dynamic checklist
+        // Require ALL checklist items to be checked before proceeding (no unchecked items)
         for (var item in eligibilityChecklistItems) {
           final key = item['checklist_key']?.toString();
-          final isRequired = item['is_required'] == 1;
-          if (key != null && isRequired) {
-            final isChecked = eligibilityChecklist[key] ?? false;
-            if (!isChecked) {
-              final title = item['checklist_title']?.toString() ??
-                  item['checklist_description']?.toString() ??
-                  'Please confirm this requirement';
-              _showError('Please confirm: $title');
-              return false;
-            }
+          if (key == null) continue;
+          final isChecked = eligibilityChecklist[key] ?? false;
+          if (!isChecked) {
+            final title = item['checklist_title']?.toString() ??
+                item['checklist_description']?.toString() ??
+                'Please confirm this requirement';
+            _showError('Please confirm: $title');
+            return false;
           }
         }
         return true;
       case 1:
-        final fullName = fullNameController.text.trim();
-        final phone = phoneController.text.trim();
-        final email = emailController.text.trim();
-        final dob = dateOfBirthController.text.trim();
-        final address = residentialAddressController.text.trim();
-
-        if (fullName.isEmpty) {
-          _showError('Please enter your full name');
-          return false;
-        }
-        if (phone.isEmpty) {
-          _showError('Please enter your phone number');
-          return false;
-        }
-        if (email.isEmpty) {
-          _showError('Please enter your email address');
-          return false;
-        }
-        if (dob.isEmpty) {
-          _showError('Please select your date of birth');
-          return false;
-        }
-        if (selectedGender == null) {
-          _showError('Please select your gender');
-          return false;
-        }
-        if (selectedMaritalStatus == null) {
-          _showError('Please select your marital status');
-          return false;
-        }
-        if (address.isEmpty) {
-          _showError('Please enter your residential address');
-          return false;
-        }
+        // Personal info is wallet/Auth-sourced and read-only; Next is always allowed here.
         return true;
       case 2:
         if (selectedRegionId == null) {
@@ -1720,17 +2022,77 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
           _showError('Please select employment status');
           return false;
         }
-        if (monthlyIncomeController.text.trim().isEmpty) {
-          _showError('Please enter your monthly income');
-          return false;
-        }
-        if (incomeCategory == null) {
-          _showError('Please enter a valid monthly income');
-          return false;
-        }
-        if (employerNameController.text.trim().isEmpty) {
-          _showError('Please enter employer/business name');
-          return false;
+        final k = selectedEmploymentStatus!.toLowerCase();
+        final isEmployed = k == 'employed';
+        final isSelfEmployed = k == 'self_employed' || k == 'business_owner';
+        final isStudent = k == 'student';
+        if (isEmployed) {
+          if (employerNameController.text.trim().isEmpty) {
+            _showError('Please enter employer name');
+            return false;
+          }
+          if (positionController.text.trim().isEmpty) {
+            _showError('Please enter your position');
+            return false;
+          }
+          if (tenureOfEmploymentController.text.trim().isEmpty) {
+            _showError('Please enter tenure of employment');
+            return false;
+          }
+          if (monthlyIncomeController.text.trim().isEmpty) {
+            _showError('Please enter your monthly income');
+            return false;
+          }
+          if (incomeCategory == null) {
+            _showError('Please enter a valid monthly income');
+            return false;
+          }
+        } else if (isSelfEmployed) {
+          if (employerNameController.text.trim().isEmpty) {
+            _showError('Please enter business name');
+            return false;
+          }
+          if (typeOfBusinessController.text.trim().isEmpty) {
+            _showError('Please enter type of business');
+            return false;
+          }
+          if (businessLocationController.text.trim().isEmpty) {
+            _showError('Please enter business location');
+            return false;
+          }
+          if (businessAddressController.text.trim().isEmpty) {
+            _showError('Please enter business address');
+            return false;
+          }
+          if (monthlyIncomeController.text.trim().isEmpty) {
+            _showError('Please enter monthly revenue');
+            return false;
+          }
+          if (incomeCategory == null) {
+            _showError('Please enter a valid monthly revenue');
+            return false;
+          }
+          if (yearsInBusinessController.text.trim().isEmpty) {
+            _showError('Please enter years in business');
+            return false;
+          }
+        } else if (isStudent) {
+          if (institutionNameController.text.trim().isEmpty) {
+            _showError('Please enter institution name');
+            return false;
+          }
+          if (studentIdRegNoController.text.trim().isEmpty) {
+            _showError('Please enter student ID / registration number');
+            return false;
+          }
+          if (programOfStudyController.text.trim().isEmpty) {
+            _showError('Please enter program of study');
+            return false;
+          }
+          if (yearOfStudyController.text.trim().isEmpty) {
+            _showError('Please enter year of study');
+            return false;
+          }
         }
         if (selectedBankId == null) {
           _showError('Please select a bank');
@@ -1749,60 +2111,42 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         }
         return true;
       case 5:
-        if (locationRisk?.isHighRisk == true) {
-          if (guarantorNameController.text.trim().isEmpty) {
-            _showError('Please enter guarantor name');
-            return false;
-          }
-          if (guarantorPhoneController.text.trim().isEmpty) {
-            _showError('Please enter guarantor phone number');
-            return false;
-          }
-          if (guarantorAddressController.text.trim().isEmpty) {
-            _showError('Please enter guarantor address');
-            return false;
-          }
-          if (guarantorIncomeController.text.trim().isEmpty) {
-            _showError('Please enter guarantor monthly income');
-            return false;
-          }
+        // Guarantor is always required for all BNPL applications
+        if (guarantorNameController.text.trim().isEmpty) {
+          _showError('Please enter guarantor name');
+          return false;
         }
+        if (guarantorPhoneController.text.trim().isEmpty) {
+          _showError('Please enter guarantor phone number');
+          return false;
+        }
+        if (guarantorAddressController.text.trim().isEmpty) {
+          _showError('Please enter guarantor address');
+          return false;
+        }
+        if (guarantorIncomeController.text.trim().isEmpty) {
+          _showError('Please enter guarantor monthly income');
+          return false;
+        }
+        // Guarantor ID type and ID number are optional
         return true;
       case 6:
-        // Require BOTH: 1) Valid ID (NIRA, Passport, etc.) AND 2) Bank Statement
-        const idDocKeys = [
-          'has_valid_id',
-          'nira',
-          'passport',
-          'driving_license',
-          'national_id',
-        ];
-        const bankStatementKey = 'bank_statement';
-        bool hasIdDoc = false;
-        bool hasBankStatement = false;
+        // Documents step is optional – user can skip and proceed
+        // If user did upload an ID-type document, document number is required for that upload
         for (var docType in documentTypes) {
           final key = docType['document_type_key']?.toString();
           if (key == null) continue;
-          final hasDoc =
-              existingDocuments[key] == true || documents[key] != null;
-          if (idDocKeys.contains(key) && hasDoc) hasIdDoc = true;
-          if (key == bankStatementKey && hasDoc) hasBankStatement = true;
-        }
-        // Also check documents map directly for bank_statement (in case not in documentTypes)
-        if (!hasBankStatement &&
-            (existingDocuments[bankStatementKey] == true ||
-                documents[bankStatementKey] != null)) {
-          hasBankStatement = true;
-        }
-        if (!hasIdDoc) {
-          _showError(
-              'Please upload a valid ID document (NIRA, Passport, or Driving License).');
-          return false;
-        }
-        if (!hasBankStatement) {
-          _showError(
-              'Bank Statement is required. Please upload your bank statement to continue.');
-          return false;
+          if (_documentTypesWithoutNumber.contains(key)) continue;
+          final hasNewUpload = documents[key] != null;
+          if (hasNewUpload) {
+            final num = documentNumbers[key]?.trim() ?? '';
+            if (num.isEmpty) {
+              final label = docType['document_type_name']?.toString() ?? key;
+              _showError(
+                  'Document number is required for $label. Please enter it before proceeding.');
+              return false;
+            }
+          }
         }
         return true;
       case 7:
@@ -1816,6 +2160,20 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     if (!_validateCurrentStep()) {
       // Error message already shown in _validateCurrentStep
       return;
+    }
+
+    // Require ALL step-0 checklist items to be checked before submit (no bypass via draft/resume)
+    for (var item in eligibilityChecklistItems) {
+      final key = item['checklist_key']?.toString();
+      if (key == null) continue;
+      final isChecked = eligibilityChecklist[key] ?? false;
+      if (!isChecked) {
+        final title = item['checklist_title']?.toString() ??
+            item['checklist_description']?.toString() ??
+            'Please confirm this requirement';
+        _showError('Please confirm all eligibility items: $title');
+        return;
+      }
     }
 
     // Validate order items
@@ -1869,17 +2227,38 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         'full_name': fullNameController.text.trim(),
         'phone_number': phoneController.text.trim(),
         'email': emailController.text.trim().isEmpty
-            ? 'noemail@example.com'
+            ? ''
             : emailController.text.trim(),
         'date_of_birth': dateOfBirthController.text.trim(),
         'gender': selectedGender ?? 'male',
         'marital_status': selectedMaritalStatus ?? 'single',
-        'residential_address': residentialAddressController.text.trim(),
+        'residential_address': null,
         'district_id': selectedDistrictId!,
         'region_id': selectedRegionId!,
         'employment_status': selectedEmploymentStatus ?? 'employed',
         'employer_name': employerNameController.text.trim(),
         'monthly_income': double.tryParse(monthlyIncomeController.text) ?? 0.0,
+        if (positionController.text.isNotEmpty)
+          'position': positionController.text.trim(),
+        if (tenureOfEmploymentController.text.isNotEmpty)
+          'tenure_of_employment': tenureOfEmploymentController.text.trim(),
+        if (typeOfBusinessController.text.isNotEmpty)
+          'type_of_business': typeOfBusinessController.text.trim(),
+        if (businessLocationController.text.isNotEmpty)
+          'business_location': businessLocationController.text.trim(),
+        if (businessAddressController.text.isNotEmpty)
+          'business_address': businessAddressController.text.trim(),
+        if (yearsInBusinessController.text.isNotEmpty)
+          'years_in_business':
+              int.tryParse(yearsInBusinessController.text.trim()),
+        if (institutionNameController.text.isNotEmpty)
+          'institution_name': institutionNameController.text.trim(),
+        if (studentIdRegNoController.text.isNotEmpty)
+          'student_id_reg_no': studentIdRegNoController.text.trim(),
+        if (programOfStudyController.text.isNotEmpty)
+          'program_of_study': programOfStudyController.text.trim(),
+        if (yearOfStudyController.text.isNotEmpty)
+          'year_of_study': int.tryParse(yearOfStudyController.text.trim()),
         if (selectedBankId != null) 'bank_id': selectedBankId,
         if (selectedBankName != null) 'bank_name': selectedBankName,
         'bank_account_number': bankAccountController.text.trim(),
@@ -1895,6 +2274,14 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                         productRules!.calculatedDeposit.toString()) ??
                     0.0))
             : 0.0,
+        // Send repayment terms from product rule so backend uses same logic (avoids defaulting to 12 months)
+        if (productRules?.repaymentDurationMonths != null)
+          'repayment_duration_months': productRules!.repaymentDurationMonths,
+        if (productRules?.monthlyInstallment != null)
+          'monthly_installment': productRules!.monthlyInstallment is num
+              ? productRules!.monthlyInstallment
+              : (double.tryParse(productRules!.monthlyInstallment.toString()) ??
+                  0.0),
         'location_risk_category': locationRisk?.riskCategory ?? '1',
         'location_risk_score': locationRisk?.riskScore != null
             ? (locationRisk!.riskScore is num
@@ -1903,16 +2290,17 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             : 0.0,
       };
 
-      // Add guarantor if required
-      if (locationRisk?.isHighRisk == true) {
-        applicationData['guarantor_name'] = guarantorNameController.text.trim();
-        applicationData['guarantor_phone'] =
-            guarantorPhoneController.text.trim();
-        applicationData['guarantor_address'] =
-            guarantorAddressController.text.trim();
-        applicationData['guarantor_income'] =
-            double.tryParse(guarantorIncomeController.text) ?? 0.0;
-      }
+      // Guarantor is always required for all applications
+      applicationData['guarantor_name'] = guarantorNameController.text.trim();
+      applicationData['guarantor_phone'] = guarantorPhoneController.text.trim();
+      applicationData['guarantor_id_type'] =
+          selectedGuarantorIdType ?? _guarantorIdTypeValues.first;
+      applicationData['guarantor_id_number'] =
+          guarantorIdNumberController.text.trim();
+      applicationData['guarantor_address'] =
+          guarantorAddressController.text.trim();
+      applicationData['guarantor_income'] =
+          double.tryParse(guarantorIncomeController.text) ?? 0.0;
 
       // Log the data being sent for debugging
       api.appLog(
@@ -1932,11 +2320,14 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         throw Exception('Invalid application ID received from server');
       }
 
-      // Check for existing documents before uploading
+      // Check for existing documents before uploading (use cached result if already loaded)
       Map<String, dynamic>? existingDocsData;
       try {
         existingDocsData =
-            await api.checkDocumentsSkip(widget.walletAccountId ?? '');
+            await (_existingDocumentsFuture ?? _checkExistingDocuments());
+        if (_existingDocumentsFuture == null) {
+          _existingDocumentsFuture = Future.value(existingDocsData);
+        }
         if (existingDocsData['documents'] != null) {
           final List existingDocs = existingDocsData['documents'] as List;
           for (var doc in existingDocs) {
@@ -2196,9 +2587,20 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     residentialAddressController.dispose();
     employerNameController.dispose();
     monthlyIncomeController.dispose();
+    positionController.dispose();
+    tenureOfEmploymentController.dispose();
+    typeOfBusinessController.dispose();
+    businessLocationController.dispose();
+    businessAddressController.dispose();
+    yearsInBusinessController.dispose();
+    institutionNameController.dispose();
+    studentIdRegNoController.dispose();
+    programOfStudyController.dispose();
+    yearOfStudyController.dispose();
     bankAccountController.dispose();
     guarantorNameController.dispose();
     guarantorPhoneController.dispose();
+    guarantorIdNumberController.dispose();
     guarantorAddressController.dispose();
     guarantorIncomeController.dispose();
     expirationDateController.dispose();
@@ -2209,10 +2611,11 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: secondryColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
         foregroundColor: Colors.white,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2239,22 +2642,28 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
           child: _buildProgressIndicator(),
         ),
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildStep1Eligibility(),
-                _buildStep2PersonalInfo(),
-                _buildStep3Location(),
-                _buildStep4Employment(),
-                _buildStep5ProductRules(),
-                _buildStep6Guarantor(),
-                _buildStep7Documents(),
-                _buildStep8Review(),
-              ],
-            ),
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(color: Colors.white))
+              : PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _buildStep1Eligibility(),
+                    _buildStep2PersonalInfo(),
+                    _buildStep3Location(),
+                    _buildStep4Employment(),
+                    _buildStep5ProductRules(),
+                    _buildStep6Guarantor(),
+                    _buildStep7Documents(),
+                    _buildStep8Review(),
+                  ],
+                ),
+        ),
+      ),
       bottomNavigationBar: _buildBottomNavigation(),
     );
   }
@@ -2341,14 +2750,14 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             style: GoogleFonts.poppins(
               fontSize: 22,
               fontWeight: FontWeight.w700,
-              color: primaryColor,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Please confirm that you meet the following requirements:',
-            style:
-                GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade700),
+            style: GoogleFonts.poppins(
+                fontSize: 14, color: Colors.white.withOpacity(0.88)),
           ),
           const SizedBox(height: 24),
           if (eligibilityChecklistItems.isEmpty)
@@ -2357,12 +2766,13 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
                   children: [
-                    const CircularProgressIndicator(),
+                    const CircularProgressIndicator(color: Colors.white),
                     const SizedBox(height: 16),
                     Text(
                       'Loading eligibility requirements...',
-                      style:
-                          GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
+                      style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.9)),
                     ),
                   ],
                 ),
@@ -2388,7 +2798,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: CheckboxListTile(
-        value: eligibilityChecklist[key],
+        value: eligibilityChecklist[key] ?? false,
         onChanged: (value) {
           setState(() => eligibilityChecklist[key] = value ?? false);
           // Trigger auto-save when checklist changes
@@ -2402,6 +2812,12 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
   }
 
   Widget _buildStep2PersonalInfo() {
+    final personalIncomplete = fullNameController.text.trim().isEmpty ||
+        phoneController.text.trim().isEmpty ||
+        dateOfBirthController.text.trim().isEmpty ||
+        selectedGender == null ||
+        selectedMaritalStatus == null;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -2412,14 +2828,54 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             style: GoogleFonts.poppins(
               fontSize: 22,
               fontWeight: FontWeight.w700,
-              color: primaryColor,
+              color: Colors.white,
             ),
           ),
+          const SizedBox(height: 12),
+          Text(
+            'These details come from your AsalPay wallet / profile. They cannot be changed here so your application matches your account.',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              height: 1.35,
+              color: Colors.white.withOpacity(0.88),
+            ),
+          ),
+          if (personalIncomplete) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber.withOpacity(0.5)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, color: Colors.amber.shade200, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Some profile fields are empty. You can continue; update your profile in Settings → Complete Profile for full details.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12.5,
+                        color: Colors.white.withOpacity(0.95),
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           _buildTextField(
             controller: fullNameController,
             label: 'Full Name *',
             icon: Icons.person,
+            readOnly: true,
+            triggerAutoSaveOnChange: false,
           ),
           const SizedBox(height: 16),
           _buildTextField(
@@ -2427,13 +2883,17 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             label: 'Phone Number *',
             icon: Icons.phone,
             keyboardType: TextInputType.phone,
+            readOnly: true,
+            triggerAutoSaveOnChange: false,
           ),
           const SizedBox(height: 16),
           _buildTextField(
             controller: emailController,
-            label: 'Email Address *',
+            label: 'Email Address (optional)',
             icon: Icons.email,
             keyboardType: TextInputType.emailAddress,
+            readOnly: true,
+            triggerAutoSaveOnChange: false,
           ),
           const SizedBox(height: 16),
           _buildTextField(
@@ -2441,92 +2901,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             label: 'Date of Birth *',
             icon: Icons.calendar_today,
             readOnly: true,
-            onTap: () async {
-              try {
-                // Safely parse minimum_age - handle both int and string
-                int minAge = 18;
-                if (ageRequirements?['minimum_age'] != null) {
-                  final minAgeValue = ageRequirements!['minimum_age'];
-                  if (minAgeValue is int) {
-                    minAge = minAgeValue;
-                  } else if (minAgeValue is String) {
-                    minAge = int.tryParse(minAgeValue) ?? 18;
-                  } else {
-                    minAge = int.tryParse(minAgeValue.toString()) ?? 18;
-                  }
-                }
-
-                // Safely parse maximum_age - handle both int and string
-                int? maxAge;
-                if (ageRequirements?['maximum_age'] != null) {
-                  final maxAgeValue = ageRequirements!['maximum_age'];
-                  if (maxAgeValue is int) {
-                    maxAge = maxAgeValue;
-                  } else if (maxAgeValue is String) {
-                    maxAge = int.tryParse(maxAgeValue);
-                  } else {
-                    maxAge = int.tryParse(maxAgeValue.toString());
-                  }
-                }
-
-                // Calculate dates
-                final now = DateTime.now();
-                final lastDate = maxAge != null
-                    ? now.subtract(Duration(days: 365 * maxAge))
-                    : now.subtract(Duration(days: 365 * minAge));
-                final firstDate = DateTime(1950);
-
-                // Set initial date - try to parse existing date, or use calculated default
-                DateTime initialDate;
-                if (dateOfBirthController.text.isNotEmpty) {
-                  try {
-                    final existingDate = DateFormat('yyyy-MM-dd')
-                        .parse(dateOfBirthController.text);
-                    initialDate = existingDate;
-                  } catch (e) {
-                    // If parsing fails, use calculated default
-                    initialDate = maxAge != null
-                        ? now.subtract(
-                            Duration(days: 365 * ((minAge + maxAge) ~/ 2)))
-                        : now.subtract(Duration(days: 365 * (minAge + 5)));
-                  }
-                } else {
-                  initialDate = maxAge != null
-                      ? now.subtract(
-                          Duration(days: 365 * ((minAge + maxAge) ~/ 2)))
-                      : now.subtract(Duration(days: 365 * (minAge + 5)));
-                }
-
-                // Ensure initial date is within valid range
-                if (initialDate.isAfter(lastDate)) {
-                  initialDate = lastDate;
-                }
-                if (initialDate.isBefore(firstDate)) {
-                  initialDate = firstDate;
-                }
-
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: initialDate,
-                  firstDate: firstDate,
-                  lastDate: lastDate,
-                  helpText: 'Select Date of Birth',
-                  cancelText: 'Cancel',
-                  confirmText: 'Select',
-                );
-
-                if (date != null && mounted) {
-                  setState(() {
-                    dateOfBirthController.text =
-                        DateFormat('yyyy-MM-dd').format(date);
-                  });
-                }
-              } catch (e) {
-                if (mounted) {
-                  _showError('Failed to select date: $e');
-                }
-              }
-            },
+            triggerAutoSaveOnChange: false,
           ),
           const SizedBox(height: 16),
           _buildDropdown(
@@ -2535,8 +2910,12 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             items: genderOptions
                 .map((g) => g['gender_key']?.toString())
                 .whereType<String>()
+                .where((k) => k.toLowerCase() != 'other')
                 .toList(),
             displayItems: genderOptions
+                .where((g) =>
+                    (g['gender_key']?.toString().toLowerCase() ?? '') !=
+                    'other')
                 .map((g) => g['gender_label']?.toString() ?? '')
                 .toList(),
             onChanged: (value) {
@@ -2544,6 +2923,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
               _startAutoSave();
             },
             icon: Icons.wc,
+            enabled: false,
           ),
           const SizedBox(height: 16),
           _buildDropdown(
@@ -2561,13 +2941,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
               _startAutoSave();
             },
             icon: Icons.family_restroom,
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            controller: residentialAddressController,
-            label: 'Residential Address *',
-            icon: Icons.home,
-            maxLines: 2,
+            enabled: false,
           ),
         ],
       ),
@@ -2585,7 +2959,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             style: GoogleFonts.poppins(
               fontSize: 22,
               fontWeight: FontWeight.w700,
-              color: primaryColor,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 24),
@@ -2703,14 +3077,14 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             const SizedBox(height: 24),
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: locationRisk!.isHighRisk
-                    ? Colors.red.shade50
-                    : locationRisk!.isMediumRisk
-                        ? Colors.orange.shade50
-                        : Colors.green.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
+              // decoration: BoxDecoration(
+              //   color: locationRisk!.isHighRisk
+              //       ? Colors.red.shade50
+              //       : locationRisk!.isMediumRisk
+              //           ? Colors.orange.shade50
+              //           : Colors.green.shade50,
+              //   borderRadius: BorderRadius.circular(12),
+              // ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2753,6 +3127,39 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     );
   }
 
+  /// Returns true if selected status is Employed (employed).
+  bool get _isEmployedSection =>
+      selectedEmploymentStatus != null &&
+      selectedEmploymentStatus!.toLowerCase() == 'employed';
+
+  /// Returns true if selected status is Self-employed (self_employed or business_owner).
+  bool get _isSelfEmployedSection {
+    final k = selectedEmploymentStatus?.toLowerCase();
+    return k == 'self_employed' || k == 'business_owner';
+  }
+
+  /// Returns true if selected status is Student.
+  bool get _isStudentSection =>
+      selectedEmploymentStatus != null &&
+      selectedEmploymentStatus!.toLowerCase() == 'student';
+
+  /// Display label for employment status key (Employed / Self-employed (Entrepreneur) / Student / other).
+  String _employmentStatusDisplayLabel(String? key) {
+    if (key == null) return '';
+    final k = key.toLowerCase();
+    if (k == 'employed') return 'Employed';
+    if (k == 'self_employed' || k == 'business_owner') {
+      return 'Self-employed (Entrepreneur)';
+    }
+    if (k == 'student') return 'Student';
+    for (final e in employmentStatusOptions) {
+      if (e['employment_status_key']?.toString().toLowerCase() == k) {
+        return e['employment_status_label']?.toString() ?? key;
+      }
+    }
+    return key;
+  }
+
   Widget _buildStep4Employment() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -2764,7 +3171,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             style: GoogleFonts.poppins(
               fontSize: 22,
               fontWeight: FontWeight.w700,
-              color: primaryColor,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 24),
@@ -2776,7 +3183,8 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                 .whereType<String>()
                 .toList(),
             displayItems: employmentStatusOptions
-                .map((e) => e['employment_status_label']?.toString() ?? '')
+                .map((e) => _employmentStatusDisplayLabel(
+                    e['employment_status_key']?.toString()))
                 .toList(),
             onChanged: (value) {
               setState(() => selectedEmploymentStatus = value);
@@ -2785,48 +3193,130 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             icon: Icons.work,
           ),
           const SizedBox(height: 16),
-          _buildTextField(
-            controller: employerNameController,
-            label: 'Employer Name / Business Name *',
-            icon: Icons.business,
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            controller: monthlyIncomeController,
-            label: 'Monthly Income (USD) *',
-            icon: Icons.attach_money,
-            keyboardType: TextInputType.number,
-            onChanged: _onIncomeChanged,
-          ),
-          if (incomeCategory != null) ...[
+          // —— Employed: Employer Name, Position, Tenure, Monthly Income ——
+          if (_isEmployedSection) ...[
+            _buildTextField(
+              controller: employerNameController,
+              label: 'Employer Name *',
+              icon: Icons.business,
+            ),
             const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cardBg,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.category, color: primaryColor),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Income Category: $incomeCategory',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+            _buildTextField(
+              controller: positionController,
+              label: 'Position *',
+              icon: Icons.badge,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: tenureOfEmploymentController,
+              label: 'Tenure of Employment (e.g. 2 years) *',
+              icon: Icons.schedule,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: monthlyIncomeController,
+              label: 'Monthly Income (USD) *',
+              icon: Icons.attach_money,
+              keyboardType: TextInputType.number,
+              onChanged: _onIncomeChanged,
+            ),
+            const SizedBox(height: 16),
+          ],
+          // —— Self-employed: Business Name, Type, Location, Address, Monthly Revenue, Years in Business ——
+          if (_isSelfEmployedSection) ...[
+            _buildTextField(
+              controller: employerNameController,
+              label: 'Business Name *',
+              icon: Icons.business,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: typeOfBusinessController,
+              label: 'Type of Business *',
+              icon: Icons.category,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: businessLocationController,
+              label: 'Business Location *',
+              icon: Icons.location_on,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: businessAddressController,
+              label: 'Business Address *',
+              icon: Icons.home_work,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: monthlyIncomeController,
+              label: 'Monthly Revenue (USD) *',
+              icon: Icons.attach_money,
+              keyboardType: TextInputType.number,
+              onChanged: _onIncomeChanged,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: yearsInBusinessController,
+              label: 'Years in Business *',
+              icon: Icons.calendar_today,
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+          ],
+          // —— Student: Institution, Student ID/Reg No, Program, Year of Study ——
+          if (_isStudentSection) ...[
+            _buildTextField(
+              controller: institutionNameController,
+              label: 'Institution Name *',
+              icon: Icons.school,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: studentIdRegNoController,
+              label: 'Student ID / Registration No *',
+              icon: Icons.badge,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: programOfStudyController,
+              label: 'Program of Study *',
+              icon: Icons.menu_book,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: yearOfStudyController,
+              label: 'Year of Study *',
+              icon: Icons.numbers,
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+          ],
+          // Unemployed / Daily worker: no extra fields (optional message could go here)
+          if (selectedEmploymentStatus != null &&
+              !_isEmployedSection &&
+              !_isSelfEmployedSection &&
+              !_isStudentSection) ...[
+            Text(
+              'No additional employment details required for this status.',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: Colors.grey.shade600,
               ),
             ),
+            const SizedBox(height: 16),
           ],
-          const SizedBox(height: 16),
           _buildBankDropdown(),
+          const SizedBox(height: 6),
+          Text(
+            'You can use bank or other wallet for payments.',
+            style:
+                GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
+          ),
           const SizedBox(height: 16),
           _buildTextField(
             controller: bankAccountController,
-            label: 'Bank Account Number *',
+            label: 'Bank Account Number or other wallet number*',
             icon: Icons.account_circle,
             keyboardType: TextInputType.number,
           ),
@@ -2836,6 +3326,14 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
   }
 
   Widget _buildStep5ProductRules() {
+    final monthlyIncome = double.tryParse(monthlyIncomeController.text.trim());
+    final installmentPctOfIncome = (productRules != null &&
+            monthlyIncome != null &&
+            monthlyIncome > 0 &&
+            productRules!.monthlyInstallment != null)
+        ? ((productRules!.monthlyInstallment! / monthlyIncome) * 100)
+        : null;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -2846,13 +3344,69 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             style: GoogleFonts.poppins(
               fontSize: 22,
               fontWeight: FontWeight.w700,
-              color: primaryColor,
+              color: Colors.white,
             ),
           ),
+          if (incomeCategory != null && incomeCategory!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            // Text(
+            //   'Based on your income category: $incomeCategory',
+            //   style: GoogleFonts.poppins(
+            //     fontSize: 13,
+            //     color: Colors.grey.shade600,
+            //   ),
+            // ),
+          ],
           const SizedBox(height: 24),
           if (isLoadingProductRules)
             const Center(child: CircularProgressIndicator())
-          else if (productRules != null) ...[
+          else if (productRulesIneligibilityReason != null &&
+              productRules == null) ...[
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded,
+                          color: Colors.orange.shade700, size: 24),
+                      const SizedBox(width: 10),
+                      Text(
+                        'No payment terms available',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    productRulesIneligibilityReason!,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.orange.shade900,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Go back and reduce your order amount or update your monthly income, then try again.',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: Colors.orange.shade800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (productRules != null) ...[
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -2881,6 +3435,9 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                       'Monthly Installment',
                       BnplUtils.formatCurrency(
                           productRules!.monthlyInstallment)),
+                  if (installmentPctOfIncome != null) ...[
+                    const Divider(),
+                  ],
                 ],
               ),
             ),
@@ -2947,34 +3504,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
   }
 
   Widget _buildStep6Guarantor() {
-    if (locationRisk?.isHighRisk != true) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.check_circle, size: 64, color: Colors.green),
-              const SizedBox(height: 16),
-              Text(
-                'Guarantor Not Required',
-                style: GoogleFonts.poppins(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Based on your location risk assessment, a guarantor is not required.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
+    // Guarantor is always required for all BNPL applications
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -2992,8 +3522,49 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Guarantor Required: Due to your location risk level, a guarantor is mandatory.',
+                    'Guarantor is required for all applications. Please provide guarantor information below.',
                     style: GoogleFonts.poppins(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.shade100, width: 1),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.account_balance_outlined,
+                    color: Colors.blue.shade700, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Bank statement required',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue.shade900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'The guarantor will be required to provide a bank statement as part of the verification process. Please inform your guarantor before submitting.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Colors.blue.shade800,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -3005,7 +3576,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             style: GoogleFonts.poppins(
               fontSize: 22,
               fontWeight: FontWeight.w700,
-              color: primaryColor,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 24),
@@ -3020,6 +3591,15 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
             label: 'Guarantor Phone Number *',
             icon: Icons.phone,
             keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 16),
+          _buildGuarantorIdTypeDropdown(),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: guarantorIdNumberController,
+            label: 'Guarantor ID Number (optional)',
+            icon: Icons.badge_outlined,
+            keyboardType: TextInputType.text,
           ),
           const SizedBox(height: 16),
           _buildTextField(
@@ -3040,11 +3620,74 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     );
   }
 
+  /// Must match tbl_bnpl_guarantors.id_type enum: 'nira', 'passport', 'driving_license'
+  static const _guarantorIdTypeValues = [
+    'nira',
+    'passport',
+    'driving_license',
+  ];
+  static const _guarantorIdTypeLabels = [
+    'NIRA',
+    'Passport',
+    'Driving License',
+  ];
+
+  /// Maps legacy or API values to DB enum (nira, passport, driving_license).
+  static String? _normalizeGuarantorIdType(String? value) {
+    if (value == null || value.isEmpty) return null;
+    final v = value.trim().toLowerCase();
+    if (_guarantorIdTypeValues.contains(v)) return v;
+    if (v == 'national_id') return 'nira';
+    if (v == 'driver_license') return 'driving_license';
+    return null;
+  }
+
+  Widget _buildGuarantorIdTypeDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Guarantor ID Type (optional)', style: _bnplFieldLabelStyle),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: selectedGuarantorIdType ?? _guarantorIdTypeValues.first,
+          style: GoogleFonts.poppins(
+              fontSize: 15, color: const Color(0xFF1A1A2E)),
+          decoration: InputDecoration(
+            prefixIcon: Icon(Icons.badge_outlined, color: primaryColor),
+            border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: cardBg,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          ),
+          items: _guarantorIdTypeValues.asMap().entries.map((entry) {
+            final value = entry.value;
+            final label = entry.key < _guarantorIdTypeLabels.length
+                ? _guarantorIdTypeLabels[entry.key]
+                : value;
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Text(label, style: GoogleFonts.poppins(fontSize: 16)),
+            );
+          }).toList(),
+          onChanged: (String? value) {
+            if (value != null) {
+              setState(() => selectedGuarantorIdType = value);
+              _startAutoSave();
+            }
+          },
+        ),
+      ],
+    );
+  }
+
   static const _idDocKeys = [
     'nira',
     'passport',
     'driving_license',
     'national_id',
+    'birth_certificate', // Allowed for amounts < 400 USD
     'has_valid_id'
   ];
   static const _bankStatementKey = 'bank_statement';
@@ -3131,40 +3774,33 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Required Documents',
+            'Documents (optional – you can skip and proceed)',
             style: GoogleFonts.poppins(
               fontSize: 22,
               fontWeight: FontWeight.w700,
-              color: primaryColor,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'You need 2 documents to complete your application:',
-            style:
-                GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade700),
+            'You can upload these documents if you have them. You can skip this step and proceed.',
+            style: GoogleFonts.poppins(
+                fontSize: 14, color: Colors.white.withOpacity(0.88)),
           ),
           const SizedBox(height: 12),
 
-          // Info banner - both documents required (always visible)
+          // Info banner — white card (readable on gradient)
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  primaryColor.withOpacity(0.15),
-                  primaryColor.withOpacity(0.06)
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(14),
-              border:
-                  Border.all(color: primaryColor.withOpacity(0.4), width: 1.5),
+              color: pureWhite,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                  color: primaryColor.withOpacity(0.12), width: 1.2),
               boxShadow: [
                 BoxShadow(
-                  color: primaryColor.withOpacity(0.08),
-                  blurRadius: 12,
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
               ],
@@ -3177,7 +3813,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: primaryColor.withOpacity(0.15),
+                        color: primaryColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child:
@@ -3189,19 +3825,20 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Both documents are required',
+                            'Documents are optional',
                             style: GoogleFonts.poppins(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
                               color: primaryColor,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 4),
                           Text(
-                            'Both documents are mandatory. Bank statement must be uploaded—no exceptions.',
+                            'You can skip this step and proceed without uploading. Upload if you have them.',
                             style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: Colors.grey.shade700,
+                              fontSize: 13,
+                              height: 1.35,
+                              color: const Color(0xFF455A54),
                             ),
                           ),
                         ],
@@ -3212,7 +3849,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                 const SizedBox(height: 16),
                 _buildDocRequirementRow(
                   1,
-                  'Valid ID (NIRA, Passport, or Driving License)',
+                  'Valid ID (NIRA, Passport, or Driving License) (optional)',
                   (existingDocuments.entries
                           .any((e) => _idDocKeys.contains(e.key) && e.value) ||
                       documents.entries.any((e) =>
@@ -3221,7 +3858,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                 const SizedBox(height: 10),
                 _buildDocRequirementRow(
                   2,
-                  'Bank Statement (always required)',
+                  'Bank Statement (optional)',
                   existingDocuments[_bankStatementKey] == true ||
                       documents[_bankStatementKey] != null,
                 ),
@@ -3230,9 +3867,9 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
           ),
           const SizedBox(height: 20),
 
-          // Check for existing documents
+          // Check for existing documents (use cached future to avoid repeated API calls)
           FutureBuilder<Map<String, dynamic>>(
-            future: _checkExistingDocuments(),
+            future: _existingDocumentsFuture ?? Future.value({'documents': []}),
             builder: (context, snapshot) {
               if (snapshot.hasData && snapshot.data != null) {
                 final docsData = snapshot.data!;
@@ -3313,12 +3950,13 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
                   children: [
-                    const CircularProgressIndicator(),
+                    const CircularProgressIndicator(color: Colors.white),
                     const SizedBox(height: 16),
                     Text(
                       'Loading document requirements...',
-                      style:
-                          GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
+                      style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.9)),
                     ),
                   ],
                 ),
@@ -3331,14 +3969,18 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
               style: GoogleFonts.poppins(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: primaryColor,
+                color: Colors.white.withOpacity(0.96),
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Upload a valid ID: NIRA, Passport, or Driving License',
+              widget.totalOrderAmount < 400
+                  ? 'Upload a valid ID: NIRA, Passport, Driving License, or Birth Certificate (under \$400)'
+                  : 'Upload a valid ID: NIRA, Passport, or Driving License',
               style: GoogleFonts.poppins(
-                  fontSize: 13, color: Colors.grey.shade700),
+                  fontSize: 13,
+                  height: 1.35,
+                  color: Colors.white.withOpacity(0.88)),
             ),
             const SizedBox(height: 12),
             _buildDocumentTypeDropdown(idDocTypes.isNotEmpty
@@ -3448,16 +4090,19 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                requiresExpiration
-                                    ? 'Expiration Date *'
-                                    : 'Expiration Date (Optional)',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: requiresExpiration
-                                      ? Colors.orange.shade700
-                                      : Colors.blue.shade700,
+                              Expanded(
+                                child: Text(
+                                  requiresExpiration
+                                      ? 'Expiration Date *'
+                                      : 'Expiration Date',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: requiresExpiration
+                                        ? Colors.orange.shade700
+                                        : Colors.blue.shade700,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
@@ -3505,11 +4150,14 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                                 Icon(Icons.warning,
                                     size: 16, color: Colors.orange.shade700),
                                 const SizedBox(width: 4),
-                                Text(
-                                  'This document type requires an expiration date',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12,
-                                    color: Colors.orange.shade700,
+                                Expanded(
+                                  child: Text(
+                                    'This document type requires an expiration date',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.orange.shade700,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
@@ -3541,12 +4189,19 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                'Document Number (Optional)',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.blue.shade700,
+                              Expanded(
+                                child: Text(
+                                  selectedDocumentType != null &&
+                                          _documentTypesWithoutNumber
+                                              .contains(selectedDocumentType)
+                                      ? 'Document Number (optional – you can skip if not required)'
+                                      : 'Document Number (required)',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
@@ -3554,7 +4209,11 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                           const SizedBox(height: 8),
                           _buildTextField(
                             controller: documentNumberController,
-                            label: 'Enter document number if available',
+                            label: selectedDocumentType != null &&
+                                    _documentTypesWithoutNumber
+                                        .contains(selectedDocumentType)
+                                ? 'Document number – optional; leave blank if you don\'t have one (e.g. bank statement)'
+                                : 'Document number (required)',
                             icon: Icons.badge_outlined,
                             keyboardType: TextInputType.text,
                             onChanged: (value) {
@@ -3651,29 +4310,58 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
               ),
             ],
 
-            // ========== Bank Statement (always required, inside same card) ==========
+            // ========== SECTION 2: Bank Statement ==========
             const SizedBox(height: 24),
+            Text(
+              '2. Bank statement',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.white.withOpacity(0.96),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Optional — upload a bank statement or other proof of income if you have it.',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                height: 1.35,
+                color: Colors.white.withOpacity(0.88),
+              ),
+            ),
+            const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: primaryColor.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: primaryColor.withOpacity(0.3)),
+                color: pureWhite,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: primaryColor.withOpacity(0.12)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.account_balance,
                           color: primaryColor, size: 22),
                       const SizedBox(width: 10),
-                      Text(
-                        'Upload Bank Statement',
-                        style: GoogleFonts.poppins(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: primaryColor,
+                      Expanded(
+                        child: Text(
+                          'Upload Bank Statement or other proof of income',
+                          style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: primaryColor,
+                          ),
+                          softWrap: true,
                         ),
                       ),
                       if (existingDocuments[_bankStatementKey] == true ||
@@ -3781,7 +4469,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: primaryColor,
+                  color: Colors.white.withOpacity(0.96),
                 ),
               ),
               const SizedBox(height: 12),
@@ -4073,80 +4761,188 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     }
   }
 
+  List<(String, String)> _buildEmploymentReviewItems() {
+    final items = <(String, String)>[
+      ('Status', _employmentStatusDisplayLabel(selectedEmploymentStatus)),
+    ];
+    final k = selectedEmploymentStatus?.toLowerCase();
+    if (k == 'employed') {
+      items.add(('Employer', employerNameController.text));
+      items.add(('Position', positionController.text));
+      items.add(('Tenure', tenureOfEmploymentController.text));
+      items.add(('Monthly income', '\$${monthlyIncomeController.text}'));
+    } else if (k == 'self_employed' || k == 'business_owner') {
+      items.add(('Business name', employerNameController.text));
+      items.add(('Type of business', typeOfBusinessController.text));
+      items.add(('Business location', businessLocationController.text));
+      items.add(('Business address', businessAddressController.text));
+      items.add(('Monthly revenue', '\$${monthlyIncomeController.text}'));
+      items.add(('Years in business', yearsInBusinessController.text));
+    } else if (k == 'student') {
+      items.add(('Institution', institutionNameController.text));
+      items.add(('Student ID / Reg No', studentIdRegNoController.text));
+      items.add(('Program of study', programOfStudyController.text));
+      items.add(('Year of study', yearOfStudyController.text));
+    }
+    items.add(('Bank account', bankAccountController.text));
+    return items;
+  }
+
   Widget _buildStep8Review() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Review & Submit',
-            style: GoogleFonts.poppins(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: primaryColor,
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.fact_check_rounded,
+                      size: 32, color: Colors.white),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Review & Submit',
+                  style: GoogleFonts.poppins(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Confirm your details before submitting',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: Colors.white.withOpacity(0.88),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 24),
-          _buildReviewSection('Personal Information', [
-            'Name: ${fullNameController.text}',
-            'Phone: ${phoneController.text}',
-            'Email: ${emailController.text}',
-            'DOB: ${dateOfBirthController.text}',
-            'Gender: ${selectedGender}',
-            'Marital Status: ${selectedMaritalStatus}',
-          ]),
-          _buildReviewSection('Location', [
-            'Region: ${regions.isNotEmpty && selectedRegionId != null ? regions.firstWhere((r) {
-                final id = r['region_id'];
-                final rId = id is int ? id : int.tryParse(id.toString());
-                return rId == selectedRegionId;
-              }, orElse: () => {'region_name': 'N/A'})['region_name'] : 'N/A'}',
-            'District: ${districts.isNotEmpty && selectedDistrictId != null ? districts.firstWhere((d) {
-                final id = d['district_id'] ?? d['adress_id'];
-                final dId = id is int ? id : int.tryParse(id.toString());
-                return dId == selectedDistrictId;
-              }, orElse: () => {
-                  'district_name': 'N/A'
-                })['district_name'] : 'N/A'}',
-            'Risk Level: ${locationRisk?.riskLevel ?? 'N/A'}',
-          ]),
-          _buildReviewSection('Employment', [
-            'Status: ${selectedEmploymentStatus}',
-            'Employer: ${employerNameController.text}',
-            'Monthly Income: \$${monthlyIncomeController.text}',
-            'Income Category: $incomeCategory',
-          ]),
-          _buildReviewSection('Payment Terms', [
-            'Product Price: ${BnplUtils.formatCurrency(widget.totalOrderAmount)}',
-            'Deposit: ${BnplUtils.formatCurrency(productRules?.calculatedDeposit)}',
-            'Loan Amount: ${BnplUtils.formatCurrency(productRules?.loanAmount)}',
-            'Monthly Installment: ${BnplUtils.formatCurrency(productRules?.monthlyInstallment)}',
-            'Duration: ${productRules?.repaymentDurationMonths} months',
-          ]),
+          const SizedBox(height: 28),
+          _buildReviewSection(
+            title: 'Personal Information',
+            icon: Icons.person_outline_rounded,
+            items: [
+              ('Name', fullNameController.text),
+              ('Phone', phoneController.text),
+              ('Email', emailController.text),
+              ('Date of birth', dateOfBirthController.text),
+              ('Gender', selectedGender ?? '—'),
+              ('Marital status', selectedMaritalStatus ?? '—'),
+            ],
+          ),
+          _buildReviewSection(
+            title: 'Location',
+            icon: Icons.location_on_outlined,
+            items: [
+              (
+                'Region',
+                regions.isNotEmpty && selectedRegionId != null
+                    ? (regions.cast<Map<String, dynamic>>().firstWhere(
+                          (r) {
+                            final id = r['region_id'];
+                            final rId =
+                                id is int ? id : int.tryParse(id.toString());
+                            return rId == selectedRegionId;
+                          },
+                          orElse: () => {'region_name': 'N/A'},
+                        )['region_name'] ??
+                        'N/A')
+                    : 'N/A'
+              ),
+              (
+                'District',
+                districts.isNotEmpty && selectedDistrictId != null
+                    ? (districts.cast<Map<String, dynamic>>().firstWhere(
+                          (d) {
+                            final id = d['district_id'] ?? d['adress_id'];
+                            final dId =
+                                id is int ? id : int.tryParse(id.toString());
+                            return dId == selectedDistrictId;
+                          },
+                          orElse: () => {'district_name': 'N/A'},
+                        )['district_name'] ??
+                        'N/A')
+                    : 'N/A'
+              ),
+            ],
+          ),
+          _buildReviewSection(
+            title: 'Employment',
+            icon: Icons.work_outline_rounded,
+            items: _buildEmploymentReviewItems(),
+          ),
+          _buildReviewSection(
+            title: 'Payment Terms',
+            icon: Icons.payments_outlined,
+            items: [
+              (
+                'Product price',
+                BnplUtils.formatCurrency(widget.totalOrderAmount)
+              ),
+              (
+                'Deposit',
+                BnplUtils.formatCurrency(productRules?.calculatedDeposit)
+              ),
+              (
+                'Loan amount',
+                BnplUtils.formatCurrency(productRules?.loanAmount)
+              ),
+              (
+                'Monthly installment',
+                BnplUtils.formatCurrency(productRules?.monthlyInstallment)
+              ),
+              (
+                'Duration',
+                '${productRules?.repaymentDurationMonths ?? '—'} months'
+              ),
+            ],
+          ),
           if (applicationResult != null) ...[
             const SizedBox(height: 24),
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.green.shade200),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Column(
                 children: [
-                  Icon(Icons.check_circle, size: 48, color: Colors.green),
+                  Icon(Icons.check_circle_rounded,
+                      size: 56, color: Colors.green.shade700),
                   const SizedBox(height: 16),
                   Text(
-                    'Application Submitted!',
+                    'Application submitted',
                     style: GoogleFonts.poppins(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
+                      color: Colors.green.shade800,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Application Number: ${applicationResult!['application_number']}',
-                    style: GoogleFonts.poppins(fontSize: 14),
+                    'Application number: ${applicationResult!['application_number']}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.green.shade900,
+                    ),
                   ),
                 ],
               ),
@@ -4157,33 +4953,88 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     );
   }
 
-  Widget _buildReviewSection(String title, List<String> items) {
+  Widget _buildReviewSection({
+    required String title,
+    required IconData icon,
+    required List<(String, String)> items,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: primaryColor,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 20, color: primaryColor),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: primaryColor,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          ...items.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  item,
-                  style: GoogleFonts.poppins(fontSize: 14),
-                ),
-              )),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              children: [
+                for (int i = 0; i < items.length; i++) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          items[i].$1,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          items[i].$2.isEmpty ? '—' : items[i].$2,
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF1A1A2E),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (i < items.length - 1) const SizedBox(height: 10),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -4198,29 +5049,43 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     int maxLines = 1,
     VoidCallback? onTap,
     Function(String)? onChanged,
+    bool triggerAutoSaveOnChange = true,
   }) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      readOnly: readOnly,
-      maxLines: maxLines,
-      onTap: onTap,
-      onChanged: (value) {
-        if (onChanged != null) {
-          onChanged(value);
-        }
-        // Trigger auto-save after user stops typing
-        _startAutoSave();
-      },
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: primaryColor),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: _bnplFieldLabelStyle,
         ),
-        filled: true,
-        fillColor: cardBg,
-      ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          readOnly: readOnly,
+          maxLines: maxLines,
+          onTap: onTap,
+          style: GoogleFonts.poppins(fontSize: 15, color: const Color(0xFF1A1A2E)),
+          onChanged: (value) {
+            if (onChanged != null) {
+              onChanged(value);
+            }
+            if (triggerAutoSaveOnChange) {
+              _startAutoSave();
+            }
+          },
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, color: primaryColor),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            filled: true,
+            fillColor: cardBg,
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12, vertical: 14),
+          ),
+        ),
+      ],
     );
   }
 
@@ -4231,29 +5096,39 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
     List<String>? displayItems,
     required Function(dynamic) onChanged,
     required IconData icon,
+    bool enabled = true,
   }) {
-    return DropdownButtonFormField<dynamic>(
-      value: value,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: primaryColor),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: _bnplFieldLabelStyle),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<dynamic>(
+          value: value,
+          style: GoogleFonts.poppins(fontSize: 15, color: const Color(0xFF1A1A2E)),
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, color: primaryColor),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            filled: true,
+            fillColor: cardBg,
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12, vertical: 14),
+          ),
+          items: items.map((item) {
+            final index = items.indexOf(item);
+            final display = displayItems != null && index < displayItems.length
+                ? displayItems[index]
+                : item.toString();
+            return DropdownMenuItem(
+              value: item,
+              child: Text(display, style: GoogleFonts.poppins(fontSize: 15)),
+            );
+          }).toList(),
+          onChanged: enabled ? onChanged : null,
         ),
-        filled: true,
-        fillColor: cardBg,
-      ),
-      items: items.map((item) {
-        final index = items.indexOf(item);
-        final display = displayItems != null && index < displayItems.length
-            ? displayItems[index]
-            : item.toString();
-        return DropdownMenuItem(
-          value: item,
-          child: Text(display),
-        );
-      }).toList(),
-      onChanged: onChanged,
+      ],
     );
   }
 
@@ -4276,46 +5151,57 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
       return (bank['bank_name'] ?? bank['name'] ?? 'Unknown').toString();
     }).toList();
 
-    return DropdownButtonFormField<int>(
-      value: selectedBankId,
-      decoration: InputDecoration(
-        labelText: 'Bank Name *',
-        prefixIcon: const Icon(Icons.account_balance, color: Color(0xFF005653)),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        filled: true,
-        fillColor: cardBg,
-      ),
-      hint: Text(
-        'Select Bank',
-        style: GoogleFonts.poppins(fontSize: 16),
-      ),
-      items: bankIds.asMap().entries.map((entry) {
-        final index = entry.key;
-        final bankId = entry.value;
-        final bankName =
-            index < bankNames.length ? bankNames[index] : 'Unknown';
-        return DropdownMenuItem<int>(
-          value: bankId,
-          child: Text(
-            bankName,
-            style: GoogleFonts.poppins(fontSize: 16),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Bank Name *', style: _bnplFieldLabelStyle),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<int>(
+          value: selectedBankId,
+          style: GoogleFonts.poppins(
+              fontSize: 15, color: const Color(0xFF1A1A2E)),
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.account_balance,
+                color: Color(0xFF005653)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            filled: true,
+            fillColor: cardBg,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           ),
-        );
-      }).toList(),
-      onChanged: (int? value) {
-        if (value != null) {
-          final index = bankIds.indexOf(value);
-          setState(() {
-            selectedBankId = value;
-            selectedBankName = index >= 0 && index < bankNames.length
-                ? bankNames[index]
-                : null;
-          });
-          _startAutoSave();
-        }
-      },
+          hint: Text(
+            'Select Bank',
+            style: GoogleFonts.poppins(fontSize: 15),
+          ),
+          items: bankIds.asMap().entries.map((entry) {
+            final index = entry.key;
+            final bankId = entry.value;
+            final bankName =
+                index < bankNames.length ? bankNames[index] : 'Unknown';
+            return DropdownMenuItem<int>(
+              value: bankId,
+              child: Text(
+                bankName,
+                style: GoogleFonts.poppins(fontSize: 16),
+              ),
+            );
+          }).toList(),
+          onChanged: (int? value) {
+            if (value != null) {
+              final index = bankIds.indexOf(value);
+              setState(() {
+                selectedBankId = value;
+                selectedBankName = index >= 0 && index < bankNames.length
+                    ? bankNames[index]
+                    : null;
+              });
+              _startAutoSave();
+            }
+          },
+        ),
+      ],
     );
   }
 
@@ -4324,13 +5210,25 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: GoogleFonts.poppins(fontSize: 14)),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(fontSize: 14),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -4340,18 +5238,8 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
 
   Widget _buildBottomNavigation() {
     return SafeArea(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: Row(
           children: [
             if (_currentStep > 0)
@@ -4366,13 +5254,14 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                   },
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: BorderSide(color: primaryColor),
+                    side: BorderSide(color: Colors.white.withOpacity(0.45)),
+                    foregroundColor: Colors.white,
                   ),
                   child: Text(
                     'Previous',
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
-                      color: primaryColor,
+                      color: Colors.white.withOpacity(0.95),
                     ),
                   ),
                 ),
@@ -4391,29 +5280,29 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                               duration: const Duration(milliseconds: 300),
                               curve: Curves.easeInOut,
                             );
-                            // Load product rules when reaching step 5
                             if (_currentStep == 4) {
                               _loadProductRules();
                             }
-                          } else {
-                            // Error message already shown in _validateCurrentStep
                           }
                         } else {
                           _submitApplication();
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
+                  backgroundColor: pureWhite,
+                  foregroundColor: primaryColor,
                   padding: const EdgeInsets.symmetric(vertical: 14),
+                  elevation: 2,
+                  overlayColor: primaryColor.withOpacity(0.2),
                 ),
                 child: isSubmitting
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
+                              AlwaysStoppedAnimation<Color>(primaryColor),
                         ),
                       )
                     : Text(
@@ -4421,6 +5310,7 @@ class _BnplApplicationScreenState extends State<BnplApplicationScreen> {
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
+                          color: primaryColor,
                         ),
                       ),
               ),

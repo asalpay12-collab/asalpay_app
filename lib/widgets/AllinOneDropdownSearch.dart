@@ -46,9 +46,15 @@ class _AllinOneDropdownSearchState extends State<AllinOneDropdownSearch> {
     return DropdownButtonHideUnderline(
       child: DropdownButtonFormField2<String>(
         decoration: InputDecoration(
+          filled: true,
+          fillColor: pureWhite,
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: primaryColor, width: 1.5),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: secondryColor.withOpacity(0.35), width: 1.5),
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
@@ -57,23 +63,21 @@ class _AllinOneDropdownSearchState extends State<AllinOneDropdownSearch> {
               width: 1.5,
             ),
           ),
-          // prefixIcon: InkWell(
-          //   // onTap: widget.onTap,
-          //   child: Icon(widget.icn, color: primaryColor),
-          // ),
           hintText: widget.hintxt,
-          hintStyle: Theme.of(context)
-              .textTheme
-              .bodyLarge!
-              .copyWith(color: Colors.black45),
-          contentPadding: const EdgeInsets.only(top: 16),
+          hintStyle: const TextStyle(
+            fontSize: 14,
+            color: Color(0xFF64748B),
+            fontWeight: FontWeight.w500,
+          ),
+          contentPadding: const EdgeInsets.only(top: 16, left: 14, right: 14, bottom: 14),
         ),
         isExpanded: true,
         hint: Text(
           widget.maintext,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 14,
-            color: Theme.of(context).hintColor,
+            color: Color(0xFF64748B),
+            fontWeight: FontWeight.w500,
           ),
         ),
         items: widget.items!.isNotEmpty
@@ -85,6 +89,8 @@ class _AllinOneDropdownSearchState extends State<AllinOneDropdownSearch> {
               item.name,
               style: const TextStyle(
                 fontSize: 14,
+                color: Color(0xFF0F172A),
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -145,11 +151,11 @@ class _AllinOneDropdownSearchState extends State<AllinOneDropdownSearch> {
               return myItem.name.contains(searchValue) || (item.child.toString().toLowerCase().contains(searchValue) || item.child.toString().toUpperCase().contains(searchValue));
               //return (item.child.toString().toLowerCase().contains(searchValue) || item.child.toString().toUpperCase().contains(searchValue));
             }),
-        iconStyleData: const IconStyleData(
-          iconSize: 30,
-          iconEnabledColor: primaryColor,
-          icon: Icon(
-            Icons.arrow_drop_down_circle,
+        iconStyleData: IconStyleData(
+          iconSize: 28,
+          iconEnabledColor: secondryColor,
+          icon: const Icon(
+            Icons.arrow_drop_down_rounded,
           ),
         ),
         //This to clear the search value when you close the menu

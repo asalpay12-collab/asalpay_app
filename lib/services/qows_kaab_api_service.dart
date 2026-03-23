@@ -127,9 +127,18 @@ class QowsKaabApiService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      final Map<String, dynamic> errorBody = jsonDecode(response.body);
-      final errorMessage =
-          errorBody['message'] ?? 'Failed to create QOWS KAAB application';
+      String errorMessage = 'Failed to create QOWS KAAB application.';
+      try {
+        final Map<String, dynamic> errorBody = jsonDecode(response.body);
+        errorMessage = errorBody['message']?.toString() ?? errorMessage;
+        if (response.statusCode >= 500) {
+          errorMessage += ' Please try again or contact support.';
+        }
+      } catch (_) {
+        if (response.body.isNotEmpty) {
+          errorMessage = response.body;
+        }
+      }
       throw Exception(errorMessage);
     }
   }
@@ -432,7 +441,8 @@ class QowsKaabApiService {
       'document_name': documentName,
       'document_file': documentFile,
       'file_extension': fileExtension,
-      if (documentNumber != null && documentNumber.isNotEmpty) 'document_number': documentNumber,
+      if (documentNumber != null && documentNumber.isNotEmpty)
+        'document_number': documentNumber,
     };
 
     final response = await http.post(

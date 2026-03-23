@@ -1,4 +1,4 @@
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:asalpay/utils/network_utils.dart';
 import 'package:flutter/material.dart';
 
 class NetworkProvider with ChangeNotifier {
@@ -18,8 +18,7 @@ class NetworkProvider with ChangeNotifier {
   }
 
   Future<bool> checkNetworkConnectivity() async {
-    var connectivityResult = await (Connectivity().checkConnectivity());
-    return connectivityResult != ConnectivityResult.none;
+    return !(await checkConnectivityIndicatesOffline());
   }
 
 }

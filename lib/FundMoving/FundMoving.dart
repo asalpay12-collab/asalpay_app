@@ -16,6 +16,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../providers/HomeSliderandTransaction.dart';
 import '../providers/auth.dart';
 import '../constants/Constant.dart';
+import '../utils/network_utils.dart';
 import 'dart:io' show Platform;
 
 import 'package:asalpay/providers/TransferOperations.dart';
@@ -354,7 +355,11 @@ class _FundMovingState extends State<FundMoving> {
 // _showErrorDialog(error.toString());
 //       openSnackbar(context, error.toString(), secondryColor);
     } catch (error) {
-// _showErrorDialog(error.toString());
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+        setState(() => _isLoading = false);
+        return;
+      }
       openSnackbar(context, error.toString(), secondryColor);
       setState(() {
         _isLoading = false;

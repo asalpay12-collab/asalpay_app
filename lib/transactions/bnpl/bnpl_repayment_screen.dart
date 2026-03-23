@@ -12,11 +12,14 @@ import '../../models/http_exception.dart';
 class BnplRepaymentScreen extends StatefulWidget {
   final String walletAccountId;
   final int? applicationId;
+  /// Loan amount from the application (e.g. 308.00). Used for Total so it matches the application; otherwise sum of installments may show 308.04.
+  final double? loanAmount;
 
   const BnplRepaymentScreen({
     super.key,
     required this.walletAccountId,
     this.applicationId,
+    this.loanAmount,
   });
 
   @override
@@ -1024,6 +1027,36 @@ class _BnplRepaymentScreenState extends State<BnplRepaymentScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        _buildAmountSummary(
+                          totalAmount: widget.loanAmount ??
+                              schedules.fold<double>(
+                                0,
+                                (sum, s) =>
+                                    sum +
+                                    (s.installmentAmount ?? s.amount ?? 0),
+                              ),
+                          paidAmount: paidSchedules.fold<double>(
+                            0,
+                            (sum, s) =>
+                                sum +
+                                (s.installmentAmount ?? s.amount ?? 0),
+                          ),
+                          // Remaining = Total - Paid so it matches application (e.g. after deposit). Not sum of pending installments.
+                          remainingAmount: (widget.loanAmount ??
+                                  schedules.fold<double>(
+                                    0,
+                                    (sum, s) =>
+                                        sum +
+                                        (s.installmentAmount ?? s.amount ?? 0),
+                                  )) -
+                              paidSchedules.fold<double>(
+                                0,
+                                (sum, s) =>
+                                    sum +
+                                    (s.installmentAmount ?? s.amount ?? 0),
+                              ),
+                        ),
+                        const SizedBox(height: 16),
                         if (overdueSchedules.isNotEmpty) ...[
                           Container(
                             padding: const EdgeInsets.all(16),
@@ -1093,6 +1126,99 @@ class _BnplRepaymentScreenState extends State<BnplRepaymentScreen> {
                         ),
                     ],
                   ),
+      ),
+    );
+  }
+
+  Widget _buildAmountSummary({
+    required double totalAmount,
+    required double paidAmount,
+    required double remainingAmount,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: primaryColor.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Total',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  BnplUtils.formatCurrency(totalAmount),
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1A1A2E),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(width: 1, height: 32, color: Colors.grey.shade300),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Paid',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  BnplUtils.formatCurrency(paidAmount),
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.green.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(width: 1, height: 32, color: Colors.grey.shade300),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'Remaining',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  BnplUtils.formatCurrency(remainingAmount),
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
