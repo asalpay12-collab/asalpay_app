@@ -111,7 +111,7 @@ dependencies {
     // implementation 'com.google.android.gms:play-services-safetynet:18.0.1'
     
     // KEPT: Chinese OCR for bank transfer. See docs/APK_SIZE_REDUCTION.md
-    implementation 'com.google.mlkit:text-recognition-chinese:16.0.0'
+    implementation 'com.google.mlkit:text-recognition-chinese:16.0.1'
     // REMOVED: Japanese, Korean, Devanagari - not used. Restore from docs if needed.
     // implementation 'com.google.mlkit:text-recognition-devanagari:16.0.0'
     // implementation 'com.google.mlkit:text-recognition-japanese:16.0.0'
@@ -119,8 +119,8 @@ dependencies {
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.24"
 
-    // KEPT: Required by ML Kit text recognition. tensorflow-lite-gpu is optional (uncomment for faster OCR).
-    implementation 'org.tensorflow:tensorflow-lite:2.3.0'
+    // Keep TFLite on a modern version for page-size compatibility.
+    implementation 'org.tensorflow:tensorflow-lite:2.17.0'
     // implementation 'org.tensorflow:tensorflow-lite-gpu:2.3.0'  // Optional: ~15MB, uncomment for GPU acceleration
 
     implementation 'androidx.work:work-runtime-ktx:2.8.1'
