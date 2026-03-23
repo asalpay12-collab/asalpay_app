@@ -836,7 +836,7 @@ class GlassHomeBody extends StatelessWidget {
                       onTap: onBills),
                   _SmartChipGridTile(
                       icon: Icons.receipt_long_outlined,
-                      label: '252PAY',
+                      label: kEasyShopServiceName,
                       onTap: onBills),
                 ],
               );

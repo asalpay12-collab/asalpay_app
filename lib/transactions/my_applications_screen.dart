@@ -183,7 +183,7 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen>
           unselectedLabelColor: pureWhite.withOpacity(0.7),
           indicatorColor: pureWhite,
           tabs: const [
-            Tab(text: 'BNPL (252Pay)', icon: Icon(Icons.credit_card)),
+            Tab(text: 'BNPL ($kEasyShopServiceName)', icon: Icon(Icons.credit_card)),
             Tab(text: 'QOYS KAAB', icon: Icon(Icons.store)),
           ],
         ),

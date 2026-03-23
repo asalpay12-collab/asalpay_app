@@ -13,12 +13,15 @@ import 'basket_screen.dart';
 import 'bnpl/bnpl_tracking_screen.dart';
 import 'bnpl/bnpl_application_screen.dart';
 import '252pay/252pay_search_bar.dart';
+import '252pay/252pay_screen_background.dart';
+import '../constants/Constant.dart';
 import 'package:asalpay/widgets/commonBtn.dart';
 import 'package:flutter_otp_text_field/flutter_otp_text_field.dart';
 import 'package:provider/provider.dart';
 import '../models/http_exception.dart';
 import '../providers/HomeSliderandTransaction.dart';
 import '../providers/auth.dart';
+import '../utils/network_utils.dart';
 // Biometric disabled
 // import '../services/biometric_service.dart';
 
@@ -41,8 +44,8 @@ class ProductPurchaseScreen extends StatefulWidget {
 
 class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
   final Color primaryColor = const Color(0xFF005653);
-  final Color cardBg = const Color(0xFFF8FAFA);
-  final Color bodyBg = Colors.white;
+  final Color cardBg = const Color(0xFFF2F7F7);
+  final Color bodyBg = const Color(0xFFF0F5F5);
   final BorderRadius br12 = BorderRadius.circular(12);
   final api = ApiService();
   final bnplApi = BnplApiService();
@@ -929,6 +932,10 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
       setState(() {
         isloading1 = false;
       });
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+        return false;
+      }
       _showErrorDialog(error.toString());
       return false;
     }
@@ -1270,14 +1277,15 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bodyBg,
+      backgroundColor: secondryColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: pureWhite,
         title: PopupMenuButton<String>(
           child: Text(
-            '252pay',
+            kEasyShopServiceName,
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w600,
               fontSize: 20,
@@ -1451,11 +1459,14 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : selectedCategory == null
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                : selectedCategory == null
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1507,29 +1518,55 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                             ],
                           )
                         : _buildPaymentPlaceholder(),
+          ),
+        ),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => DiscountProductPurchaseScreen(
-                      wallet_accounts_id: widget.wallet_accounts_id),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DiscountProductPurchaseScreen(
+                        wallet_accounts_id: widget.wallet_accounts_id),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(20),
+              splashColor: Colors.white.withOpacity(0.15),
+              highlightColor: Colors.white.withOpacity(0.08),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.2),
+                    width: 1.2,
+                  ),
                 ),
-              );
-            },
-            icon: const Icon(Icons.local_offer),
-            label: Text(
-              'Discount Products',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: br12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.local_offer,
+                        color: Colors.white.withOpacity(0.95), size: 22),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Discount Products',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: Colors.white.withOpacity(0.95),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -1556,7 +1593,7 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              color: Colors.white.withOpacity(0.95),
             ),
           ),
           const SizedBox(height: 10),
@@ -1685,7 +1722,7 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              color: Colors.white.withOpacity(0.95),
             ),
           ),
           const SizedBox(height: 10),
@@ -1816,7 +1853,8 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           subCategories.isEmpty
               ? 'No sub category available.'
               : 'No subcategory matches your search.',
-          style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+          style: GoogleFonts.poppins(
+              fontSize: 16, color: Colors.white.withOpacity(0.9)),
         ),
       );
     }
@@ -1887,6 +1925,7 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
     );
   }
 
+  /// BNPL card — same background style as Settings cards (white 0.12, border 0.2).
   Widget _buildBnplApplicationsCard() {
     return InkWell(
       onTap: () {
@@ -1899,33 +1938,37 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           ),
         );
       },
-      borderRadius: br12,
+      borderRadius: BorderRadius.circular(20),
+      splashColor: Colors.white.withOpacity(0.15),
+      highlightColor: Colors.white.withOpacity(0.08),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         decoration: BoxDecoration(
-          color: primaryColor,
-          borderRadius: br12,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            )
-          ],
+          color: Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 1.2,
+          ),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.2),
+                  width: 1,
+                ),
               ),
               child: const Icon(
                 Icons.credit_card,
                 color: Colors.white,
-                size: 32,
+                size: 24,
               ),
             ),
             const SizedBox(width: 16),
@@ -1936,9 +1979,9 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                   Text(
                     'My BNPL Applications',
                     style: GoogleFonts.poppins(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: Colors.white.withOpacity(0.95),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -1946,16 +1989,16 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
                     'View and manage your applications',
                     style: GoogleFonts.poppins(
                       fontSize: 13,
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withOpacity(0.85),
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.white,
-              size: 20,
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: Colors.white.withOpacity(0.8),
             ),
           ],
         ),
@@ -1978,7 +2021,8 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           categories.isEmpty
               ? 'No Category available.'
               : 'No category matches your search.',
-          style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+          style: GoogleFonts.poppins(
+              fontSize: 16, color: Colors.white.withOpacity(0.9)),
         ),
       );
     }
@@ -2064,7 +2108,8 @@ class _ProductPurchaseScreenState extends State<ProductPurchaseScreen> {
           products.isEmpty
               ? 'No product available.'
               : 'No product matches your search.',
-          style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+          style: GoogleFonts.poppins(
+              fontSize: 16, color: Colors.white.withOpacity(0.9)),
         ),
       );
     }

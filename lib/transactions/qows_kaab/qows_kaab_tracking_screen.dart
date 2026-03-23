@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/Constant.dart';
 import '../../services/252pay_api_service.dart';
 import '../../models/qows_kaab_application.dart';
 import 'qows_kaab_application_details_screen.dart';
@@ -145,79 +146,115 @@ class _QowsKaabTrackingScreenState extends State<QowsKaabTrackingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: lightContentColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: pureWhite,
         title: Text(
           'My QOYS KAAB Applications',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w600,
             fontSize: 20,
+            color: pureWhite,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _loadApplications,
           ),
         ],
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : errorMessage != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline,
-                          size: 64, color: Colors.grey.shade400),
-                      const SizedBox(height: 16),
-                      Text(
-                        errorMessage!,
-                        style: GoogleFonts.poppins(
-                            fontSize: 16, color: Colors.grey),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadApplications,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
-              : applications.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.shopping_basket_outlined,
-                              size: 64, color: Colors.grey.shade400),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No QOYS KAAB applications found',
+      body: SafeArea(
+        top: false,
+        child: isLoading
+            ? Center(
+                child: CircularProgressIndicator(color: secondryColor),
+              )
+            : errorMessage != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline,
+                            size: 64, color: Colors.grey.shade400),
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            errorMessage!,
                             style: GoogleFonts.poppins(
-                                fontSize: 16, color: Colors.grey),
+                              fontSize: 16,
+                              color: Colors.grey.shade800,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                        ],
-                      ),
-                    )
-                  : RefreshIndicator(
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadApplications,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: secondryColor,
+                            foregroundColor: pureWhite,
+                          ),
+                          child: Text(
+                            'Retry',
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : applications.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.shopping_basket_outlined,
+                                size: 64, color: Colors.grey.shade400),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No QOYS KAAB applications found',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                      color: secondryColor,
+                      backgroundColor: pureWhite,
                       onRefresh: _loadApplications,
                       child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
                         itemCount: applications.length,
                         itemBuilder: (context, index) {
                           final app = applications[index];
                           final isCancelling =
                               _cancellingId == (app.qowsKaabId ?? app.id);
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(borderRadius: br12),
-                            child: Stack(
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 14),
+                            decoration: BoxDecoration(
+                              color: pureWhite,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFFE0E8E6),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.06),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Stack(
                               children: [
                                 InkWell(
                                   onTap: isCancelling
@@ -252,9 +289,10 @@ class _QowsKaabTrackingScreenState extends State<QowsKaabTrackingScreen> {
                                               Text(
                                                 app.applicationNumber ?? 'N/A',
                                                 style: GoogleFonts.poppins(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 17,
+                                                  fontWeight: FontWeight.w700,
                                                   color: primaryColor,
+                                                  letterSpacing: 0.2,
                                                 ),
                                               ),
                                               const SizedBox(height: 4),
@@ -264,7 +302,8 @@ class _QowsKaabTrackingScreenState extends State<QowsKaabTrackingScreen> {
                                                     : 'Daily Credit',
                                                 style: GoogleFonts.poppins(
                                                   fontSize: 14,
-                                                  color: Colors.grey.shade600,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: const Color(0xFF455A54),
                                                 ),
                                               ),
                                             ],
@@ -374,41 +413,56 @@ class _QowsKaabTrackingScreenState extends State<QowsKaabTrackingScreen> {
                                   Positioned.fill(
                                     child: Container(
                                       decoration: BoxDecoration(
-                                        color: Colors.black26,
-                                        borderRadius: br12,
+                                        color: Colors.black38,
+                                        borderRadius: BorderRadius.circular(16),
                                       ),
-                                      child: const Center(
-                                        child: CircularProgressIndicator(),
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          color: primaryColor,
+                                          strokeWidth: 2.5,
+                                        ),
                                       ),
                                     ),
                                   ),
                               ],
                             ),
+                            ),
                           );
                         },
                       ),
                     ),
+      ),
     );
   }
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: Colors.grey.shade600,
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF5A6B66),
+              ),
             ),
           ),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+          Expanded(
+            flex: 2,
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: primaryColor,
+              ),
             ),
           ),
         ],

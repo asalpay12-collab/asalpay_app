@@ -47,12 +47,14 @@ class NotificationsHubScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.notifications_none, size: 64, color: Colors.grey.shade400),
+                    Icon(Icons.notifications_none,
+                        size: 64, color: Colors.grey.shade400),
                     const SizedBox(height: 16),
                     Text(
-                      'Ma jiraan notifications',
+                      'No notifications yet',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16, color: Colors.grey.shade700),
+                      style:
+                          TextStyle(fontSize: 16, color: Colors.grey.shade700),
                     ),
                   ],
                 ),
@@ -66,7 +68,8 @@ class NotificationsHubScreen extends StatelessWidget {
               final item = list[index];
               final type = item['type']?.toString() ?? '';
               final title = item['title']?.toString() ?? '';
-              final body = item['body']?.toString() ?? item['message']?.toString() ?? '';
+              final body =
+                  item['body']?.toString() ?? item['message']?.toString() ?? '';
               final timeStr = item['time']?.toString() ?? '';
               DateTime? time;
               try {
@@ -86,17 +89,20 @@ class NotificationsHubScreen extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 _formatTime(time),
-                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey.shade600),
                               ),
                             ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: (is252 ? secondryColor : primaryColor).withOpacity(0.15),
+                              color: (is252 ? secondryColor : primaryColor)
+                                  .withOpacity(0.15),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              is252 ? '252pay' : 'Qows Kaab',
+                              is252 ? kEasyShopServiceName : 'Qows Kaab',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -120,7 +126,10 @@ class NotificationsHubScreen extends StatelessWidget {
                         const SizedBox(height: 6),
                         Text(
                           body,
-                          style: TextStyle(fontSize: 15, color: Colors.grey.shade800, height: 1.35),
+                          style: TextStyle(
+                              fontSize: 15,
+                              color: Colors.grey.shade800,
+                              height: 1.35),
                         ),
                       ],
                     ],
@@ -141,4 +150,5 @@ class NotificationsHubScreen extends StatelessWidget {
     }
     return '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')} ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
   }
+  
 }

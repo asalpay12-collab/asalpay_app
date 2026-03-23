@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../constants/Constant.dart';
 import '../../services/qows_kaab_api_service.dart';
+import '../252pay/252pay_screen_background.dart';
 
 class QowsKaabStatusScreen extends StatefulWidget {
   final String? walletAccountId;
@@ -86,15 +88,29 @@ class _QowsKaabStatusScreenState extends State<QowsKaabStatusScreen> {
     return Scaffold(
       backgroundColor: secondryColor,
       appBar: AppBar(
-        title: const Text('QOYS KAAB Application Status'),
-        backgroundColor: primaryColor,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
+        title: Text(
+          'QOYS KAAB Application Status',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+            color: pureWhite,
+          ),
+        ),
         foregroundColor: pureWhite,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : widget.qowsKaabId != null && _application != null
-              ? _buildApplicationDetails()
-              : _buildApplicationsList(),
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: _isLoading
+              ? Center(child: CircularProgressIndicator(color: pureWhite))
+              : widget.qowsKaabId != null && _application != null
+                  ? _buildApplicationDetails()
+                  : _buildApplicationsList(),
+        ),
+      ),
     );
   }
 

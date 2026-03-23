@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../../constants/Constant.dart';
 import '../../providers/auth.dart';
 import '../../services/qows_kaab_api_service.dart';
 import '../../services/252pay_api_service.dart';
 import '../../models/qows_kaab_product.dart';
+import '../252pay/252pay_screen_background.dart';
 import 'qows_kaab_document_upload_screen.dart';
 
 class QowsKaabApplicationScreen extends StatefulWidget {
@@ -52,14 +54,22 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
   final TextEditingController phoneNumberController = TextEditingController();
   final TextEditingController familySizeController = TextEditingController();
   final TextEditingController monthlyIncomeController = TextEditingController();
-  final TextEditingController nextOfKinNameController = TextEditingController();
-  final TextEditingController nextOfKinRelationshipController = TextEditingController();
-  final TextEditingController nextOfKinPhoneController = TextEditingController();
-  final TextEditingController nextOfKinAddressController = TextEditingController();
+  final TextEditingController guarantorNameController = TextEditingController();
+  final TextEditingController guarantorPhoneController =
+      TextEditingController();
+  final TextEditingController guarantorIdNumberController =
+      TextEditingController();
+  final TextEditingController guarantorAddressController =
+      TextEditingController();
+  final TextEditingController guarantorIncomeController =
+      TextEditingController();
   final TextEditingController _productSearchController =
       TextEditingController();
   String? usageType;
   bool isSubmitting = false;
+  String? selectedGuarantorIdType;
+  static const _guarantorIdTypeValues = ['nira', 'passport', 'driving_license'];
+  static const _guarantorIdTypeLabels = ['NIRA', 'Passport', 'Driving License'];
 
   /// Min/max amount from tbl_qows_kaab_usage_type_limits for current usage_type + service_model
   double? _limitMin;
@@ -111,6 +121,18 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       _loadUsageTypeLimits();
     }
     _loadProducts();
+    // Rebuild Step 2 when required fields change so Next button enable/disable updates
+    fullNameController.addListener(_onStep2FormChanged);
+    monthlyIncomeController.addListener(_onStep2FormChanged);
+    guarantorNameController.addListener(_onStep2FormChanged);
+    guarantorPhoneController.addListener(_onStep2FormChanged);
+    guarantorIdNumberController.addListener(_onStep2FormChanged);
+    guarantorAddressController.addListener(_onStep2FormChanged);
+    guarantorIncomeController.addListener(_onStep2FormChanged);
+  }
+
+  void _onStep2FormChanged() {
+    if (mounted) setState(() {});
   }
 
   /// Load customer from wallet (logged-in user). Name and phone are always filled from wallet; other fields when empty.
@@ -130,43 +152,87 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       // Pre-fill only when field is empty (wallet = source of truth; don’t overwrite if user already entered something)
       // Name and phone: always from wallet (logged-in user) so they match the account
       final name = (c['full_name'] ?? c['customer_name'])?.toString().trim();
-      if (name != null && name.isNotEmpty && fullNameController.text.trim().isEmpty && mounted) {
+      if (name != null &&
+          name.isNotEmpty &&
+          fullNameController.text.trim().isEmpty &&
+          mounted) {
         setState(() => fullNameController.text = name);
       }
       final phone = c['phone_number']?.toString().trim();
-      if (phone != null && phone.isNotEmpty && phoneNumberController.text.trim().isEmpty && mounted) {
+      if (phone != null &&
+          phone.isNotEmpty &&
+          phoneNumberController.text.trim().isEmpty &&
+          mounted) {
         setState(() => phoneNumberController.text = phone);
       }
-      if (c['monthly_income'] != null && monthlyIncomeController.text.trim().isEmpty) {
+      if (c['monthly_income'] != null &&
+          monthlyIncomeController.text.trim().isEmpty) {
         final v = c['monthly_income'];
-        if (mounted) setState(() => monthlyIncomeController.text = (v is num) ? v.toString() : v.toString());
+        if (mounted)
+          setState(() => monthlyIncomeController.text =
+              (v is num) ? v.toString() : v.toString());
       }
       final regionId = c['region_id'];
       final districtId = c['district_id'];
       if (regionId != null && mounted) {
-        final rId = regionId is int ? regionId : int.tryParse(regionId.toString());
+        final rId =
+            regionId is int ? regionId : int.tryParse(regionId.toString());
         if (rId != null) {
           await _loadDistricts(rId);
           if (!mounted) return;
-          final dId = districtId != null ? (districtId is int ? districtId : int.tryParse(districtId.toString())) : null;
+          final dId = districtId != null
+              ? (districtId is int
+                  ? districtId
+                  : int.tryParse(districtId.toString()))
+              : null;
           setState(() {
             selectedRegionId = rId;
             selectedDistrictId = dId;
           });
         }
       }
-      // Next of kin: fill only if empty
-      if (c['next_of_kin_name'] != null && c['next_of_kin_name'].toString().trim().isNotEmpty && nextOfKinNameController.text.trim().isEmpty && mounted) {
-        setState(() => nextOfKinNameController.text = c['next_of_kin_name'].toString().trim());
+      // Guarantor: fill only if empty (from previous application or customer)
+      if (c['guarantor_name'] != null &&
+          c['guarantor_name'].toString().trim().isNotEmpty &&
+          guarantorNameController.text.trim().isEmpty &&
+          mounted) {
+        setState(() => guarantorNameController.text =
+            c['guarantor_name'].toString().trim());
       }
-      if (c['next_of_kin_relationship'] != null && c['next_of_kin_relationship'].toString().trim().isNotEmpty && nextOfKinRelationshipController.text.trim().isEmpty && mounted) {
-        setState(() => nextOfKinRelationshipController.text = c['next_of_kin_relationship'].toString().trim());
+      if (c['guarantor_phone'] != null &&
+          c['guarantor_phone'].toString().trim().isNotEmpty &&
+          guarantorPhoneController.text.trim().isEmpty &&
+          mounted) {
+        setState(() => guarantorPhoneController.text =
+            c['guarantor_phone'].toString().trim());
       }
-      if (c['next_of_kin_phone'] != null && c['next_of_kin_phone'].toString().trim().isNotEmpty && nextOfKinPhoneController.text.trim().isEmpty && mounted) {
-        setState(() => nextOfKinPhoneController.text = c['next_of_kin_phone'].toString().trim());
+      if (c['guarantor_id_type'] != null &&
+          c['guarantor_id_type'].toString().trim().isNotEmpty &&
+          mounted) {
+        final v = c['guarantor_id_type'].toString().trim().toLowerCase();
+        if (_guarantorIdTypeValues.contains(v))
+          setState(() => selectedGuarantorIdType = v);
       }
-      if (c['next_of_kin_address'] != null && c['next_of_kin_address'].toString().trim().isNotEmpty && nextOfKinAddressController.text.trim().isEmpty && mounted) {
-        setState(() => nextOfKinAddressController.text = c['next_of_kin_address'].toString().trim());
+      if (c['guarantor_id_number'] != null &&
+          c['guarantor_id_number'].toString().trim().isNotEmpty &&
+          guarantorIdNumberController.text.trim().isEmpty &&
+          mounted) {
+        setState(() => guarantorIdNumberController.text =
+            c['guarantor_id_number'].toString().trim());
+      }
+      if (c['guarantor_address'] != null &&
+          c['guarantor_address'].toString().trim().isNotEmpty &&
+          guarantorAddressController.text.trim().isEmpty &&
+          mounted) {
+        setState(() => guarantorAddressController.text =
+            c['guarantor_address'].toString().trim());
+      }
+      if (c['guarantor_income'] != null &&
+          c['guarantor_income'].toString().trim().isNotEmpty &&
+          guarantorIncomeController.text.trim().isEmpty &&
+          mounted) {
+        setState(() => guarantorIncomeController.text =
+            c['guarantor_income'].toString().trim());
       }
     } catch (_) {}
   }
@@ -184,14 +250,22 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
 
   @override
   void dispose() {
+    fullNameController.removeListener(_onStep2FormChanged);
+    monthlyIncomeController.removeListener(_onStep2FormChanged);
+    guarantorNameController.removeListener(_onStep2FormChanged);
+    guarantorPhoneController.removeListener(_onStep2FormChanged);
+    guarantorIdNumberController.removeListener(_onStep2FormChanged);
+    guarantorAddressController.removeListener(_onStep2FormChanged);
+    guarantorIncomeController.removeListener(_onStep2FormChanged);
     fullNameController.dispose();
     phoneNumberController.dispose();
     familySizeController.dispose();
     monthlyIncomeController.dispose();
-    nextOfKinNameController.dispose();
-    nextOfKinRelationshipController.dispose();
-    nextOfKinPhoneController.dispose();
-    nextOfKinAddressController.dispose();
+    guarantorNameController.dispose();
+    guarantorPhoneController.dispose();
+    guarantorIdNumberController.dispose();
+    guarantorAddressController.dispose();
+    guarantorIncomeController.dispose();
     _productSearchController.dispose();
     super.dispose();
   }
@@ -799,20 +873,37 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
   }
 
   /// Next: go to document screen with form data; database is written only when user taps "Submit Application" there.
+  /// Validates all required Step 2 fields; does not proceed until they are filled.
   /// Validates total amount against tbl_qows_kaab_usage_type_limits (min/max by usage_type + service_model).
   /// Same as 252pay: use wallet name/phone when field is empty so submitted data never conflicts with wallet.
   Future<void> _goToNextStep() async {
     String fullName = fullNameController.text.trim();
     String phoneNumber = phoneNumberController.text.trim();
     if (fullName.isEmpty && _walletCustomerData != null) {
-      final n = (_walletCustomerData!['full_name'] ?? _walletCustomerData!['customer_name'])?.toString().trim();
+      final n = (_walletCustomerData!['full_name'] ??
+              _walletCustomerData!['customer_name'])
+          ?.toString()
+          .trim();
       if (n != null && n.isNotEmpty) fullName = n;
     }
-    if (phoneNumber.isEmpty && _walletCustomerData != null && _walletCustomerData!['phone_number']?.toString().trim().isNotEmpty == true) {
+    if (phoneNumber.isEmpty &&
+        _walletCustomerData != null &&
+        _walletCustomerData!['phone_number']?.toString().trim().isNotEmpty ==
+            true) {
       phoneNumber = _walletCustomerData!['phone_number'].toString().trim();
     }
     if (fullName.isEmpty) {
       _showError('Customer Name is required');
+      return;
+    }
+    final monthlyIncomeStr = monthlyIncomeController.text.trim();
+    if (monthlyIncomeStr.isEmpty) {
+      _showError('Monthly Income (USD) is required');
+      return;
+    }
+    final monthlyIncomeVal = double.tryParse(monthlyIncomeStr);
+    if (monthlyIncomeVal == null || monthlyIncomeVal < 0) {
+      _showError('Please enter a valid monthly income');
       return;
     }
     if (selectedRegionId == null) {
@@ -821,6 +912,37 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
     }
     if (selectedDistrictId == null) {
       _showError('Please select a district');
+      return;
+    }
+    // Guarantor: all fields required
+    final gName = guarantorNameController.text.trim();
+    final gPhone = guarantorPhoneController.text.trim();
+    final gIdNo = guarantorIdNumberController.text.trim();
+    final gAddr = guarantorAddressController.text.trim();
+    final gIncomeStr = guarantorIncomeController.text.trim();
+    if (gName.isEmpty) {
+      _showError('Guarantor name is required');
+      return;
+    }
+    if (gPhone.isEmpty) {
+      _showError('Guarantor phone number is required');
+      return;
+    }
+    if (gIdNo.isEmpty) {
+      _showError('Guarantor ID / Passport number is required');
+      return;
+    }
+    if (gAddr.isEmpty) {
+      _showError('Guarantor address is required');
+      return;
+    }
+    if (gIncomeStr.isEmpty) {
+      _showError('Guarantor monthly income is required');
+      return;
+    }
+    final gIncomeVal = double.tryParse(gIncomeStr);
+    if (gIncomeVal == null || gIncomeVal < 0) {
+      _showError('Please enter a valid guarantor monthly income');
       return;
     }
     if (isMonthlyPack && selectedProducts.isEmpty) {
@@ -880,12 +1002,6 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
             })
         .toList();
 
-    final nokName = nextOfKinNameController.text.trim();
-    final nokRel = nextOfKinRelationshipController.text.trim();
-    final nokPhone = nextOfKinPhoneController.text.trim();
-    final nokAddr = nextOfKinAddressController.text.trim();
-    final hasNextOfKin = nokName.isNotEmpty || nokRel.isNotEmpty || nokPhone.isNotEmpty || nokAddr.isNotEmpty;
-
     final applicationFormData = {
       'wallet_account': widget.walletAccountId,
       'full_name': fullName,
@@ -900,10 +1016,13 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       'usage_type': usageType,
       'monthly_pack_items': monthlyPackItems,
       if (isMonthlyPack) 'pack_total_amount': totalAmount,
-      if (hasNextOfKin) 'next_of_kin_name': nokName.isEmpty ? null : nokName,
-      if (hasNextOfKin) 'next_of_kin_relationship': nokRel.isEmpty ? null : nokRel,
-      if (hasNextOfKin) 'next_of_kin_phone': nokPhone.isEmpty ? null : nokPhone,
-      if (hasNextOfKin) 'next_of_kin_address': nokAddr.isEmpty ? null : nokAddr,
+      'guarantor_name': gName,
+      'guarantor_phone': gPhone,
+      'guarantor_id_type':
+          selectedGuarantorIdType ?? _guarantorIdTypeValues.first,
+      'guarantor_id_number': gIdNo,
+      'guarantor_address': gAddr,
+      'guarantor_income': gIncomeVal,
     };
 
     if (!mounted) return;
@@ -927,6 +1046,59 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
     );
   }
 
+  /// True only when all Step 2 required fields are filled so user can proceed to upload.
+  /// Next button is disabled when this is false.
+  bool get _isStep2RequiredFieldsFilled {
+    if (fullNameController.text.trim().isEmpty) return false;
+    final monthlyStr = monthlyIncomeController.text.trim();
+    if (monthlyStr.isEmpty) return false;
+    final income = double.tryParse(monthlyStr);
+    if (income == null || income < 0) return false;
+    if (selectedRegionId == null) return false;
+    if (selectedDistrictId == null) return false;
+    if (usageType == null || usageType!.trim().isEmpty) return false;
+    if (selectedProducts.isEmpty) return false;
+    // Guarantor: all required
+    if (guarantorNameController.text.trim().isEmpty) return false;
+    if (guarantorPhoneController.text.trim().isEmpty) return false;
+    if (guarantorIdNumberController.text.trim().isEmpty) return false;
+    if (guarantorAddressController.text.trim().isEmpty) return false;
+    final gIncStr = guarantorIncomeController.text.trim();
+    if (gIncStr.isEmpty) return false;
+    final gInc = double.tryParse(gIncStr);
+    if (gInc == null || gInc < 0) return false;
+    return true;
+  }
+
+  /// Returns a short list of missing required fields so we can show why Next is disabled.
+  List<String> get _step2MissingRequiredFields {
+    final missing = <String>[];
+    if (fullNameController.text.trim().isEmpty) missing.add('Customer name');
+    final monthlyStr = monthlyIncomeController.text.trim();
+    if (monthlyStr.isEmpty) {
+      missing.add('Monthly income');
+    } else {
+      final income = double.tryParse(monthlyStr);
+      if (income == null || income < 0) missing.add('Valid monthly income');
+    }
+    if (selectedRegionId == null) missing.add('Region');
+    if (selectedDistrictId == null) missing.add('District');
+    if (usageType == null || usageType!.trim().isEmpty) missing.add('Usage type');
+    if (selectedProducts.isEmpty) missing.add('At least one product');
+    if (guarantorNameController.text.trim().isEmpty) missing.add('Guarantor name');
+    if (guarantorPhoneController.text.trim().isEmpty) missing.add('Guarantor phone');
+    if (guarantorIdNumberController.text.trim().isEmpty) missing.add('Guarantor ID number');
+    if (guarantorAddressController.text.trim().isEmpty) missing.add('Guarantor address');
+    final gIncStr = guarantorIncomeController.text.trim();
+    if (gIncStr.isEmpty) {
+      missing.add('Guarantor monthly income');
+    } else {
+      final gInc = double.tryParse(gIncStr);
+      if (gInc == null || gInc < 0) missing.add('Valid guarantor income');
+    }
+    return missing;
+  }
+
   /// Step 0: user tapped Next after selecting products → go to step 1 (form fields)
   void _onNextFromProducts() {
     if (isMonthlyPack && selectedProducts.isEmpty) {
@@ -944,11 +1116,23 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: Colors.white,
+      backgroundColor: secondryColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: pureWhite,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            if (_currentStep > 0) {
+              setState(() => _currentStep = 0);
+            } else {
+              Navigator.maybePop(context);
+            }
+          },
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -956,13 +1140,19 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
             Text(
               isMonthlyPack ? 'Monthly Pack' : 'Daily Credit',
               style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600, fontSize: 18),
+                fontWeight: FontWeight.w600,
+                fontSize: 18,
+                color: pureWhite,
+              ),
             ),
             Text(
               _currentStep == 0
                   ? 'Step 1: Select products'
                   : 'Step 2: Your details',
-              style: GoogleFonts.poppins(fontSize: 12, color: Colors.white70),
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.white.withOpacity(0.88),
+              ),
             ),
           ],
         ),
@@ -970,7 +1160,7 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.shopping_cart_outlined),
+                icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
                 onPressed: _showBasketSheet,
               ),
               if (selectedProducts.isNotEmpty)
@@ -994,15 +1184,18 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-              20, 20, 20, 20 + MediaQuery.of(context).padding.bottom),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: _currentStep == 0
-                ? _buildProductsStepContent()
-                : _buildFormFieldsStepContent(),
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+                20, 20, 20, 20 + MediaQuery.of(context).padding.bottom),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _currentStep == 0
+                  ? _buildProductsStepContent()
+                  : _buildFormFieldsStepContent(),
+            ),
           ),
         ),
       ),
@@ -1023,9 +1216,10 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
             child: Text(
               'Step 1 of 2',
               style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: primaryColor),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withOpacity(0.96),
+              ),
             ),
           ),
         ],
@@ -1036,16 +1230,22 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
             ? 'Select Products for Monthly Pack'
             : 'Select Products for Daily Credit',
         style: GoogleFonts.poppins(
-            fontSize: 18, fontWeight: FontWeight.w700, color: primaryColor),
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: Colors.white.withOpacity(0.96),
+        ),
       ),
       const SizedBox(height: 6),
       Text(
         'Add products to your basket, then tap Next. Your details will be on the next step.',
-        style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade600),
+        style: GoogleFonts.poppins(
+          fontSize: 13,
+          color: Colors.white.withOpacity(0.88),
+        ),
       ),
       const SizedBox(height: 16),
       if (isLoadingProducts)
-        const Center(child: CircularProgressIndicator())
+        Center(child: CircularProgressIndicator(color: pureWhite))
       else ...[
         TextField(
           controller: _productSearchController,
@@ -1070,8 +1270,8 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         const SizedBox(height: 12),
         Builder(
           builder: (context) {
-            final filteredStep0 =
-                _filterProducts(availableProducts, _productSearchController.text);
+            final filteredStep0 = _filterProducts(
+                availableProducts, _productSearchController.text);
             if (filteredStep0.isEmpty && availableProducts.isNotEmpty) {
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
@@ -1079,7 +1279,9 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
                   child: Text(
                     'No products match your search',
                     style: GoogleFonts.poppins(
-                        fontSize: 14, color: Colors.grey.shade600),
+                      fontSize: 14,
+                      color: Colors.white.withOpacity(0.88),
+                    ),
                   ),
                 ),
               );
@@ -1096,70 +1298,70 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
               itemCount: filteredStep0.length,
               itemBuilder: (context, index) {
                 final product = filteredStep0[index];
-            return Card(
-              elevation: 2,
-              shadowColor: Colors.black26,
-              shape: RoundedRectangleBorder(borderRadius: br12),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () => _showAddToBasketDialog(product),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: product.imagePath != null &&
-                              product.imagePath!.isNotEmpty
-                          ? Image.network(
-                              '${ApiService.baseUrl}${product.imagePath}',
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: cardBg,
-                                child: Icon(Icons.shopping_basket,
-                                    size: 48, color: primaryColor),
-                              ),
-                            )
-                          : Container(
-                              color: cardBg,
-                              child: Icon(Icons.shopping_basket,
-                                  size: 48, color: primaryColor),
-                            ),
+                return Card(
+                  elevation: 2,
+                  shadowColor: Colors.black26,
+                  shape: RoundedRectangleBorder(borderRadius: br12),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => _showAddToBasketDialog(product),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: product.imagePath != null &&
+                                  product.imagePath!.isNotEmpty
+                              ? Image.network(
+                                  '${ApiService.baseUrl}${product.imagePath}',
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: cardBg,
+                                    child: Icon(Icons.shopping_basket,
+                                        size: 48, color: primaryColor),
+                                  ),
+                                )
+                              : Container(
+                                  color: cardBg,
+                                  child: Icon(Icons.shopping_basket,
+                                      size: 48, color: primaryColor),
+                                ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          child: Text(
+                            product.name ?? 'Product',
+                            style: GoogleFonts.poppins(
+                                fontSize: 13, fontWeight: FontWeight.w500),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            '\$${(product.price ?? 0).toStringAsFixed(2)}${(product.unitSymbol ?? product.unitName ?? '').isNotEmpty ? ' / ${product.unitSymbol ?? product.unitName}' : ''}',
+                            style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: primaryColor),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
-                      child: Text(
-                        product.name ?? 'Product',
-                        style: GoogleFonts.poppins(
-                            fontSize: 13, fontWeight: FontWeight.w500),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        '\$${(product.price ?? 0).toStringAsFixed(2)}${(product.unitSymbol ?? product.unitName ?? '').isNotEmpty ? ' / ${product.unitSymbol ?? product.unitName}' : ''}',
-                        style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: primaryColor),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+                  ),
+                );
+              },
             );
           },
         ),
-        ],
+      ],
       const SizedBox(height: 24),
       SizedBox(
         width: double.infinity,
@@ -1203,12 +1405,14 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
           bool updated = false;
           // 1) Auth: name and phone from user who logged in (wallet profile)
           if (fullNameController.text.trim().isEmpty &&
-              auth.Name != null && auth.Name!.trim().isNotEmpty) {
+              auth.Name != null &&
+              auth.Name!.trim().isNotEmpty) {
             fullNameController.text = auth.Name!.trim();
             updated = true;
           }
           if (phoneNumberController.text.trim().isEmpty &&
-              auth.phone != null && auth.phone!.trim().isNotEmpty) {
+              auth.phone != null &&
+              auth.phone!.trim().isNotEmpty) {
             phoneNumberController.text = auth.phone!.trim();
             updated = true;
           }
@@ -1216,7 +1420,8 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
           if (_walletCustomerData != null) {
             final d = _walletCustomerData!;
             if (fullNameController.text.trim().isEmpty) {
-              final name = (d['full_name'] ?? d['customer_name'])?.toString().trim();
+              final name =
+                  (d['full_name'] ?? d['customer_name'])?.toString().trim();
               if (name != null && name.isNotEmpty) {
                 fullNameController.text = name;
                 updated = true;
@@ -1229,14 +1434,18 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
                 updated = true;
               }
             }
-            if (monthlyIncomeController.text.trim().isEmpty && d['monthly_income'] != null) {
+            if (monthlyIncomeController.text.trim().isEmpty &&
+                d['monthly_income'] != null) {
               final v = d['monthly_income'];
-              monthlyIncomeController.text = (v is num) ? v.toString() : v.toString();
+              monthlyIncomeController.text =
+                  (v is num) ? v.toString() : v.toString();
               updated = true;
             }
           }
-          if (updated) setState(() => _prefilledFromWallet = true);
-          else _prefilledFromWallet = true;
+          if (updated)
+            setState(() => _prefilledFromWallet = true);
+          else
+            _prefilledFromWallet = true;
         } catch (_) {
           _prefilledFromWallet = true;
         }
@@ -1245,43 +1454,41 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
     return [
       Row(
         children: [
-          IconButton(
-            padding: EdgeInsets.zero,
-            alignment: Alignment.centerLeft,
-            icon: Icon(Icons.arrow_back_ios_new, color: primaryColor, size: 22),
-            onPressed: () => setState(() => _currentStep = 0),
-          ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.15),
+              color: Colors.white.withOpacity(0.2),
               borderRadius: br12,
             ),
             child: Text(
               'Step 2 of 2',
               style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: primaryColor),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withOpacity(0.96),
+              ),
             ),
           ),
         ],
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 12),
       Text(
         'Basic Information',
         style: GoogleFonts.poppins(
-            fontSize: 18, fontWeight: FontWeight.w700, color: primaryColor),
-      ),
-      const SizedBox(height: 6),
-      Text(
-        'Name and phone are filled from your login (profile). You can change them if needed.',
-        style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade600),
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: Colors.white.withOpacity(0.96),
+        ),
       ),
       const SizedBox(height: 12),
-      Text('Customer Name *',
-          style: GoogleFonts.poppins(
-              fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
+      Text(
+        'Customer Name *',
+        style: GoogleFonts.poppins(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Colors.white.withOpacity(0.96),
+        ),
+      ),
       const SizedBox(height: 8),
       TextField(
         controller: fullNameController,
@@ -1294,9 +1501,14 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         ),
       ),
       const SizedBox(height: 16),
-      Text('Phone Number (Optional if no mobile)',
-          style: GoogleFonts.poppins(
-              fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
+      Text(
+        'Phone Number (Optional if no mobile)',
+        style: GoogleFonts.poppins(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Colors.white.withOpacity(0.96),
+        ),
+      ),
       const SizedBox(height: 8),
       TextField(
         controller: phoneNumberController,
@@ -1310,9 +1522,14 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         ),
       ),
       const SizedBox(height: 24),
-      Text('Monthly Income (USD) *',
-          style: GoogleFonts.poppins(
-              fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
+      Text(
+        'Monthly Income (USD) *',
+        style: GoogleFonts.poppins(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Colors.white.withOpacity(0.96),
+        ),
+      ),
       const SizedBox(height: 8),
       TextField(
         controller: monthlyIncomeController,
@@ -1328,15 +1545,23 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       const SizedBox(height: 6),
       Text(
         'This will be stored with your application',
-        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
+        style: GoogleFonts.poppins(
+          fontSize: 12,
+          color: Colors.white.withOpacity(0.88),
+        ),
       ),
       const SizedBox(height: 24),
-      Text('Region (Required)',
-          style: GoogleFonts.poppins(
-              fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
+      Text(
+        'Region (Required)',
+        style: GoogleFonts.poppins(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Colors.white.withOpacity(0.96),
+        ),
+      ),
       const SizedBox(height: 8),
       isLoadingRegions
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: pureWhite))
           : DropdownButtonFormField<int>(
               isExpanded: true,
               value: selectedRegionId,
@@ -1367,12 +1592,17 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
               },
             ),
       const SizedBox(height: 16),
-      Text('District (Required)',
-          style: GoogleFonts.poppins(
-              fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
+      Text(
+        'District (Required)',
+        style: GoogleFonts.poppins(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Colors.white.withOpacity(0.96),
+        ),
+      ),
       const SizedBox(height: 8),
       isLoadingDistricts
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: pureWhite))
           : DropdownButtonFormField<int>(
               isExpanded: true,
               value: selectedDistrictId,
@@ -1401,9 +1631,14 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
                   : (v) => setState(() => selectedDistrictId = v),
             ),
       const SizedBox(height: 16),
-      Text('Family Size (Optional)',
-          style: GoogleFonts.poppins(
-              fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
+      Text(
+        'Family Size (Optional)',
+        style: GoogleFonts.poppins(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Colors.white.withOpacity(0.96),
+        ),
+      ),
       const SizedBox(height: 8),
       TextField(
         controller: familySizeController,
@@ -1417,15 +1652,25 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         ),
       ),
       const SizedBox(height: 24),
-      Text('Next of Kin (Optional)',
-          style: GoogleFonts.poppins(
-              fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor)),
+      Text(
+        'Guarantor *',
+        style: GoogleFonts.poppins(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Colors.white.withOpacity(0.96),
+        ),
+      ),
       const SizedBox(height: 6),
-      Text('Name, relationship, phone and address of next of kin.',
-          style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600)),
+      Text(
+        'Name, phone, ID type/number, address and monthly income (all required).',
+        style: GoogleFonts.poppins(
+          fontSize: 12,
+          color: Colors.white.withOpacity(0.88),
+        ),
+      ),
       const SizedBox(height: 8),
       TextField(
-        controller: nextOfKinNameController,
+        controller: guarantorNameController,
         decoration: InputDecoration(
           hintText: 'Full name',
           prefixIcon: const Icon(Icons.person_outline),
@@ -1436,18 +1681,7 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       ),
       const SizedBox(height: 10),
       TextField(
-        controller: nextOfKinRelationshipController,
-        decoration: InputDecoration(
-          hintText: 'e.g. spouse, parent, sibling',
-          prefixIcon: const Icon(Icons.family_restroom),
-          border: OutlineInputBorder(borderRadius: br12),
-          filled: true,
-          fillColor: cardBg,
-        ),
-      ),
-      const SizedBox(height: 10),
-      TextField(
-        controller: nextOfKinPhoneController,
+        controller: guarantorPhoneController,
         keyboardType: TextInputType.phone,
         decoration: InputDecoration(
           hintText: 'Phone number',
@@ -1458,11 +1692,56 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         ),
       ),
       const SizedBox(height: 10),
+      DropdownButtonFormField<String>(
+        value: selectedGuarantorIdType ?? _guarantorIdTypeValues.first,
+        decoration: InputDecoration(
+          labelText: 'ID type',
+          prefixIcon: const Icon(Icons.badge_outlined),
+          border: OutlineInputBorder(borderRadius: br12),
+          filled: true,
+          fillColor: cardBg,
+        ),
+        items: _guarantorIdTypeValues
+            .asMap()
+            .entries
+            .map((e) => DropdownMenuItem<String>(
+                  value: e.value,
+                  child: Text(e.key < _guarantorIdTypeLabels.length
+                      ? _guarantorIdTypeLabels[e.key]
+                      : e.value),
+                ))
+            .toList(),
+        onChanged: (v) => setState(() => selectedGuarantorIdType = v),
+      ),
+      const SizedBox(height: 10),
       TextField(
-        controller: nextOfKinAddressController,
+        controller: guarantorIdNumberController,
+        decoration: InputDecoration(
+          hintText: 'ID / Passport number',
+          prefixIcon: const Icon(Icons.badge_outlined),
+          border: OutlineInputBorder(borderRadius: br12),
+          filled: true,
+          fillColor: cardBg,
+        ),
+      ),
+      const SizedBox(height: 10),
+      TextField(
+        controller: guarantorAddressController,
         decoration: InputDecoration(
           hintText: 'Address',
           prefixIcon: const Icon(Icons.location_on_outlined),
+          border: OutlineInputBorder(borderRadius: br12),
+          filled: true,
+          fillColor: cardBg,
+        ),
+      ),
+      const SizedBox(height: 10),
+      TextField(
+        controller: guarantorIncomeController,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(
+          hintText: 'Monthly income',
+          prefixIcon: const Icon(Icons.attach_money),
           border: OutlineInputBorder(borderRadius: br12),
           filled: true,
           fillColor: cardBg,
@@ -1474,7 +1753,10 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
             ? 'Usage Type (Required – for amount limits)'
             : 'Usage Type (Optional)',
         style: GoogleFonts.poppins(
-            fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor),
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Colors.white.withOpacity(0.96),
+        ),
       ),
       const SizedBox(height: 8),
       DropdownButtonFormField<String>(
@@ -1507,18 +1789,30 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         const SizedBox(height: 8),
         Text(
           'Allowed amount: \$${_limitMin!.toStringAsFixed(2)} - \$${_limitMax!.toStringAsFixed(2)}',
-          style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade700),
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            color: Colors.white.withOpacity(0.88),
+          ),
         ),
       ],
-      const SizedBox(height: 24),
-      Text('Selected Products',
-          style: GoogleFonts.poppins(
-              fontSize: 18, fontWeight: FontWeight.w700, color: primaryColor)),
-      const SizedBox(height: 6),
-      Text('Products below your form. Adjust quantity or add more.',
-          style:
-              GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade600)),
-      const SizedBox(height: 12),
+      const SizedBox(height: 28),
+      Text(
+        'Selected Products',
+        style: GoogleFonts.poppins(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: Colors.white.withOpacity(0.96),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        'Products below your form. Adjust quantity or add more.',
+        style: GoogleFonts.poppins(
+          fontSize: 13,
+          color: Colors.white.withOpacity(0.88),
+        ),
+      ),
+      const SizedBox(height: 16),
       if (selectedProducts.isEmpty)
         Container(
           padding: const EdgeInsets.all(16),
@@ -1550,65 +1844,75 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-                color: cardBg,
-                borderRadius: br12,
-                border: Border.all(color: primaryColor.withOpacity(0.15)),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2))
-                ]),
+              color: Colors.white.withOpacity(0.22),
+              borderRadius: br12,
+              border: Border.all(color: Colors.white.withOpacity(0.35)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Row(
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item['product_name'] as String? ?? '',
-                          style: GoogleFonts.poppins(
-                              fontSize: 14, fontWeight: FontWeight.w600)),
+                      Text(
+                        item['product_name'] as String? ?? '',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withOpacity(0.98),
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Text(
-                          '\$${unitPrice.toStringAsFixed(2)} each${unit.isNotEmpty ? ' / $unit' : ''}',
-                          style: GoogleFonts.poppins(
-                              fontSize: 11, color: Colors.grey.shade600)),
+                        '\$${unitPrice.toStringAsFixed(2)} each${unit.isNotEmpty ? ' / $unit' : ''}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.white.withOpacity(0.85),
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       Container(
                         decoration: BoxDecoration(
-                            color: primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                                color: primaryColor.withOpacity(0.3))),
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white.withOpacity(0.45)),
+                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                                icon: const Icon(Icons.remove, size: 18),
-                                onPressed: () =>
-                                    _updateBasketQuantity(index, -1),
-                                padding: const EdgeInsets.all(4),
-                                constraints: const BoxConstraints(
-                                    minWidth: 28, minHeight: 28),
-                                style: IconButton.styleFrom(
-                                    foregroundColor: primaryColor)),
+                              icon: Icon(Icons.remove, size: 18, color: Colors.white),
+                              onPressed: () => _updateBasketQuantity(index, -1),
+                              padding: const EdgeInsets.all(4),
+                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                              style: IconButton.styleFrom(foregroundColor: Colors.white),
+                            ),
                             SizedBox(
-                                width: 28,
-                                child: Text('$qty',
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.poppins(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: primaryColor))),
+                              width: 28,
+                              child: Text(
+                                '$qty',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white.withOpacity(0.98),
+                                ),
+                              ),
+                            ),
                             IconButton(
-                                icon: const Icon(Icons.add, size: 18),
-                                onPressed: () =>
-                                    _updateBasketQuantity(index, 1),
-                                padding: const EdgeInsets.all(4),
-                                constraints: const BoxConstraints(
-                                    minWidth: 28, minHeight: 28),
-                                style: IconButton.styleFrom(
-                                    foregroundColor: primaryColor)),
+                              icon: Icon(Icons.add, size: 18, color: Colors.white),
+                              onPressed: () => _updateBasketQuantity(index, 1),
+                              padding: const EdgeInsets.all(4),
+                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                              style: IconButton.styleFrom(foregroundColor: Colors.white),
+                            ),
                           ],
                         ),
                       ),
@@ -1618,49 +1922,70 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('\$${subtotal.toStringAsFixed(2)}',
-                        style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: primaryColor)),
+                    Text(
+                      '\$${subtotal.toStringAsFixed(2)}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white.withOpacity(0.98),
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     InkWell(
-                        onTap: () => _removeFromBasket(index),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.delete_outline,
-                              size: 16, color: Colors.red.shade400),
+                      onTap: () => _removeFromBasket(index),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.delete_outline, size: 16, color: Colors.white.withOpacity(0.9)),
                           const SizedBox(width: 4),
-                          Text('Remove',
-                              style: GoogleFonts.poppins(
-                                  fontSize: 11, color: Colors.red.shade400))
-                        ])),
+                          Text(
+                            'Remove',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: Colors.white.withOpacity(0.9),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ],
             ),
           );
         }),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.1),
-              borderRadius: br12,
-              border: Border.all(color: primaryColor.withOpacity(0.2))),
-          child:
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('Total:',
+            color: Colors.white.withOpacity(0.22),
+            borderRadius: br12,
+            border: Border.all(color: Colors.white.withOpacity(0.35)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Total:',
                 style: GoogleFonts.poppins(
-                    fontSize: 18, fontWeight: FontWeight.w600)),
-            Text('\$${totalAmount.toStringAsFixed(2)}',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white.withOpacity(0.98),
+                ),
+              ),
+              Text(
+                '\$${totalAmount.toStringAsFixed(2)}',
                 style: GoogleFonts.poppins(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: primaryColor)),
-          ]),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white.withOpacity(0.98),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
-      const SizedBox(height: 16),
+      const SizedBox(height: 24),
       InkWell(
         onTap: () =>
             setState(() => _formStepShowAddMore = !_formStepShowAddMore),
@@ -1668,28 +1993,40 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.08),
-              borderRadius: br12,
-              border: Border.all(color: primaryColor.withOpacity(0.2))),
+            color: Colors.white.withOpacity(0.22),
+            borderRadius: br12,
+            border: Border.all(color: Colors.white.withOpacity(0.4)),
+          ),
           child: Row(
             children: [
-              Icon(Icons.add_shopping_cart, color: primaryColor, size: 24),
+              Icon(Icons.add_shopping_cart, color: Colors.white, size: 24),
               const SizedBox(width: 12),
               Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Text('Add more products',
-                        style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: primaryColor)),
-                    Text('Browse and add without going back',
-                        style: GoogleFonts.poppins(
-                            fontSize: 11, color: Colors.grey.shade600))
-                  ])),
-              Icon(_formStepShowAddMore ? Icons.expand_less : Icons.expand_more,
-                  color: primaryColor),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Add more products',
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withOpacity(0.96),
+                      ),
+                    ),
+                    Text(
+                      'Browse and add without going back',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: Colors.white.withOpacity(0.88),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                _formStepShowAddMore ? Icons.expand_less : Icons.expand_more,
+                color: Colors.white,
+              ),
             ],
           ),
         ),
@@ -1718,16 +2055,20 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
         ),
         const SizedBox(height: 8),
         Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text('Select a product to add',
-                style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700))),
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            'Select a product to add',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withOpacity(0.96),
+            ),
+          ),
+        ),
         Builder(
           builder: (context) {
-            final filteredAddMore =
-                _filterProducts(availableProducts, _productSearchController.text);
+            final filteredAddMore = _filterProducts(
+                availableProducts, _productSearchController.text);
             if (filteredAddMore.isEmpty && availableProducts.isNotEmpty) {
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1735,7 +2076,9 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
                   child: Text(
                     'No products match your search',
                     style: GoogleFonts.poppins(
-                        fontSize: 13, color: Colors.grey.shade600),
+                      fontSize: 13,
+                      color: Colors.white.withOpacity(0.88),
+                    ),
                   ),
                 ),
               );
@@ -1751,90 +2094,132 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
               itemCount: filteredAddMore.length,
               itemBuilder: (context, idx) {
                 final product = filteredAddMore[idx];
-            final pid = product.productId ?? product.id;
-            final isInBasket =
-                selectedProducts.any((p) => p['product_id'] == pid);
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap:
-                    isInBasket ? null : () => _showAddToBasketDialog(product),
-                borderRadius: br12,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                      color: cardBg,
-                      borderRadius: br12,
-                      border:
-                          Border.all(color: primaryColor.withOpacity(0.12))),
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: (product.imagePath != null &&
-                                product.imagePath!.isNotEmpty)
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                    '${ApiService.baseUrl}${product.imagePath}',
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    errorBuilder: (_, __, ___) => Icon(
-                                        Icons.shopping_basket,
-                                        size: 32,
-                                        color: primaryColor)))
-                            : Icon(Icons.shopping_basket,
-                                size: 32, color: primaryColor),
+                final pid = product.productId ?? product.id;
+                final isInBasket =
+                    selectedProducts.any((p) => p['product_id'] == pid);
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: isInBasket
+                        ? null
+                        : () => _showAddToBasketDialog(product),
+                    borderRadius: br12,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: br12,
+                          border: Border.all(
+                              color: primaryColor.withOpacity(0.12))),
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: (product.imagePath != null &&
+                                    product.imagePath!.isNotEmpty)
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                        '${ApiService.baseUrl}${product.imagePath}',
+                                        fit: BoxFit.cover,
+                                        width: double.infinity,
+                                        errorBuilder: (_, __, ___) => Icon(
+                                            Icons.shopping_basket,
+                                            size: 32,
+                                            color: primaryColor)))
+                                : Icon(Icons.shopping_basket,
+                                    size: 32, color: primaryColor),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(product.name ?? '',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.poppins(
+                                  fontSize: 11, fontWeight: FontWeight.w600)),
+                          Text('\$${(product.price ?? 0).toStringAsFixed(2)}',
+                              style: GoogleFonts.poppins(
+                                  fontSize: 11, color: primaryColor)),
+                          const SizedBox(height: 4),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 28,
+                            child: ElevatedButton(
+                              onPressed: isInBasket
+                                  ? null
+                                  : () => _showAddToBasketDialog(product),
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: primaryColor,
+                                  padding: EdgeInsets.zero,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6))),
+                              child: Text(isInBasket ? 'In basket' : 'Add',
+                                  style: GoogleFonts.poppins(fontSize: 11)),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(product.name ?? '',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                              fontSize: 11, fontWeight: FontWeight.w600)),
-                      Text('\$${(product.price ?? 0).toStringAsFixed(2)}',
-                          style: GoogleFonts.poppins(
-                              fontSize: 11, color: primaryColor)),
-                      const SizedBox(height: 4),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 28,
-                        child: ElevatedButton(
-                          onPressed: isInBasket
-                              ? null
-                              : () => _showAddToBasketDialog(product),
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor,
-                              padding: EdgeInsets.zero,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6))),
-                          child: Text(isInBasket ? 'In basket' : 'Add',
-                              style: GoogleFonts.poppins(fontSize: 11)),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            );
-          },
+                );
+              },
             );
           },
         ),
       ],
       const SizedBox(height: 32),
-      Text(
-        'After Next you will upload your documents.',
-        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
-      ),
-      const SizedBox(height: 8),
+      if (!_isStep2RequiredFieldsFilled && _step2MissingRequiredFields.isNotEmpty) ...[
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50,
+            borderRadius: br12,
+            border: Border.all(color: Colors.orange.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.info_outline_rounded,
+                      size: 20, color: Colors.orange.shade800),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Complete the following to continue:',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.orange.shade900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ..._step2MissingRequiredFields.map((label) => Padding(
+                    padding: const EdgeInsets.only(left: 28, top: 2),
+                    child: Text(
+                      '• $label',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.orange.shade900,
+                      ),
+                    ),
+                  )),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
       SizedBox(
         width: double.infinity,
         height: 50,
         child: ElevatedButton(
-          onPressed: isSubmitting ? null : _goToNextStep,
+          onPressed: (isSubmitting || !_isStep2RequiredFieldsFilled)
+              ? null
+              : _goToNextStep,
           style: ElevatedButton.styleFrom(
             backgroundColor: primaryColor,
+            disabledBackgroundColor: Colors.grey.shade300,
             shape: RoundedRectangleBorder(borderRadius: br12),
           ),
           child: isSubmitting
@@ -1844,7 +2229,10 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.arrow_forward_rounded,
-                        color: Colors.white, size: 22),
+                        color: _isStep2RequiredFieldsFilled
+                            ? Colors.white
+                            : Colors.grey.shade600,
+                        size: 22),
                     const SizedBox(width: 10),
                     Flexible(
                       child: Text(
@@ -1852,7 +2240,9 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
                         style: GoogleFonts.poppins(
                             fontWeight: FontWeight.w600,
                             fontSize: 16,
-                            color: Colors.white),
+                            color: _isStep2RequiredFieldsFilled
+                                ? Colors.white
+                                : Colors.grey.shade600),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),

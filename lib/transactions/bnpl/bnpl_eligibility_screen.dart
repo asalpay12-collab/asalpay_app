@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/Constant.dart';
 import '../../services/252pay_api_service.dart';
 import '../../utils/bnpl_utils.dart';
+import '../252pay/252pay_screen_background.dart';
 import 'bnpl_application_screen.dart';
 
 class BnplEligibilityScreen extends StatefulWidget {
@@ -66,7 +68,10 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
         debugPrint("⚠️ API eligibility check failed: $apiError");
         setState(() {
           isEligible = true; // Allow based on local check
-          eligibilityData = {'eligible': true, 'note': 'Local eligibility check passed'};
+          eligibilityData = {
+            'eligible': true,
+            'note': 'Local eligibility check passed'
+          };
           isLoading = false;
         });
       }
@@ -81,10 +86,11 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: secondryColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
         foregroundColor: Colors.white,
         title: Text(
           'BNPL Eligibility Check',
@@ -94,14 +100,18 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
           ),
         ),
       ),
-      body: SafeArea(
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : errorMessage != null
-                ? _buildErrorView()
-                : isEligible == false
-                    ? _buildNotEligibleView()
-                    : _buildEligibleView(),
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(color: Colors.white))
+              : errorMessage != null
+                  ? _buildErrorView()
+                  : isEligible == false
+                      ? _buildNotEligibleView()
+                      : _buildEligibleView(),
+        ),
       ),
     );
   }
@@ -113,27 +123,31 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+            Icon(Icons.error_outline, size: 64, color: Colors.red.shade200),
             const SizedBox(height: 16),
             Text(
               'Error',
               style: GoogleFonts.poppins(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               errorMessage ?? 'Unknown error occurred',
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(fontSize: 14),
+              style: GoogleFonts.poppins(
+                  fontSize: 14, color: Colors.white.withOpacity(0.9)),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _checkEligibility,
               style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                backgroundColor: pureWhite,
+                foregroundColor: primaryColor,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               ),
               child: const Text('Retry'),
             ),
@@ -168,7 +182,7 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
               style: GoogleFonts.poppins(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
-                color: primaryColor,
+                color: Colors.white.withOpacity(0.95),
               ),
             ),
             const SizedBox(height: 16),
@@ -209,10 +223,12 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                backgroundColor: pureWhite,
+                foregroundColor: primaryColor,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
               child: Text(
@@ -259,7 +275,7 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
               style: GoogleFonts.poppins(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
-                color: primaryColor,
+                color: Colors.white.withOpacity(0.95),
               ),
             ),
           ),
@@ -269,7 +285,7 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
               'You can pay in installments',
               style: GoogleFonts.poppins(
                 fontSize: 14,
-                color: Colors.grey.shade700,
+                color: Colors.white.withOpacity(0.88),
               ),
             ),
           ),
@@ -313,7 +329,9 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
                         const SizedBox(width: 8),
                         Text(
                           BnplUtils.formatCurrency(
-                            ((item['unit_price'] as num) * (item['quantity'] as num)).toDouble(),
+                            ((item['unit_price'] as num) *
+                                    (item['quantity'] as num))
+                                .toDouble(),
                           ),
                           style: GoogleFonts.poppins(
                             fontSize: 14,
@@ -380,7 +398,7 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
                 ),
                 const SizedBox(height: 12),
                 _buildBenefitItem('Pay in installments over time'),
-                _buildBenefitItem('No interest charges'),
+                // _buildBenefitItem('No interest charges'),
                 _buildBenefitItem('Flexible repayment options'),
               ],
             ),
@@ -404,11 +422,13 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
+                backgroundColor: pureWhite,
+                foregroundColor: primaryColor,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
+                elevation: 2,
               ),
               child: Text(
                 'Apply for BNPL',
@@ -426,17 +446,18 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
               onPressed: () => Navigator.pop(context),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                side: BorderSide(color: primaryColor),
+                side: BorderSide(color: Colors.white.withOpacity(0.5)),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
+                foregroundColor: Colors.white,
               ),
               child: Text(
                 'Pay with Cash Instead',
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
-                  color: primaryColor,
+                  color: Colors.white.withOpacity(0.95),
                 ),
               ),
             ),
@@ -464,4 +485,3 @@ class _BnplEligibilityScreenState extends State<BnplEligibilityScreen> {
     );
   }
 }
-

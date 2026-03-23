@@ -223,9 +223,10 @@ class HomeSliderAndTransaction with ChangeNotifier {
   final String? walletid;
 // 6/1/24
 
+  bool _disposed = false;
+
   List<HomeTransactionModel> _allTransactions = [];
-  StreamController<List<HomeTransactionModel>> _controller =
-      StreamController.broadcast();
+  StreamController<List<HomeTransactionModel>>? _controller;
 
   //   6/1 - 4:33
 
@@ -234,11 +235,21 @@ class HomeSliderAndTransaction with ChangeNotifier {
   Stream<List<HomeTransactionModel>> get transactionsStream {
     _controller ??= StreamController<List<HomeTransactionModel>>.broadcast(
         onListen: fetchAndStreamAllTransactions);
-    return _controller.stream;
+    return _controller!.stream;
+  }
+
+  @override
+  void dispose() {
+    if (!_disposed) {
+      _disposed = true;
+      _controller?.close();
+      _controller = null;
+    }
+    super.dispose();
   }
 
   Stream<List<HomeTransactionModel>> fetchAndStreamAllTransactions() async* {
-    while (true) {
+    while (!_disposed) {
       var url = "${ApiUrls.BASE_URL}Wallet_dashboard/displayAllTransactions";
 
 // Get the token
@@ -265,22 +276,25 @@ class HomeSliderAndTransaction with ChangeNotifier {
                 .add(HomeTransactionModel.fromMap(extractedData['result'][i]));
           }
 
-          if (_allTransactions.isEmpty ||
-              !_allTransactions.equals(newTransactions)) {
+          if (!_disposed &&
+              (_allTransactions.isEmpty ||
+                  !_allTransactions.equals(newTransactions))) {
             _allTransactions = newTransactions;
             _AllTransactions = newTransactions;
-            _controller.add(_allTransactions);
-            notifyListeners();
-            yield _allTransactions;
+            if (!_disposed && _controller != null && !_controller!.isClosed) {
+              _controller!.add(_allTransactions);
+              if (!_disposed) notifyListeners();
+            }
+            if (!_disposed) yield _allTransactions;
           }
         } else {
           checkAndHandleSessionExpiry(response.statusCode, response.body);
           print('Request failed with status: ${response.statusCode}.');
         }
       } catch (error) {
-        print('Error fetching transactions: $error');
+        if (!_disposed) print('Error fetching transactions: $error');
       }
-      await Future.delayed(const Duration(seconds: 30));
+      if (!_disposed) await Future.delayed(const Duration(seconds: 30));
     }
   }
 

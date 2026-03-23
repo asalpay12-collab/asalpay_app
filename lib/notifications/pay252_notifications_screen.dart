@@ -1,3 +1,4 @@
+import 'package:asalpay/constants/Constant.dart';
 import 'package:asalpay/notifications/notification_store.dart';
 import 'package:flutter/material.dart';
 
@@ -12,7 +13,7 @@ class Pay252NotificationsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('252pay Notifications'),
+        title: Text('$kEasyShopServiceName notifications'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
@@ -49,7 +50,7 @@ class Pay252NotificationsScreen extends StatelessWidget {
                     Icon(Icons.notifications_none, size: 64, color: Colors.grey.shade400),
                     const SizedBox(height: 16),
                     Text(
-                      'Ma jiraan notification-ka 252pay',
+                      'Ma jiraan notification-ka $kEasyShopServiceName',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 16, color: Colors.grey.shade700),
                     ),

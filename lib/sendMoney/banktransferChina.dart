@@ -7,7 +7,6 @@ import 'package:asalpay/widgets/AllFormFields.dart';
 import 'package:asalpay/widgets/AllinOneDropdownSearch.dart';
 import 'package:asalpay/widgets/commonBtn.dart';
 // import 'package:connectivity/connectivity.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otp_text_field/flutter_otp_text_field.dart';
@@ -19,6 +18,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../TransferReceiptLetter/Button.dart';
 import '../TransferReceiptLetter/paymentPage.dart';
 import '../constants/Constant.dart';
+import '../utils/network_utils.dart';
 import 'dart:io' show File, Platform;
 
 import '../providers/HomeSliderandTransaction.dart';
@@ -309,13 +309,16 @@ void didChangeDependencies() async {
 //       openSnackbar(context, errorMessage, secondryColor);
       return;
     } catch (error) {
-// _showErrorDialog(error.toString());
       print("ModelErrorMessage");
       setState(() {
         ModelErrorMessage = error.toString();
       });
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+        setState(() => isloading1 = false);
+        return;
+      }
       print(ModelErrorMessage);
-      // openSnackbar(context, error.toString(), secondryColor);
       _showErrorDialog(error.toString());
       setState(() {
         isloading1 = false;
@@ -458,9 +461,8 @@ void didChangeDependencies() async {
 
 
 Future<void> _saveForm() async {
-  final connectivityResult = await Connectivity().checkConnectivity();
-  if (connectivityResult == ConnectivityResult.none) {
-    openSnackbar(context, 'No Internet Connection', secondryColor);
+  if (await checkConnectivityIndicatesOffline()) {
+    showNoConnectionDialog(context);
     return;
   }
 
@@ -502,6 +504,11 @@ Future<void> _saveForm() async {
     });
     return;
   } catch (error) {
+    if (isNetworkError(error)) {
+      showNoConnectionDialog(context);
+      setState(() => _isLoading = false);
+      return;
+    }
     openSnackbar(context, error.toString(), secondryColor);
     setState(() {
       _isLoading = false;

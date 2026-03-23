@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/Constant.dart';
 import '../../services/252pay_api_service.dart';
+import '../252pay/252pay_screen_background.dart';
 import '../../utils/bnpl_utils.dart';
 import '../../models/bnpl_application.dart';
 import 'bnpl_repayment_screen.dart';
@@ -78,10 +80,11 @@ class _BnplTrackingScreenState extends State<BnplTrackingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: secondryColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
         foregroundColor: Colors.white,
         title: Text(
           'My BNPL Applications',
@@ -112,24 +115,32 @@ class _BnplTrackingScreenState extends State<BnplTrackingScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () => _loadApplications(status: selectedStatus),
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : applications.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: EdgeInsets.only(
-                      left: 16,
-                      right: 16,
-                      top: 16,
-                      bottom: 16 + MediaQuery.of(context).padding.bottom,
-                    ),
-                    itemCount: applications.length,
-                    itemBuilder: (context, index) {
-                      return _buildApplicationCard(applications[index]);
-                    },
-                  ),
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: RefreshIndicator(
+            color: secondryColor,
+            backgroundColor: pureWhite,
+            onRefresh: () => _loadApplications(status: selectedStatus),
+            child: isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.white))
+                : applications.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        padding: EdgeInsets.only(
+                          left: 16,
+                          right: 16,
+                          top: 16,
+                          bottom: 16 + MediaQuery.of(context).padding.bottom,
+                        ),
+                        itemCount: applications.length,
+                        itemBuilder: (context, index) {
+                          return _buildApplicationCard(applications[index]);
+                        },
+                      ),
+          ),
+        ),
       ),
     );
   }
@@ -139,13 +150,13 @@ class _BnplTrackingScreenState extends State<BnplTrackingScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inbox, size: 64, color: Colors.grey.shade400),
+          Icon(Icons.inbox, size: 64, color: Colors.white.withOpacity(0.45)),
           const SizedBox(height: 16),
           Text(
             'No applications found',
             style: GoogleFonts.poppins(
               fontSize: 18,
-              color: Colors.grey.shade600,
+              color: Colors.white.withOpacity(0.92),
             ),
           ),
         ],
@@ -645,6 +656,7 @@ class _BnplTrackingScreenState extends State<BnplTrackingScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
@@ -654,11 +666,17 @@ class _BnplTrackingScreenState extends State<BnplTrackingScreen> {
               color: Colors.grey.shade600,
             ),
           ),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
             ),
           ),
         ],

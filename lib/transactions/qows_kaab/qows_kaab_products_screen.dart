@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/Constant.dart';
 import '../../services/252pay_api_service.dart';
 import '../../models/qows_kaab_product.dart';
+import '../252pay/252pay_screen_background.dart';
 import 'qows_kaab_eligibility_screen.dart';
 import 'qows_kaab_tracking_screen.dart';
 
@@ -79,7 +81,10 @@ class _QowsKaabProductsScreenState extends State<QowsKaabProductsScreen> {
       return Center(
         child: Text(
           'No products match your search',
-          style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            color: Colors.white.withOpacity(0.9),
+          ),
         ),
       );
     }
@@ -179,22 +184,24 @@ class _QowsKaabProductsScreenState extends State<QowsKaabProductsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: secondryColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: pureWhite,
         title: Text(
           'QOYS KAAB Products',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w600,
             fontSize: 20,
+            color: pureWhite,
           ),
         ),
         actions: [
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            color: Colors.white,
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            color: pureWhite,
             shape: RoundedRectangleBorder(borderRadius: br12),
             onSelected: (value) {
               if (value == 'my_applications') {
@@ -230,39 +237,58 @@ class _QowsKaabProductsScreenState extends State<QowsKaabProductsScreen> {
           ),
         ],
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : errorMessage != null
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: isLoading
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline,
-                          size: 64, color: Colors.grey.shade400),
-                      const SizedBox(height: 16),
-                      Text(
-                        errorMessage!,
-                        style: GoogleFonts.poppins(
-                            fontSize: 16, color: Colors.grey),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadProducts,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
+                  child: CircularProgressIndicator(color: pureWhite),
                 )
-              : products.isEmpty
+              : errorMessage != null
                   ? Center(
-                      child: Text(
-                        'No QOYS KAAB products available',
-                        style: GoogleFonts.poppins(
-                            fontSize: 16, color: Colors.grey),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline,
+                              size: 64, color: Colors.white.withOpacity(0.8)),
+                          const SizedBox(height: 16),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Text(
+                              errorMessage!,
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                color: Colors.white.withOpacity(0.9),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadProducts,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: pureWhite,
+                              foregroundColor: primaryColor,
+                            ),
+                            child: Text(
+                              'Retry',
+                              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
                       ),
                     )
-                  : Column(
+                  : products.isEmpty
+                      ? Center(
+                          child: Text(
+                            'No QOYS KAAB products available',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              color: Colors.white.withOpacity(0.9),
+                            ),
+                          ),
+                        )
+                      : Column(
                       children: [
                         // Info Card
                         Container(
@@ -367,6 +393,8 @@ class _QowsKaabProductsScreenState extends State<QowsKaabProductsScreen> {
                         ),
                       ],
                     ),
+        ),
+      ),
     );
   }
 }

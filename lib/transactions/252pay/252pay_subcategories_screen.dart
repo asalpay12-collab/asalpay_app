@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/Constant.dart';
 import '../../models/category.dart';
 import '../../services/252pay_api_service.dart';
 import '252pay_search_bar.dart';
+import '252pay_screen_background.dart';
 import '252pay_products_screen.dart';
 
 class Pay252SubcategoriesScreen extends StatefulWidget {
@@ -21,9 +23,6 @@ class Pay252SubcategoriesScreen extends StatefulWidget {
 }
 
 class _Pay252SubcategoriesScreenState extends State<Pay252SubcategoriesScreen> {
-  final Color primaryColor = const Color(0xFF005653);
-  final Color cardBg = const Color(0xFFF8FAFA);
-  final Color bodyBg = Colors.white;
   final BorderRadius br12 = BorderRadius.circular(12);
   final api = ApiService();
   static String get baseUrl => ApiService.imgURL;
@@ -85,17 +84,19 @@ class _Pay252SubcategoriesScreenState extends State<Pay252SubcategoriesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bodyBg,
+      backgroundColor: secondryColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: pay252AppBarGradient(),
+        ),
+        foregroundColor: pureWhite,
         title: Text(
           widget.selectedCategory.categoryName,
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w600,
             fontSize: 18,
-            color: Colors.white,
+            color: pureWhite,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -105,22 +106,32 @@ class _Pay252SubcategoriesScreenState extends State<Pay252SubcategoriesScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Pay252SearchBar(
-                    controller: searchController,
-                    hint: 'Search subcategories…',
-                    onChanged: (_) => _applyFilter(),
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Pay252SearchBar(
+                        controller: searchController,
+                        hint: 'Search subcategories…',
+                        onChanged: (_) => _applyFilter(),
+                      ),
+                      const SizedBox(height: 16),
+                      Pay252SectionHeader(
+                        text: 'Subcategories – ${widget.selectedCategory.categoryName}',
+                        icon: Icons.category,
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(child: _buildSubCategoryGrid()),
+                    ],
                   ),
-                  const SizedBox(height: 20),
-                  Expanded(child: _buildSubCategoryGrid()),
-                ],
-              ),
+          ),
+        ),
       ),
     );
   }
@@ -134,7 +145,7 @@ class _Pay252SubcategoriesScreenState extends State<Pay252SubcategoriesScreen> {
           subCategories.isEmpty
               ? 'No subcategories available.'
               : 'No subcategories match your search.',
-          style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+          style: GoogleFonts.poppins(fontSize: 16, color: Colors.white.withOpacity(0.9)),
         ),
       );
     }
@@ -163,17 +174,7 @@ class _Pay252SubcategoriesScreenState extends State<Pay252SubcategoriesScreen> {
             );
           },
           child: Container(
-            decoration: BoxDecoration(
-              borderRadius: br12,
-              color: cardBg,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
+            decoration: pay252CardDecoration(),
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
@@ -181,16 +182,19 @@ class _Pay252SubcategoriesScreenState extends State<Pay252SubcategoriesScreen> {
                   child: Image.network(
                     '$baseUrl/${subcat.imagePath}',
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(
+                    errorBuilder: (_, __, ___) => Icon(
                       Icons.broken_image,
                       size: 40,
-                      color: Colors.grey,
+                      color: secondryColor.withValues(alpha: 0.6),
                     ),
                     loadingBuilder: (context, child, progress) =>
                         progress == null
                             ? child
-                            : const Center(
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                            : Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: secondryColor,
+                                ),
                               ),
                   ),
                 ),
@@ -203,7 +207,7 @@ class _Pay252SubcategoriesScreenState extends State<Pay252SubcategoriesScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: primaryColor,
+                    color: secondryColor,
                   ),
                 ),
               ],

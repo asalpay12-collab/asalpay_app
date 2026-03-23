@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/Constant.dart';
 import '../providers/HomeSliderandTransaction.dart';
+import '../utils/network_utils.dart';
 import '../snack_bar/open_snack_bar.dart';
 import '../widgets/commonBtn.dart';
 import 'PINverify.dart';
@@ -198,7 +199,11 @@ String get _fullPhoneNumber {
         openSnackbar(context, "Error: ${response.reasonPhrase}", secondryColor);
       }
     } catch (e) {
-      openSnackbar(context, "Connection error: $e", secondryColor);
+      if (isNetworkError(e)) {
+        showNoConnectionDialog(context);
+      } else {
+        openSnackbar(context, "Connection error: $e", secondryColor);
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -237,8 +242,11 @@ Future<void> _ChecKPhoneNumber() async {
 
   } catch (error) {
     appLog("[MYAPP] Unexpected error: $error");
-    openSnackbar(context, 'An unexpected error occurred', secondryColor);
-
+    if (isNetworkError(error)) {
+      showNoConnectionDialog(context);
+    } else {
+      openSnackbar(context, 'An unexpected error occurred', secondryColor);
+    }
   } finally {
     if (mounted) setState(() => _isLoading = false);
   }

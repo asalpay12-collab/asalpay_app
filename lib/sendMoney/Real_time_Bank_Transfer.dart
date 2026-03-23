@@ -11,7 +11,6 @@ import 'package:asalpay/widgets/AllFormFields.dart';
 import 'package:asalpay/widgets/AllRemitDropDown.dart';
 import 'package:asalpay/widgets/commonBtn.dart';
 // import 'package:connectivity/connectivity.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,6 +21,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../TransferReceiptLetter/paymentPage.dart';
 import '../constants/Constant.dart';
+import '../utils/network_utils.dart';
 import 'dart:io' show Platform;
 
 import '../providers/HomeSliderandTransaction.dart';
@@ -91,6 +91,8 @@ class _RealTimeBankTransferState extends State<RealTimeBankTransfer> {
   String? RemitChannel;
   // String? CFdropdownValue;
   bool _isLoadingDrop_data = false;
+  bool _hasLoadedInitialDropData = false;
+  bool _isValidatingAccount = false;
   bool _isLoading = false;
   String Reciveamount = "000";
   String currency_name_to = "";
@@ -109,7 +111,9 @@ class _RealTimeBankTransferState extends State<RealTimeBankTransfer> {
   String rate = "000";
   double totalPayingAmount = 000;
 
-  
+  Timer? _exchangeDebounce;
+  String _lastFetchedAmount = "";
+
   String fieldValueAccount = '';
 
    String fieldValuePhone = '';
@@ -358,6 +362,9 @@ void showPermissionDeniedDialog(BuildContext context) {
   @override
   void didChangeDependencies() async {
     super.didChangeDependencies();
+    if (_hasLoadedInitialDropData) return;
+
+    if (!mounted) return;
     setState(() {
       _isLoadingDrop_data = true;
     });
@@ -366,48 +373,39 @@ void showPermissionDeniedDialog(BuildContext context) {
     await Provider.of<FillRegisterationDropdown>(context, listen: false)
         .fetchAndSetCusAccountCurrency(accountId);
 
-    // await Provider.of<Walletremit>(context, listen: false)
-    //     .fetchAndSetRemitChannelTypes(
-    //         widget.country ?? "", widget.type ?? "");
+    if (!mounted) return;
+    await Provider.of<Walletremit>(context, listen: false)
+        .fetchAndSetRemitChannelTypes(
+      widget.country ?? "",
+      widget.type ?? "",
+      _addSaveReallyTimeData.source_id ?? "",
+      _addSaveReallyTimeData.purpose_id ?? "",
+      _addSaveReallyTimeData.sourceOfFunds ?? "",
+      _addSaveReallyTimeData.purposeOfTransfer ?? "",
+    );
 
-
-  await Provider.of<Walletremit>(context, listen: false)
-    .fetchAndSetRemitChannelTypes(
-  widget.country ?? "", 
-  widget.type ?? "",   
-  _addSaveReallyTimeData.source_id ?? "", 
-  _addSaveReallyTimeData.purpose_id ?? "", 
-  _addSaveReallyTimeData.sourceOfFunds ?? "",
-  _addSaveReallyTimeData.purposeOfTransfer ?? "", 
-);
-
-    // Subscribe to balance updates
+    if (!mounted) return;
     _balanceSubscription?.cancel();
     _balanceSubscription =
         Provider.of<HomeSliderAndTransaction>(context, listen: false)
             .fetchAndDisplayBalance(accountId)
             .listen(
-      (balances) {
-      
-      },
-      onError: (error) {
-        print("Error receiving balance data: $error");
-      },
-    );
-  
+              (balances) {},
+              onError: (error) {
+                print("Error receiving balance data: $error");
+              },
+            );
+
+    if (!mounted) return;
     setState(() {
       _isLoadingDrop_data = false;
-      
+      _hasLoadedInitialDropData = true;
       final RemitChannelTypes =
           Provider.of<Walletremit>(context, listen: false);
       final CusAccountCurrency =
           Provider.of<FillRegisterationDropdown>(context, listen: false);
-
-      CurrencyID = _getDefaultSelectedValue(
-          CusAccountCurrency); 
-      RemitChannel = _getDefaultSelectedBeneficiaryBank(
-          RemitChannelTypes); 
-
+      CurrencyID = _getDefaultSelectedValue(CusAccountCurrency);
+      RemitChannel = _getDefaultSelectedBeneficiaryBank(RemitChannelTypes);
       print('CusAccountCurrency: $CusAccountCurrency');
       print("CurrencyID: $CurrencyID");
     });
@@ -469,7 +467,8 @@ void showPermissionDeniedDialog(BuildContext context) {
 
   @override
   void dispose() {
-    _balanceSubscription?.cancel(); 
+    _balanceSubscription?.cancel();
+    _exchangeDebounce?.cancel();
     super.dispose();
   }
 
@@ -557,13 +556,16 @@ void showPermissionDeniedDialog(BuildContext context) {
 //       openSnackbar(context, errorMessage, secondryColor);
       return;
     } catch (error) {
-// _showErrorDialog(error.toString());
       print("ModelErrorMessage");
       setState(() {
         ModelErrorMessage = error.toString();
       });
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+        setState(() => isloading1 = false);
+        return;
+      }
       print(ModelErrorMessage);
-      // openSnackbar(context, error.toString(), secondryColor);
       _showErrorDialog(error.toString());
       setState(() {
         isloading1 = false;
@@ -702,14 +704,79 @@ void showPermissionDeniedDialog(BuildContext context) {
   bool _submitted = false;
   final _form = GlobalKey<FormState>();
 
+  Future<void> _fetchExchangeForAmount(String amountStr) async {
+    if (amountStr.isEmpty) return;
+    if (amountStr == _lastFetchedAmount) return;
+    if (!mounted) return;
+    setState(() => _isLoadingExchange = true);
+    var CurrencyDataFrom = Provider.of<FillRegisterationDropdown>(context, listen: false)
+        .findByIdTC(CurrencyID.toString());
+    dynamic result;
+    if (partiner_tag == "SHFT") {
+      result = await Provider.of<Walletremit>(context, listen: false).getShiftCurrencyConveret(
+        widget.country.toString(),
+        CurrencyID.toString(),
+        amountStr,
+        RemitChannel.toString(),
+        partiner_id.toString(),
+      );
+    } else if (partiner_tag == "Onafriq") {
+      result = await Provider.of<Walletremit>(context, listen: false).getOnafriqCurrencyConveret(
+        widget.country.toString(),
+        CurrencyID.toString(),
+        amountStr,
+        RemitChannel.toString(),
+        partiner_id.toString(),
+      );
+    } else {
+      result = await Provider.of<Walletremit>(context, listen: false).getAsalExchange(
+        widget.country.toString(),
+        CurrencyID.toString(),
+        amountStr,
+        partiner_id.toString(),
+      );
+    }
+    if (!mounted) return;
+    if (result['status'].toString() == "False") {
+      openSnackbar(context, result['messages'].toString(), secondryColor);
+      setState(() => _isLoadingExchange = false);
+      return;
+    }
+    setState(() {
+      currency_name_fro = CurrencyDataFrom.name;
+      double numericValue = double.parse(amountStr);
+      amount_fro = numericValue.toStringAsFixed(2);
+      Reciveamount = result['result']['amount_to'].toStringAsFixed(2);
+      currency_name_to = result['result']['currency_name_to'].toString();
+      currency_id_to = result['result']['currency_id_to'].toString();
+      charge = result['result']['charge'].toString();
+      rate = result['result']['rate'].toString();
+      AmountReceive = "$Reciveamount $currency_name_to";
+      totalPayingAmount = double.parse(amount_fro) + double.parse(charge);
+      _isLoadingExchange = false;
+      _lastFetchedAmount = amountStr;
+    });
+    _addSaveReallyTimeData = SaveReallyTimeData(
+      wallet_accounts_id_fro: _addSaveReallyTimeData.wallet_accounts_id_fro,
+      currency_id_fro: CurrencyID!,
+      description: _addSaveReallyTimeData.description,
+      remit_channel: RemitChannel!,
+      currency_to_id: currency_id_to,
+      amount_from: amountStr,
+      beneficiary_name: _addSaveReallyTimeData.beneficiary_name,
+      partiner_id: partiner_id,
+      reciveAmount: Reciveamount,
+      receiverNumber: _addSaveReallyTimeData.receiverNumber,
+      accountNumber: _addSaveReallyTimeData.accountNumber,
+      totalpayin: totalPayingAmount.toString(),
+    );
+    _SendAmount.unfocus();
+  }
 
-Future<void> _saveForm() async {
+  Future<void> _saveForm() async {
 
-  final connectivityResult = await Connectivity().checkConnectivity();
-
-
-  if (connectivityResult == ConnectivityResult.none) {
-    openSnackbar(context, 'No Internet Connection', secondryColor);
+  if (await checkConnectivityIndicatesOffline()) {
+    showNoConnectionDialog(context);
     return;
   }
 
@@ -768,6 +835,8 @@ Future<void> _saveForm() async {
       widget.wallet_accounts_id,
       widget.type,
     );
+    // Stop spinner as soon as transfer succeeds
+    if (mounted) setState(() => _isLoading = false);
   } on HttpException catch (error) {
     if (error.toString().contains('this account is not Active')) {
       errorMessage = 'This account is not Active';
@@ -794,51 +863,71 @@ Future<void> _saveForm() async {
     return;
   }
 
- 
-  setState(() {
-    _isLoading = false;
-  });
-  await Provider.of<HomeSliderAndTransaction>(context, listen: false)
-      .fetchAndSetAllTr();
-
   _submitted = false;
-  final CusAccountCurrency =
-      Provider.of<FillRegisterationDropdown>(context, listen: false);
+
+  try {
+    await Provider.of<HomeSliderAndTransaction>(context, listen: false)
+        .fetchAndSetAllTr();
+  } catch (e) {
+    debugPrint("saveForm: fetchAndSetAllTr failed (non-blocking): $e");
+  }
+
   try {
     final displayBalance =
         Provider.of<HomeSliderAndTransaction>(context, listen: false);
-    final balances =
-        await displayBalance.fetchAndDisplayBalance(widget.wallet_accounts_id).first;
+    final balances = await displayBalance
+        .fetchAndDisplayBalance(widget.wallet_accounts_id)
+        .first
+        .timeout(const Duration(seconds: 15), onTimeout: () => <BalanceDisplayModel>[]);
 
+    if (!mounted) return;
+    final String senderName = balances.isNotEmpty
+        ? "${balances[0].f_name} ${balances[0].m_name}"
+        : "";
     if (balances.isEmpty) {
-      print("Balances not received yet");
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PaymentPage(
-            RecieverNumber.toString(),
-            AccountNumber: accountNumber.text,
-            "Phone",
-            ReceiverLabelRec: "Acc",
-            ReceiverAmount: currency_name_to + Reciveamount,
-            ReceiverName: FullName.toString(),
-            senderAccount: widget.wallet_accounts_id,
-            senderAmount: currency_name_fro + amount_fro,
-            senderName: "${balances[0].f_name} ${balances[0].m_name}",
-            sourceOfFunds: selectedSourceOfFunds,
-            purposeOfTransfer: selectedPurposeOfTransfer,
-          ),
-        ),
-      );
+      debugPrint("saveForm: Balances not received; showing success with placeholder sender.");
     }
-  } catch (error) {
-    print('Error fetching balance data: $error');
-  }
 
-  setState(() {
-    _isLoading = false;
-  });
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PaymentPage(
+          RecieverNumber.toString(),
+          AccountNumber: accountNumber.text,
+          "Phone",
+          ReceiverLabelRec: "Acc",
+          ReceiverAmount: currency_name_to + Reciveamount,
+          ReceiverName: FullName.toString(),
+          senderAccount: widget.wallet_accounts_id,
+          senderAmount: currency_name_fro + amount_fro,
+          senderName: senderName,
+          sourceOfFunds: selectedSourceOfFunds,
+          purposeOfTransfer: selectedPurposeOfTransfer,
+        ),
+      ),
+    );
+  } catch (error) {
+    debugPrint('saveForm: Error fetching balance data: $error');
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PaymentPage(
+          RecieverNumber.toString(),
+          AccountNumber: accountNumber.text,
+          "Phone",
+          ReceiverLabelRec: "Acc",
+          ReceiverAmount: currency_name_to + Reciveamount,
+          ReceiverName: FullName.toString(),
+          senderAccount: widget.wallet_accounts_id,
+          senderAmount: currency_name_fro + amount_fro,
+          senderName: "",
+          sourceOfFunds: selectedSourceOfFunds,
+          purposeOfTransfer: selectedPurposeOfTransfer,
+        ),
+      ),
+    );
+  }
 
   AmountReceive = "";
   BeneficiaryName.text = "";
@@ -916,7 +1005,9 @@ Future<void> _saveForm() async {
                 ),
                 Expanded(
                   child: ListView(
-                    padding: EdgeInsets.zero,
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).padding.bottom + 32,
+                    ),
                     children: [
                       Form(
                         // autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -1055,14 +1146,22 @@ Future<void> _saveForm() async {
 
                                           const SizedBox(height: 10),
 
-//                                            
+                                            const Text(
+                                              "Holder Phone Number",
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: secondryColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
                                              AllformFields(
                                               // ctr: phoneNumber, 
                                               ctr: phoneNumberController, // Pass the controller here
                                               focusNode: _phoneNumber, 
                                               keyboardType: TextInputType.number,
                                               textInputAction: TextInputAction.next,
-                                              hintxt: "Holder phone Number",
+                                              hintxt: "Enter phone number",
                                               icn: Icons.person,
                                               validator: (value) {
                                                 if (_submitted) {
@@ -1101,8 +1200,8 @@ Future<void> _saveForm() async {
                                                           value);
                                                   // RecieverAccountNumber = CusAccountCurrency.CusAccountCurrencyRC[0]
                                                   //         .wallet_accounts_id!;
-                                                  setState(() {
-                                                    _isLoadingDrop_data = false;
+                                                  if (mounted) setState(() {
+                                                    _isValidatingAccount = false;
                                                     print(
                                                         "RecieverAccountNumber");
                                                     print(RecieverNumber);
@@ -1152,8 +1251,19 @@ Future<void> _saveForm() async {
 
                                           const SizedBox(height: 10),
 
-
-                                          AllformFields(
+                                            const Text(
+                                              "Account Number",
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: secondryColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
+                                            Stack(
+                                              alignment: Alignment.centerRight,
+                                              children: [
+                                                AllformFields(
                                             ctr: accountNumber,  
                                             focusNode: _accountNumber,
                                             keyboardType: TextInputType.number,
@@ -1164,7 +1274,7 @@ Future<void> _saveForm() async {
                                               }
                                               return null;
                                             },
-                                            hintxt: "Account Number",
+                                            hintxt: "Enter account number",
                                             icn: Icons.person,
 
                                             onEditingComplete: () async {
@@ -1174,23 +1284,20 @@ Future<void> _saveForm() async {
 
                                                 String partnerTag = partiner_tag ?? '';
                                                 if (partnerTag == "SSP" || partnerTag == "Onafriq" || partnerTag == "WES"  ) {
-                                                  
                                                   print('prtnrTAG');
                                                   print(partnerTag);
-                                                  // if (partnerTag == "WES") {
-                                                  setState(() {
-                                                    _isLoadingDrop_data = true;
+                                                  if (mounted) setState(() {
+                                                    _isValidatingAccount = true;
                                                   });
 
-                                                 
                                                   debugPrint(" Country (from widget): ${widget.country}");
                                                   debugPrint(" PartnerTag: $partnerTag");
                                                   debugPrint(" RemitChannel: $RemitChannel");
                                                   debugPrint(" Destination Account: $textWithoutSpacesAndPlus");
 
                                                   var accountData = await validateAccount(RemitChannel!, textWithoutSpacesAndPlus, partnerTag, widget.country );
-                                                 print("Validation  account Data");
-                                                 print(accountData);
+                                                  print("Validation  account Data");
+                                                  print(accountData);
                                                   if (accountData != null && accountData['status']) {
                                                     BeneficiaryName.text = accountData['account_name'];
                                                     _addSaveReallyTimeData = _addSaveReallyTimeData.copyWith(
@@ -1199,13 +1306,13 @@ Future<void> _saveForm() async {
                                                     );
                                                     FullName = accountData['account_name'];
 
-                                                    setState(() {
-                                                      _isLoadingDrop_data = false;
+                                                    if (mounted) setState(() {
+                                                      _isValidatingAccount = false;
                                                     });
                                                   } else {
                                                     BeneficiaryName.text = '';
-                                                    setState(() {
-                                                      _isLoadingDrop_data = false;
+                                                    if (mounted) setState(() {
+                                                      _isValidatingAccount = false;
                                                     });
                                                   }
                                                 }
@@ -1216,17 +1323,17 @@ Future<void> _saveForm() async {
                                               fieldValueAccount = value;  
 
                                               if (AccountNumber.text.length > 4) {
-                                                setState(() {
+                                                if (mounted) setState(() {
                                                   print("Account Number: $value");
-                                                  _isLoadingDrop_data = true;
+                                                  _isValidatingAccount = true;
                                                 });
 
                                                 RecieverNumber = RecieverNumber; 
                                                 await Provider.of<FillRegisterationDropdown>(context, listen: false)
                                                     .fetchAndSetCusAccountCurrencyRC(value);  
 
-                                                setState(() {
-                                                  _isLoadingDrop_data = false;
+                                                if (mounted) setState(() {
+                                                  _isValidatingAccount = false;
                                                 });
 
                                                
@@ -1249,11 +1356,31 @@ Future<void> _saveForm() async {
                                               }
                                             },
                                           ),
-
+                                                if (_isValidatingAccount)
+                                                  const Padding(
+                                                    padding: EdgeInsets.only(right: 12),
+                                                    child: SizedBox(
+                                                      width: 24,
+                                                      height: 24,
+                                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
 
                                             //to here
 
                                             const SizedBox(height: 10),
+
+                                            const Text(
+                                              "Beneficiary Full Name",
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: secondryColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
                                             AllformFields(
                                               ctr: BeneficiaryName,
                                               focusNode: _BeneficiaryName,
@@ -1267,7 +1394,7 @@ Future<void> _saveForm() async {
                                                 }
                                                 return null;
                                               },
-                                              hintxt: "Beneficiary Full Name",
+                                              hintxt: "Enter beneficiary name",
                                               icn: Icons.person,
                                               onChanged: (value) {
                                                 FullName = value;
@@ -1319,10 +1446,15 @@ Future<void> _saveForm() async {
 
                                            const SizedBox(height: 10),
 
-                                             const SizedBox(height: 10),
-                                             
-
-                          
+                                            const Text(
+                                              "Source of Funds",
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: secondryColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
                                             Container(
   padding: const EdgeInsets.only(left: 8),
   decoration: BoxDecoration(
@@ -1391,8 +1523,16 @@ Future<void> _saveForm() async {
 
 const SizedBox(height: 10),
 
-/// Purpose of Transfer Dropdown
-Container(
+                                            const Text(
+                                              "Purpose of Transfer",
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: secondryColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
+                                            Container(
   padding: const EdgeInsets.only(left: 8),
   decoration: BoxDecoration(
     borderRadius: BorderRadius.circular(14),
@@ -1468,8 +1608,7 @@ Container(
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
-
-                                            const SizedBox(height: 10),
+                                            const SizedBox(height: 5),
                                             AllformFields(
                                               ctr: SendAmount,
                                               focusNode: _SendAmount,
@@ -1499,170 +1638,39 @@ Container(
                                                 }
                                                 return null;
                                               },
-                                              onEditingComplete: () async {
-                                                // sendAmount = value;
-                                                if (fieldValue.isNotEmpty) {
-                                                  setState(() {
-                                                    _isLoadingExchange = true;
-                                                  });
-
-                                                  var CurrencyDataFrom = Provider
-                                                          .of<FillRegisterationDropdown>(
-                                                              context,
-                                                              listen: false)
-                                                      .findByIdTC(CurrencyID
-                                                          .toString());
-
-                                                  if (partiner_tag == "SHFT") {
-                                                 
-                                                     
-                                                    result = await Provider.of<
-                                                                Walletremit>(
-                                                            context,
-                                                            listen: false)
-                                                        .getShiftCurrencyConveret(
-                                                      widget.country.toString(),
-                                                      CurrencyID.toString(),
-                                                      fieldValue.toString(),
-                                                      RemitChannel.toString(),
-                                                      partiner_id.toString(),
-                                                    );
-
-                                                  }
-                                                  
-                                                    else if(partiner_tag == "Onafriq")
-                                                  {
-                                                      result = await Provider.of<
-                                                                Walletremit>(
-                                                            context,
-                                                            listen: false)
-                                                        .getOnafriqCurrencyConveret(
-                                                      widget.country.toString(),
-                                                      CurrencyID.toString(),
-                                                      fieldValue.toString(),
-                                                      RemitChannel.toString(),
-                                                      partiner_id.toString(),
-                                                    );
-                                                  }
-                                                  
-                                                   else {
-
-                                                       result = await Provider.of<
-                                                                Walletremit>(
-                                                            context,
-                                                            listen: false)
-                                                        .getAsalExchange(
-                                                      widget.country.toString(),
-                                                      CurrencyID.toString(),
-                                                      fieldValue.toString(),
-                                                      partiner_id.toString(),
-                                                    );
-                                                   
-                                                  }
-                                                  if (result['status']
-                                                          .toString() ==
-                                                      "False") {
-                                                    openSnackbar(
-                                                        context,
-                                                        result['messages']
-                                                            .toString(),
-                                                        secondryColor);
-                                                    setState(() {
-                                                      _isLoadingExchange =
-                                                          false;
-                                                    });
-                                                  } else {
-                                                    setState(() {
-                                                      currency_name_fro =
-                                                          CurrencyDataFrom.name;
-                                                      double numericValue =
-                                                          double.parse(
-                                                              fieldValue);
-                                                      amount_fro = numericValue
-                                                          .toStringAsFixed(2);
-                                                      // amount_fro = value;
-                                                      print(amount_fro);
-                                                      print('amount');
-                                                      print(result['result']
-                                                              ['amount_to']
-                                                          .toString());
-                                                      Reciveamount =
-                                                          result['result']
-                                                                  ['amount_to']
-                                                              .toStringAsFixed(
-                                                                  2);
-                                                      currency_name_to = result[
-                                                                  'result'][
-                                                              'currency_name_to']
-                                                          .toString();
-                                                      currency_id_to = result[
-                                                                  'result']
-                                                              ['currency_id_to']
-                                                          .toString();
-                                                      print('amount');
-                                                      charge = result['result']
-                                                              ['charge']
-                                                          .toString();
-                                                      rate = result['result']
-                                                              ['rate']
-                                                          .toString();
-
-                                                      AmountReceive =
-                                                          "$Reciveamount $currency_name_to";
-                                                      totalPayingAmount = double
-                                                              .parse(
-                                                                  amount_fro) +
-                                                          double.parse(charge);
-                                                      setState(() {
-                                                        _isLoadingExchange =
-                                                            false;
-                                                      });
-                                                    });
-                                                  }
-                                                }
-                                                if (fieldValue.isEmpty) {
-                                                  setState(() {
-                                                    print("Reciveamount");
-                                                    print(Reciveamount);
-                                                    print("AmountReceive.text");
-                                                    print(AmountReceive);
-                                                    AmountReceive = "000";
-                                                  });
-                                                }
-                                                _addSaveReallyTimeData =
-                                                    SaveReallyTimeData(
-                                                  wallet_accounts_id_fro:
-                                                      _addSaveReallyTimeData
-                                                          .wallet_accounts_id_fro,
+                                              onEditingComplete: () {
+                                                fieldValue = SendAmount.text.trim();
+                                                _addSaveReallyTimeData = SaveReallyTimeData(
+                                                  wallet_accounts_id_fro: _addSaveReallyTimeData.wallet_accounts_id_fro,
                                                   currency_id_fro: CurrencyID!,
-                                                  description:
-                                                      _addSaveReallyTimeData
-                                                          .description,
+                                                  description: _addSaveReallyTimeData.description,
                                                   remit_channel: RemitChannel!,
-                                                  currency_to_id:
-                                                      currency_id_to,
+                                                  currency_to_id: currency_id_to,
                                                   amount_from: fieldValue,
-                                                  beneficiary_name:
-                                                      _addSaveReallyTimeData
-                                                          .beneficiary_name,
+                                                  beneficiary_name: _addSaveReallyTimeData.beneficiary_name,
                                                   partiner_id: partiner_id,
                                                   reciveAmount: Reciveamount,
-                                                  receiverNumber:
-                                                      _addSaveReallyTimeData
-                                                          .receiverNumber,
-                                                  accountNumber:
-                                                      _addSaveReallyTimeData
-                                                          .accountNumber,
-                                                  totalpayin: totalPayingAmount
-                                                      .toString(),
+                                                  receiverNumber: _addSaveReallyTimeData.receiverNumber,
+                                                  accountNumber: _addSaveReallyTimeData.accountNumber,
+                                                  totalpayin: totalPayingAmount.toString(),
                                                 );
                                                 _SendAmount.unfocus();
                                               },
                                               onChanged: (value) {
-                                                // Update the fieldValue when the text changes
                                                 fieldValue = value;
+                                                _exchangeDebounce?.cancel();
+                                                if (value.trim().isEmpty) {
+                                                  setState(() {
+                                                    AmountReceive = "000";
+                                                    _lastFetchedAmount = "";
+                                                  });
+                                                  return;
+                                                }
+                                                _exchangeDebounce = Timer(const Duration(milliseconds: 1000), () {
+                                                  _fetchExchangeForAmount(SendAmount.text.trim());
+                                                });
                                               },
-                                              hintxt: "Amount",
+                                              hintxt: "Enter amount",
                                               // icn: Icons.attach_money_sharp,
                                             ),
                                             const SizedBox(height: 10),

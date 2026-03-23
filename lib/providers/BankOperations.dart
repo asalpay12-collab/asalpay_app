@@ -29,7 +29,7 @@ class WalletBankTransfer with ChangeNotifier {
   final String? amount_fro;
   final String? currency_id_to;
   final String? partiner_id;
-  final String? total_payin; 
+  final String? total_payin;
 
   WalletBankTransfer({
     this.country_id,
@@ -62,19 +62,16 @@ class SaveReallyTimeData with ChangeNotifier {
   final String? accountNumber; //
   final String? totalpayin; //
 
-    // final String partiner_tag; //
-
+  // final String partiner_tag; //
 
   // NEW fields
   final String? sourceOfFunds;
   final String? purposeOfTransfer;
-   
+
   final String? purpose_id;
   final String? source_id;
 
-SaveReallyTimeData({
-
-  
+  SaveReallyTimeData({
     // this.country_id,
     required this.wallet_accounts_id_fro,
     required this.beneficiary_name,
@@ -88,18 +85,15 @@ SaveReallyTimeData({
     required this.receiverNumber,
     this.accountNumber,
     this.totalpayin,
-
     this.sourceOfFunds,
     this.purposeOfTransfer,
-
     this.source_id,
     this.purpose_id,
-    
 
     // required this.partiner_tag,
   });
 
-SaveReallyTimeData copyWith({
+  SaveReallyTimeData copyWith({
     String? walletAccountsIdFro,
     String? beneficiaryName,
     String? remitChannel, // Make optional since it's final
@@ -113,14 +107,11 @@ SaveReallyTimeData copyWith({
     String? accountNumber,
     String? totalpayin,
 
-
     // New fields
     String? sourceOfFunds,
     String? purposeOfTransfer,
-
     String? source_id,
     String? purpose_id,
-
   }) {
     return SaveReallyTimeData(
       wallet_accounts_id_fro: walletAccountsIdFro ?? wallet_accounts_id_fro,
@@ -135,7 +126,6 @@ SaveReallyTimeData copyWith({
       receiverNumber: receiverNumber ?? this.receiverNumber,
       accountNumber: accountNumber ?? this.accountNumber,
       totalpayin: totalpayin ?? this.totalpayin,
-
 
       // New fields
       sourceOfFunds: sourceOfFunds ?? this.sourceOfFunds,
@@ -213,12 +203,10 @@ class RemitChannelTypeBankModel with ChangeNotifier {
     required this.country_id,
     required this.remittance_channel_no,
     required this.partiner_id,
-    
     this.partiner_name,
     required this.sub_partiners_name,
     this.partiner_tag,
   });
-
 
 // Conversion method
   RemitChannelTypeModel toRemitChannelTypeModel() {
@@ -237,11 +225,8 @@ class RemitChannelTypeBankModel with ChangeNotifier {
 }
 
 class BankOperations with ChangeNotifier {
-
-
-    // Create an instance of TokenClass
+  // Create an instance of TokenClass
   TokenClass tokenClass = TokenClass();
-
 
   List<CountryMoDelFill> _countryfill = [];
   List<CountryMoDelFill> get countryfill {
@@ -253,11 +238,10 @@ class BankOperations with ChangeNotifier {
     return [..._FillChannelTypes];
   }
 
-
   List<RemitChannelTypeBankModel> _FillRemitChannelTypes = [];
   List<RemitChannelTypeBankModel>? get FillRemitChannelTypes {
-  return _FillRemitChannelTypes.isEmpty ? null : [..._FillRemitChannelTypes];
-}
+    return _FillRemitChannelTypes.isEmpty ? null : [..._FillRemitChannelTypes];
+  }
 
   RemitChannelTypeBankModel findById(String id) {
     return _FillRemitChannelTypes.firstWhere(
@@ -265,22 +249,18 @@ class BankOperations with ChangeNotifier {
   }
 
   Future<List<CountryMoDelFill>> fetchAndSetCountryFill() async {
-
-    
 // Get the token
-  String token = tokenClass.getToken();
-  // Print the token
-  print("Token: $token");
+    String token = tokenClass.getToken();
+    // Print the token
+    print("Token: $token");
 
-  
     var url = "${ApiUrls.BASE_URL}Walletremit/get_remit_countries";
     try {
       final response = await http.get(Uri.parse(url), headers: {
-        
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-           "API-KEY": tokenClass.key,
-           "Authorization": "Bearer $token",
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        "API-KEY": tokenClass.key,
+        "Authorization": "Bearer $token",
       });
       if (response.statusCode == 200) {
         final List<CountryMoDelFill> loadedcountryfill = [];
@@ -311,13 +291,10 @@ class BankOperations with ChangeNotifier {
 
   Future<List<ChannelTypesModel>> fetchAndSetFillChannelTypes(
       String countryId) async {
-
-    
 // Get the token
-  String token = tokenClass.getToken();
-  // Print the token
-  print("Token: $token");
-
+    String token = tokenClass.getToken();
+    // Print the token
+    print("Token: $token");
 
     var url = "${ApiUrls.BASE_URL}Walletremit/channel_types";
     try {
@@ -325,8 +302,8 @@ class BankOperations with ChangeNotifier {
           headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-           "API-KEY": tokenClass.key,
-           "Authorization": "Bearer $token",
+            "API-KEY": tokenClass.key,
+            "Authorization": "Bearer $token",
           },
           body: json.encode({"country_id": countryId}));
       if (response.statusCode == 200) {
@@ -346,7 +323,6 @@ class BankOperations with ChangeNotifier {
         _FillChannelTypes = loadedFillChannelTypes.toList();
         return _FillChannelTypes;
       } else {
-        
         print('Request failed with status: ${response.statusCode}.');
         throw Exception('Failed to load album');
       }
@@ -358,19 +334,15 @@ class BankOperations with ChangeNotifier {
   }
 
   Future getAsalExchange(
-
-    
     String countryId,
     String currencyIdFro,
     String amountFrom,
     String partinerId,
   ) async {
-
-
 // Get the token
-  String token = tokenClass.getToken();
-  // Print the token
-  print("Token: $token");
+    String token = tokenClass.getToken();
+    // Print the token
+    print("Token: $token");
 
     final url = "${ApiUrls.BASE_URL}Walletremit/asal_currency_converter";
     try {
@@ -390,7 +362,7 @@ class BankOperations with ChangeNotifier {
         body: json.encode({
           "country_id": countryId,
           "currency_id_fro": currencyIdFro,
-           "amount_from": amountFrom,
+          "amount_from": amountFrom,
           "wallet_partner_id": partinerId
 
           // "country_id": "13",
@@ -410,23 +382,18 @@ class BankOperations with ChangeNotifier {
     }
   }
 
-
   /// shift_currency_converet
   Future getShiftCurrencyConveret(
-      String countryId,
-      String currencyIdFro,
-      String amountFrom,
-      String remitChannel,
-      String partinerId,
-
-      ) async {
-
-
+    String countryId,
+    String currencyIdFro,
+    String amountFrom,
+    String remitChannel,
+    String partinerId,
+  ) async {
 // Get the token
-  String token = tokenClass.getToken();
-  // Print the token
-  print("Token: $token");
-
+    String token = tokenClass.getToken();
+    // Print the token
+    print("Token: $token");
 
     final url = "${ApiUrls.BASE_URL}/Walletremit/shift_currency_converet";
     try {
@@ -449,10 +416,10 @@ class BankOperations with ChangeNotifier {
         },
         body: json.encode({
           "amount_from": amountFrom,
-          "currency_id_fro":currencyIdFro,
-          "remit_channel":remitChannel,
-          "country_id":countryId,
-          "wallet_partner_id":partinerId,
+          "currency_id_fro": currencyIdFro,
+          "remit_channel": remitChannel,
+          "country_id": countryId,
+          "wallet_partner_id": partinerId,
 
           // "remit_channel":"10",
           // "amount_from":10,
@@ -472,60 +439,54 @@ class BankOperations with ChangeNotifier {
     }
   }
 
-
-
   Future getOnafriqCurrencyConveret(
-  String countryId,
-  String currencyIdFro,
-  String amountFrom,
-  String remitChannel,
-  String partnerId,
-) async {
-
-
+    String countryId,
+    String currencyIdFro,
+    String amountFrom,
+    String remitChannel,
+    String partnerId,
+  ) async {
 // Get the token
-  String token = tokenClass.getToken();
-  // Print the token
-  print("Token: $token");
+    String token = tokenClass.getToken();
+    // Print the token
+    print("Token: $token");
 
-  final url = "${ApiUrls.BASE_URL}/Onafriq_controller/fetchRateonafriq";
-  try {
-    print("country_id: $countryId");
-    print("currency_id_fro: $currencyIdFro");
-    print("amount_from: $amountFrom");
-    print("remit_channel: $remitChannel");
-    print("partner_id: $partnerId");
+    final url = "${ApiUrls.BASE_URL}/Onafriq_controller/fetchRateonafriq";
+    try {
+      print("country_id: $countryId");
+      print("currency_id_fro: $currencyIdFro");
+      print("amount_from: $amountFrom");
+      print("remit_channel: $remitChannel");
+      print("partner_id: $partnerId");
 
-    final response = await http.post(
-      Uri.parse(url),
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        "API-KEY": tokenClass.key,
-        "Authorization": "Bearer $token",
-      },
-      body: jsonEncode({
-        "wallet_accounts_id_fro": countryId,
-        "amount_from": amountFrom,
-        "currency_id_fro": currencyIdFro,
-        "currency_to_id": remitChannel,
-        "country_id": int.parse(countryId),
-        "wallet_partner_id": partnerId,
-      }),
-    );
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          "API-KEY": tokenClass.key,
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({
+          "wallet_accounts_id_fro": countryId,
+          "amount_from": amountFrom,
+          "currency_id_fro": currencyIdFro,
+          "currency_to_id": remitChannel,
+          "country_id": int.parse(countryId),
+          "wallet_partner_id": partnerId,
+        }),
+      );
 
-    var message = jsonDecode(response.body);
-    print(message);
-    return message; 
+      var message = jsonDecode(response.body);
+      print(message);
+      return message;
 
-   
-    notifyListeners();
-  } catch (error) {
-    print(error);
-    rethrow;
+      notifyListeners();
+    } catch (error) {
+      print(error);
+      rethrow;
+    }
   }
-}
-
 
 //cashcolectexchange
   Future CashCollectExchange(
@@ -533,13 +494,10 @@ class BankOperations with ChangeNotifier {
     String currencyFroId,
     String amountFrom,
   ) async {
-
-
 // Get the token
-  String token = tokenClass.getToken();
-  // Print the token
-  print("Token: $token");
-
+    String token = tokenClass.getToken();
+    // Print the token
+    print("Token: $token");
 
     final url = "${ApiUrls.BASE_URL}Walletremit/get_cash_collect_com";
     try {
@@ -559,7 +517,6 @@ class BankOperations with ChangeNotifier {
           "country_id": countryId,
           "currency_fro_id": currencyFroId,
           "amount_from": amountFrom,
-
         }),
       );
       var message = jsonDecode(response.body);
@@ -579,26 +536,21 @@ class BankOperations with ChangeNotifier {
       WalletBankTransfer walletBankTransfer, String walletAccountsIdFro
       // Future<void> addCustomer(CustomerRegistration CustomerRegistration, File? imga,File? doc,
       ) async {
-
-         String token = tokenClass.getToken();
+    String token = tokenClass.getToken();
 
     print("daabac image");
     // final url = "${ApiUrls.BASE_URL}Walletremit/send_by_agent_bank_transfer";
-     final url = "${ApiUrls.BASE_URL}Walletremit/sendByAgentBankTransfer";
+    final url = "${ApiUrls.BASE_URL}Walletremit/sendByAgentBankTransfer";
 
     try {
-     
       print("daabac gudaha");
       final response = await http.post(
         Uri.parse(url),
         headers: {
-
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
           "API-KEY": tokenClass.key,
           "Authorization": "Bearer $token",
-
-
         },
         body: json.encode({
           'country_id': walletBankTransfer.country_id,
@@ -612,14 +564,11 @@ class BankOperations with ChangeNotifier {
           "wallet_accounts_id_fro": walletAccountsIdFro,
           'partiner_id': walletBankTransfer.partiner_id,
           'total_payin': walletBankTransfer.total_payin,
-          
-          
         }),
       );
 
       final responseData = json.decode(response.body);
       if (responseData['status'] != "True") {
-        
         throw (responseData['messages']);
       }
       var message = jsonDecode(response.body);
@@ -631,118 +580,108 @@ class BankOperations with ChangeNotifier {
     }
   }
 
-void logDecodedToken(String token) {
-  try {
-    final parts = token.split('.');
-    if (parts.length != 3) {
-      print("Invalid JWT token format.");
-      return;
+  void logDecodedToken(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) {
+        print("Invalid JWT token format.");
+        return;
+      }
+      final payload =
+          utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      print("Decoded Token Payload: $payload");
+    } catch (e) {
+      print("Failed to decode JWT token: $e");
     }
-    final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
-    print("Decoded Token Payload: $payload");
-  } catch (e) {
-    print("Failed to decode JWT token: $e");
   }
-}
 
-
-Future<void> addSaveReallyTimeData(
+  Future<void> addSaveReallyTimeData(
     String countryId,
     SaveReallyTimeData saveReallyTimeData,
     String walletAccountsIdFro,
     String type,
     String purposeId,
     String sourceId,
-
   ) async {
-  String token = tokenClass.getToken();
-  final url = "${ApiUrls.BASE_URL}Walletremit/send_by_direct_bank_transfer";
+    String token = tokenClass.getToken();
+    final url = "${ApiUrls.BASE_URL}Walletremit/send_by_direct_bank_transfer";
 
-  try {
-    // Log token information
-    print("Token: $token");
-    logDecodedToken(token);
+    try {
+      // Log token information
+      print("Token: $token");
+      logDecodedToken(token);
 
-    print("API-KEY: ${tokenClass.key}");
-    final headers = {
-      'Content-Type': 'application/json',
-      "API-KEY": tokenClass.key,
-      "Authorization": "Bearer $token",
-    };
+      print("API-KEY: ${tokenClass.key}");
+      final headers = {
+        'Content-Type': 'application/json',
+        "API-KEY": tokenClass.key,
+        "Authorization": "Bearer $token",
+      };
 
-    final body = json.encode({
-      "beneficiary_name": saveReallyTimeData.beneficiary_name,
-      "beneficiary_last_name": saveReallyTimeData.beneficiary_name,
-      "amount_from": saveReallyTimeData.amount_from,
-      "wallet_accounts_id_fro": walletAccountsIdFro,
-      "currency_id_fro": saveReallyTimeData.currency_id_fro,
-      "currency_to_id": saveReallyTimeData.currency_to_id,
-      "remit_channel": saveReallyTimeData.remit_channel,
-      "description": saveReallyTimeData.description,
-      "wallet_partner_id": saveReallyTimeData.partiner_id,
-      "receiverNumber": saveReallyTimeData.receiverNumber,
-      "reciveAmount": saveReallyTimeData.reciveAmount,
-      "accountNumber": saveReallyTimeData.accountNumber,
-      "country_id": countryId,
-      "total_payin": saveReallyTimeData.totalpayin,
-      "type": type,
-      
-      "source_name": saveReallyTimeData.sourceOfFunds,
-      "purpose_name": saveReallyTimeData.purposeOfTransfer ,
+      final body = json.encode({
+        "beneficiary_name": saveReallyTimeData.beneficiary_name,
+        "beneficiary_last_name": saveReallyTimeData.beneficiary_name,
+        "amount_from": saveReallyTimeData.amount_from,
+        "wallet_accounts_id_fro": walletAccountsIdFro,
+        "currency_id_fro": saveReallyTimeData.currency_id_fro,
+        "currency_to_id": saveReallyTimeData.currency_to_id,
+        "remit_channel": saveReallyTimeData.remit_channel,
+        "description": saveReallyTimeData.description,
+        "wallet_partner_id": saveReallyTimeData.partiner_id,
+        "receiverNumber": saveReallyTimeData.receiverNumber,
+        "reciveAmount": saveReallyTimeData.reciveAmount,
+        "accountNumber": saveReallyTimeData.accountNumber,
+        "country_id": countryId,
+        "total_payin": saveReallyTimeData.totalpayin,
+        "type": type,
+        "source_name": saveReallyTimeData.sourceOfFunds,
+        "purpose_name": saveReallyTimeData.purposeOfTransfer,
+        "source_id": sourceId,
+        "purpose_id": purposeId,
+      });
 
+      print("Expected Headers: $headers");
+      print("Expected Body: $body");
 
-      "source_id": sourceId,
-      "purpose_id": purposeId ,
+      final response =
+          await http.post(Uri.parse(url), headers: headers, body: body);
 
-      
-    });
+      print("Response Status Code: ${response.statusCode}");
+      print("Response Headers: ${response.headers}");
+      print("Response Body: ${response.body}");
 
-    print("Expected Headers: $headers");
-    print("Expected Body: $body");
-
-    final response = await http.post(Uri.parse(url), headers: headers, body: body);
-
-    print("Response Status Code: ${response.statusCode}");
-    print("Response Headers: ${response.headers}");
-    print("Response Body: ${response.body}");
-
-    final responseData = json.decode(response.body);
-    if (responseData['status'] == "False") {
-      print("Error Message from API: ${responseData['messages']}");
-      throw Exception(responseData['messages']);
+      final responseData = json.decode(response.body);
+      if (responseData['status'] == "False") {
+        print("Error Message from API: ${responseData['messages']}");
+        throw Exception(responseData['messages']);
+      }
+    } catch (error) {
+      print("Error: $error");
+      rethrow;
     }
-  } catch (error) {
-    print("Error: $error");
-    rethrow;
   }
-}
 
   //todo:saving CashCollectData
   Future<void> addSaveCashCollect(
       SaveCashCollect saveCashCollect, String walletAccountsIdFro
       // Future<void> addCustomer(CustomerRegistration CustomerRegistration, File? imga,File? doc,
       ) async {
-
-
-         String token = tokenClass.getToken();
+    String token = tokenClass.getToken();
 
     print("daabac SaveCashCollect");
     final url = "${ApiUrls.BASE_URL}Walletremit/send_by_cash_collect";
     try {
-      
       print("daabac SaveReallyTimeData");
 
       final response = await http.post(
         Uri.parse(url),
         headers: {
-
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
           "API-KEY": tokenClass.key,
           "Authorization": "Bearer $token",
         },
         body: json.encode({
-
           "country_id": saveCashCollect.country_id,
           "city_id_to": saveCashCollect.city_id_to,
           "branch_to": saveCashCollect.branch_to,
@@ -754,8 +693,7 @@ Future<void> addSaveReallyTimeData(
           "remittance_rate": saveCashCollect.remittance_rate,
           "benificary_name": saveCashCollect.benificary_name,
           "beneficiary_phone": saveCashCollect.beneficiary_phone,
-          "account_no":walletAccountsIdFro
-
+          "account_no": walletAccountsIdFro
         }),
       );
 
@@ -777,24 +715,21 @@ Future<void> addSaveReallyTimeData(
 //remit channel types;
   Future<List<RemitChannelTypeBankModel>> fetchAndSetRemitChannelTypes(
       String countryId, String tag) async {
-
-         String token = tokenClass.getToken();
+    String token = tokenClass.getToken();
 
     var url = "${ApiUrls.BASE_URL}Walletremit/remit_channels";
     try {
       final response = await http.post(Uri.parse(url),
           headers: {
-            
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          "API-KEY": tokenClass.key,
-          "Authorization": "Bearer $token",
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            "API-KEY": tokenClass.key,
+            "Authorization": "Bearer $token",
           },
           body: json.encode({
             "country_id": countryId,
             "tag": tag,
           }));
-
 
       if (response.statusCode == 200) {
         final List<RemitChannelTypeBankModel> loadedFillRemitChannelTypes = [];
@@ -811,19 +746,16 @@ Future<void> addSaveReallyTimeData(
               country_id: extractedData['result'][i]['country_id'],
               remittance_channel_no: extractedData['result'][i]
                   ['remittance_channel_no'],
-              partiner_tag: extractedData['result'][i]
-              ['partiner_tag'],
-              sub_partiners_name: extractedData['result'][i]['sub_partiners_name'],
+              partiner_tag: extractedData['result'][i]['partiner_tag'],
+              sub_partiners_name: extractedData['result'][i]
+                  ['sub_partiners_name'],
               partiner_name: extractedData['result'][i]['partiner_name'],
-              
-
             ),
           );
         }
         _FillRemitChannelTypes = loadedFillRemitChannelTypes.toList();
         return _FillRemitChannelTypes;
       } else {
-        
         print('Request failed with status: ${response.statusCode}.');
         throw Exception('Failed to load album');
       }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../../constants/Constant.dart';
 import '../../models/category.dart';
 import '../../providers/252pay_basket_provider.dart';
 import '../../services/252pay_api_service.dart';
@@ -11,6 +12,7 @@ import '../bnpl/bnpl_application_screen.dart';
 import '../DiscountProductsDrawer.dart';
 import '../ProductPurchaseScreen.dart';
 import '252pay_search_bar.dart';
+import '252pay_screen_background.dart';
 import '252pay_subcategories_screen.dart';
 
 class Pay252CategoriesScreen extends StatefulWidget {
@@ -26,9 +28,6 @@ class Pay252CategoriesScreen extends StatefulWidget {
 }
 
 class _Pay252CategoriesScreenState extends State<Pay252CategoriesScreen> {
-  final Color primaryColor = const Color(0xFF005653);
-  final Color cardBg = const Color(0xFFF8FAFA);
-  final Color bodyBg = Colors.white;
   final BorderRadius br12 = BorderRadius.circular(12);
   final api = ApiService();
   static String get baseUrl => ApiService.imgURL;
@@ -97,14 +96,44 @@ class _Pay252CategoriesScreenState extends State<Pay252CategoriesScreen> {
     final basket = context.watch<Pay252BasketProvider>();
 
     return Scaffold(
-      backgroundColor: bodyBg,
-      appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+      backgroundColor: secondryColor,
+      appBar: _buildAppBar(context, basket),
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Pay252SearchBar(
+                        controller: searchController,
+                        hint: 'Search categories…',
+                        onChanged: (_) => _applyFilter(),
+                      ),
+                      const SizedBox(height: 20),
+                      Expanded(child: _buildCategoryGrid()),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: _buildBottomBar(),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(BuildContext context, Pay252BasketProvider basket) {
+    return AppBar(
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: pay252AppBarGradient(),
+        ),
+        foregroundColor: pureWhite,
         title: PopupMenuButton<String>(
           child: Text(
-            '252PAY',
+            kEasyShopServiceName,
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w600,
               fontSize: 20,
@@ -136,33 +165,33 @@ class _Pay252CategoriesScreenState extends State<Pay252CategoriesScreen> {
             }
           },
           itemBuilder: (BuildContext context) => [
-            const PopupMenuItem<String>(
+            PopupMenuItem<String>(
               value: 'my_bnpl_applications',
               child: Row(
                 children: [
-                  Icon(Icons.credit_card, color: Color(0xFF005653)),
-                  SizedBox(width: 12),
-                  Text('My BNPL Applications', style: TextStyle(fontFamily: 'Poppins')),
+                  Icon(Icons.credit_card, color: secondryColor),
+                  const SizedBox(width: 12),
+                  Text('My BNPL Applications', style: GoogleFonts.poppins()),
                 ],
               ),
             ),
-            const PopupMenuItem<String>(
+            PopupMenuItem<String>(
               value: 'my_orders',
               child: Row(
                 children: [
-                  Icon(Icons.receipt_long, color: Color(0xFF005653)),
-                  SizedBox(width: 12),
-                  Text('My Orders', style: TextStyle(fontFamily: 'Poppins')),
+                  Icon(Icons.receipt_long, color: secondryColor),
+                  const SizedBox(width: 12),
+                  Text('My Orders', style: GoogleFonts.poppins()),
                 ],
               ),
             ),
-            const PopupMenuItem<String>(
+            PopupMenuItem<String>(
               value: 'draft_applications',
               child: Row(
                 children: [
-                  Icon(Icons.drafts, color: Color(0xFF005653)),
-                  SizedBox(width: 12),
-                  Text('Draft Applications', style: TextStyle(fontFamily: 'Poppins')),
+                  Icon(Icons.drafts, color: secondryColor),
+                  const SizedBox(width: 12),
+                  Text('Draft Applications', style: GoogleFonts.poppins()),
                 ],
               ),
             ),
@@ -228,37 +257,33 @@ class _Pay252CategoriesScreenState extends State<Pay252CategoriesScreen> {
           ),
           const SizedBox(width: 8),
         ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Pay252SearchBar(
-                    controller: searchController,
-                    hint: 'Search categories…',
-                    onChanged: (_) => _applyFilter(),
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(child: _buildCategoryGrid()),
-                ],
-              ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => DiscountProductPurchaseScreen(
-                    wallet_accounts_id: widget.walletAccountId,
-                  ),
+      );
+  }
+
+  Widget _buildBottomBar() {
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: pureWhite,
+          boxShadow: [
+            BoxShadow(
+              color: secondryColor.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: ElevatedButton.icon(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DiscountProductPurchaseScreen(
+                  wallet_accounts_id: widget.walletAccountId,
                 ),
-              );
+              ),
+            );
             },
             icon: const Icon(Icons.local_offer),
             label: Text(
@@ -266,13 +291,15 @@ class _Pay252CategoriesScreenState extends State<Pay252CategoriesScreen> {
               style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
+              backgroundColor: secondryColor,
+              foregroundColor: pureWhite,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: br12),
+              elevation: 2,
+              shadowColor: secondryColor.withValues(alpha: 0.3),
             ),
           ),
         ),
-      ),
     );
   }
 
@@ -283,7 +310,7 @@ class _Pay252CategoriesScreenState extends State<Pay252CategoriesScreen> {
       return Center(
         child: Text(
           categories.isEmpty ? 'No categories available.' : 'No categories match your search.',
-          style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+          style: GoogleFonts.poppins(fontSize: 16, color: Colors.white.withOpacity(0.9)),
         ),
       );
     }
@@ -311,17 +338,7 @@ class _Pay252CategoriesScreenState extends State<Pay252CategoriesScreen> {
             );
           },
           child: Container(
-            decoration: BoxDecoration(
-              borderRadius: br12,
-              color: cardBg,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
+            decoration: pay252CardDecoration(),
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
@@ -332,13 +349,16 @@ class _Pay252CategoriesScreenState extends State<Pay252CategoriesScreen> {
                     errorBuilder: (_, __, ___) => Icon(
                       _getIconForCategory(cat.categoryName),
                       size: 40,
-                      color: Colors.grey,
+                      color: secondryColor.withValues(alpha: 0.6),
                     ),
                     loadingBuilder: (context, child, progress) =>
                         progress == null
                             ? child
-                            : const Center(
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                            : Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: secondryColor,
+                                ),
                               ),
                   ),
                 ),
@@ -351,7 +371,7 @@ class _Pay252CategoriesScreenState extends State<Pay252CategoriesScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: primaryColor,
+                    color: secondryColor,
                   ),
                 ),
               ],

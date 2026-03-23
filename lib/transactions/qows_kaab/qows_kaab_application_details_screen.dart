@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_otp_text_field/flutter_otp_text_field.dart';
+import '../../constants/Constant.dart';
 import '../../services/252pay_api_service.dart';
 import '../../providers/auth.dart';
 import '../../providers/HomeSliderandTransaction.dart';
@@ -111,52 +112,76 @@ class _QowsKaabApplicationDetailsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: lightContentColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: pureWhite,
         title: Text(
           'Application Details',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w600,
             fontSize: 20,
+            color: pureWhite,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _loadDetails,
           ),
         ],
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : errorMessage != null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                      Icon(Icons.error_outline,
-                          size: 64, color: Colors.grey.shade400),
-                  const SizedBox(height: 16),
-                  Text(
-                    errorMessage!,
-                        style: GoogleFonts.poppins(
-                            fontSize: 16, color: Colors.grey),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _loadDetails,
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            )
-          : applicationData == null
-          ? const Center(child: Text('No data available'))
-          : SingleChildScrollView(
+      body: SafeArea(
+        top: false,
+        child: isLoading
+            ? Center(child: CircularProgressIndicator(color: secondryColor))
+            : errorMessage != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline,
+                            size: 64, color: Colors.grey.shade400),
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            errorMessage!,
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              color: Colors.grey.shade800,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadDetails,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: secondryColor,
+                            foregroundColor: pureWhite,
+                          ),
+                          child: Text(
+                            'Retry',
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : applicationData == null
+                    ? Center(
+                        child: Text(
+                          'No data available',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                      )
+                    : SingleChildScrollView(
                       padding: EdgeInsets.fromLTRB(
                         16,
                         16,
@@ -332,7 +357,7 @@ class _QowsKaabApplicationDetailsScreenState
                                   fontWeight: FontWeight.w700,
                                   color: primaryColor,
                                 ),
-                            ),
+                              ),
                         ],
                       ),
                           const SizedBox(height: 12),
@@ -487,6 +512,7 @@ class _QowsKaabApplicationDetailsScreenState
                         ],
                       ),
                     ),
+      ),
     );
   }
 

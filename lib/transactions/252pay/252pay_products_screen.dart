@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../../constants/Constant.dart';
 import '../../models/category.dart';
 import '../../models/product.dart';
 import '../../providers/252pay_basket_provider.dart';
@@ -11,6 +12,7 @@ import '../basket_screen.dart';
 import '../DiscountProductsDrawer.dart';
 import '../ProductPurchaseScreen.dart';
 import '252pay_search_bar.dart';
+import '252pay_screen_background.dart';
 
 class Pay252ProductsScreen extends StatefulWidget {
   const Pay252ProductsScreen({
@@ -29,9 +31,6 @@ class Pay252ProductsScreen extends StatefulWidget {
 }
 
 class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
-  final Color primaryColor = const Color(0xFF005653);
-  final Color cardBg = const Color(0xFFF8FAFA);
-  final Color bodyBg = Colors.white;
   final BorderRadius br12 = BorderRadius.circular(12);
   final api = ApiService();
   final bnplApi = BnplApiService();
@@ -127,7 +126,7 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
                                 style: GoogleFonts.poppins(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: primaryColor,
+                                  color: secondryColor,
                                 ),
                               ),
                             ],
@@ -164,7 +163,7 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
                       style: GoogleFonts.poppins(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: primaryColor,
+                        color: secondryColor,
                       ),
                     ),
                   ],
@@ -173,7 +172,7 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text('Cancel', style: TextStyle(color: primaryColor)),
+                  child: Text('Cancel', style: TextStyle(color: secondryColor)),
                 ),
                 ElevatedButton(
                   onPressed: () {
@@ -194,12 +193,12 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: const Text('Added to basket'),
-                        backgroundColor: primaryColor,
+                        backgroundColor: secondryColor,
                       ),
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
+                    backgroundColor: secondryColor,
                     foregroundColor: Colors.white,
                   ),
                   child: const Text('Add to Basket'),
@@ -238,17 +237,19 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
     final basket = context.watch<Pay252BasketProvider>();
 
     return Scaffold(
-      backgroundColor: bodyBg,
+      backgroundColor: secondryColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: pay252AppBarGradient(),
+        ),
+        foregroundColor: pureWhite,
         title: Text(
           widget.selectedSubCategory.subCategoryName,
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w600,
             fontSize: 18,
-            color: Colors.white,
+            color: pureWhite,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -328,38 +329,47 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Pay252SearchBar(
-                    controller: searchController,
-                    hint: 'Search products…',
-                    onChanged: (_) => _applyFilter(),
-                  ),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      'Select Product – ${widget.selectedSubCategory.subCategoryName}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: primaryColor,
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Pay252SearchBar(
+                        controller: searchController,
+                        hint: 'Search products…',
+                        onChanged: (_) => _applyFilter(),
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      Pay252SectionHeader(
+                        text: 'Select Product – ${widget.selectedSubCategory.subCategoryName}',
+                        icon: Icons.shopping_bag,
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(child: _buildProductGrid()),
+                    ],
                   ),
-                  Expanded(child: _buildProductGrid()),
-                ],
-              ),
+          ),
+        ),
       ),
       bottomNavigationBar: basket.count > 0
           ? SafeArea(
-              child: Padding(
+              child: Container(
                 padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: pureWhite,
+                  boxShadow: [
+                    BoxShadow(
+                      color: secondryColor.withValues(alpha: 0.08),
+                      blurRadius: 12,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -408,8 +418,9 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryColor,
-                          foregroundColor: Colors.white,
+                          backgroundColor: secondryColor,
+                          foregroundColor: pureWhite,
+                          elevation: 2,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -437,8 +448,8 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
                           style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                         ),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: primaryColor,
-                          side: BorderSide(color: primaryColor),
+                          foregroundColor: secondryColor,
+                          side: BorderSide(color: secondryColor),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -450,8 +461,18 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
               ),
             )
           : SafeArea(
-              child: Padding(
+              child: Container(
                 padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: pureWhite,
+                  boxShadow: [
+                    BoxShadow(
+                      color: secondryColor.withValues(alpha: 0.08),
+                      blurRadius: 12,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
                 child: ElevatedButton.icon(
                   onPressed: () {
                     Navigator.push(
@@ -469,9 +490,11 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
                     style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
+                    backgroundColor: secondryColor,
+                    foregroundColor: pureWhite,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: br12),
+                    elevation: 2,
                   ),
                 ),
               ),
@@ -488,7 +511,7 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
           products.isEmpty
               ? 'No products available.'
               : 'No products match your search.',
-          style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+          style: GoogleFonts.poppins(fontSize: 16, color: Colors.white.withOpacity(0.9)),
         ),
       );
     }
@@ -512,17 +535,7 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
             product.remainingQuantity,
           ),
           child: Container(
-            decoration: BoxDecoration(
-              borderRadius: br12,
-              color: cardBg,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
+            decoration: pay252CardDecoration(),
             padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -531,15 +544,18 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
                   child: Image.network(
                     '$baseUrl/${product.imagePath}',
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(
+                    errorBuilder: (_, __, ___) => Icon(
                       Icons.broken_image,
                       size: 40,
-                      color: Colors.grey,
+                      color: secondryColor.withValues(alpha: 0.6),
                     ),
                     loadingBuilder: (context, child, loadingProgress) {
                       if (loadingProgress == null) return child;
-                      return const Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                      return Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: secondryColor,
+                        ),
                       );
                     },
                   ),
@@ -553,7 +569,7 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: primaryColor,
+                    color: secondryColor,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -562,7 +578,7 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                    color: secondryColor.withValues(alpha: 0.9),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -577,7 +593,9 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
                     ),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
-                      backgroundColor: primaryColor,
+                      backgroundColor: secondryColor,
+                      foregroundColor: pureWhite,
+                      elevation: 1,
                       shape: RoundedRectangleBorder(borderRadius: br12),
                     ),
                     child: const Text('Order', style: TextStyle(fontSize: 12)),
@@ -595,7 +613,7 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: primaryColor,
+                      color: secondryColor,
                       decoration: TextDecoration.underline,
                     ),
                   ),
@@ -619,7 +637,7 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: pureWhite,
       builder: (context) {
         final mq = MediaQuery.of(context);
         final screenHeight = mq.size.height;
@@ -645,7 +663,7 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: primaryColor,
+                    color: secondryColor,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -669,7 +687,7 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: primaryColor,
+                    color: secondryColor,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -716,8 +734,8 @@ class _Pay252ProductsScreenState extends State<Pay252ProductsScreen> {
                             product, unitPrice, remainingQuantity);
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
+                        backgroundColor: secondryColor,
+                        foregroundColor: pureWhite,
                         shape: RoundedRectangleBorder(borderRadius: br12),
                       ),
                       child: const Text('Order'),

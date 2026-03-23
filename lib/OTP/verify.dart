@@ -7,6 +7,7 @@ import 'package:asalpay/services/api_urls.dart';
 import 'package:flutter/material.dart';
 import 'package:pinput/pinput.dart';
 import '../Registration2.dart';
+import '../utils/network_utils.dart';
 import '../widgets/commonBtn.dart';
 
 import 'package:http/http.dart' as http;
@@ -121,7 +122,11 @@ void dispose() {
     } on FormatException catch (_) {
       openSnackbar(context, "Server temporarily unavailable. Please try again later.", Colors.red);
     } catch (e) {
-      openSnackbar(context, "Connection error. Please check your internet and try again.", Colors.red);
+      if (isNetworkError(e)) {
+        showNoConnectionDialog(context);
+      } else {
+        openSnackbar(context, "Connection error. Please check your internet and try again.", Colors.red);
+      }
     }
   }
 

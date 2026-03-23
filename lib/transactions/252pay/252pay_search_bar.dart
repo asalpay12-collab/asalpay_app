@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/Constant.dart';
 
 /// Reusable search field for 252PAY (categories, subcategories, products).
-/// Rounded container, search icon, optional clear button, hint text.
+/// Uses application colors from Constant; rounded container, search icon, optional clear button.
 class Pay252SearchBar extends StatelessWidget {
   const Pay252SearchBar({
     super.key,
@@ -19,24 +20,22 @@ class Pay252SearchBar extends StatelessWidget {
   final Color? primaryColor;
   final Color? cardBg;
 
-  static const Color _defaultPrimary = Color(0xFF005653);
-  static const Color _defaultCardBg = Color(0xFFF8FAFA);
   static final BorderRadius _br = BorderRadius.circular(12);
 
   @override
   Widget build(BuildContext context) {
-    final primary = primaryColor ?? _defaultPrimary;
-    final bg = cardBg ?? _defaultCardBg;
+    final primary = primaryColor ?? secondryColor;
+    final bg = cardBg ?? pureWhite;
 
     return Container(
       decoration: BoxDecoration(
         color: bg,
         borderRadius: _br,
-        border: Border.all(color: primary.withOpacity(0.3), width: 1.2),
+        border: Border.all(color: secondryColor.withValues(alpha: 0.25), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
+            color: secondryColor.withValues(alpha: 0.06),
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
@@ -78,7 +77,7 @@ class Pay252SearchBar extends StatelessWidget {
             borderSide: BorderSide(color: primary, width: 1.5),
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: pureWhite,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
       ),

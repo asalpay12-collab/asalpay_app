@@ -33,53 +33,50 @@ class _SettingPageState extends State<SettingPage> {
 	Widget build(BuildContext context) {
 		final bottomPadding = MediaQuery.of(context).padding.bottom;
 		return Scaffold(
-			body: Container(
-				width: double.infinity,
-				height: double.infinity,
-				decoration: BoxDecoration(
-					gradient: LinearGradient(
-						colors: [
-							secondryColor,
-							secondryColor.withOpacity(0.72),
-						],
-						begin: Alignment.topCenter,
-						end: Alignment.bottomCenter,
-					),
-				),
-				child: SafeArea(
-					child: Column(
-						children: [
-							Padding(
-								padding: const EdgeInsets.fromLTRB(15, 12, 15, 16),
-								child: Row(
-									children: [
-										GestureDetector(
+			backgroundColor: secondryColor,
+			body: SafeArea(
+				child: Column(
+					children: [
+						Padding(
+							padding: const EdgeInsets.fromLTRB(15, 12, 15, 16),
+							child: Row(
+								children: [
+									Material(
+										color: Colors.white.withOpacity(0.15),
+										borderRadius: BorderRadius.circular(12),
+										child: InkWell(
 											onTap: () => Navigator.pop(context),
-											child: const Icon(
-												Icons.arrow_back_ios_new,
-												color: Colors.white,
-												size: 22,
+											borderRadius: BorderRadius.circular(12),
+											child: const Padding(
+												padding: EdgeInsets.all(10),
+												child: Icon(
+													Icons.arrow_back_ios_new_rounded,
+													color: Colors.white,
+													size: 18,
+												),
 											),
 										),
-										const SizedBox(width: 15),
-										const Text(
-											'Settings',
-											style: TextStyle(
-												color: Colors.white,
-												fontSize: 20,
-												fontWeight: FontWeight.w600,
-											),
+									),
+									const SizedBox(width: 14),
+									const Text(
+										'Settings',
+										style: TextStyle(
+											color: Colors.white,
+											fontSize: 20,
+											fontWeight: FontWeight.w700,
+											letterSpacing: -0.2,
 										),
-									],
-								),
+									),
+								],
 							),
-							Expanded(
-								child: SingleChildScrollView(
-									physics: const BouncingScrollPhysics(),
-									padding: EdgeInsets.fromLTRB(15, 0, 15, 24 + bottomPadding),
-									child: Column(
-										crossAxisAlignment: CrossAxisAlignment.start,
-										children: <Widget>[
+						),
+						Expanded(
+							child: SingleChildScrollView(
+								physics: const BouncingScrollPhysics(),
+								padding: EdgeInsets.fromLTRB(15, 0, 15, 16 + bottomPadding),
+								child: Column(
+									crossAxisAlignment: CrossAxisAlignment.start,
+									children: <Widget>[
 											_buildCard(
               icon: Icons.verified_user_outlined,
               text: "Complete Profile",
@@ -221,12 +218,11 @@ class _SettingPageState extends State<SettingPage> {
     });
   },
 ),
-										],
-									),
+									],
 								),
 							),
-						],
-					),
+						),
+					],
 				),
 			),
 		);
@@ -238,38 +234,47 @@ class _SettingPageState extends State<SettingPage> {
 		required VoidCallback? onTap,
 	}) {
 		return Padding(
-			padding: const EdgeInsets.only(bottom: 10),
+			padding: const EdgeInsets.only(bottom: 6),
 			child: Material(
 				color: Colors.transparent,
 				child: InkWell(
 					onTap: onTap,
-					borderRadius: BorderRadius.circular(20),
-					child: Card(
-						elevation: 4,
-						color: Colors.white,
-						shape: RoundedRectangleBorder(
-							borderRadius: BorderRadius.circular(20),
+					borderRadius: BorderRadius.circular(14),
+					splashColor: Colors.white.withOpacity(0.15),
+					highlightColor: Colors.white.withOpacity(0.08),
+					child: Container(
+						decoration: BoxDecoration(
+							color: Colors.white.withOpacity(0.12),
+							borderRadius: BorderRadius.circular(14),
+							border: Border.all(
+								color: Colors.white.withOpacity(0.2),
+								width: 1,
+							),
 						),
 						child: Padding(
-							padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+							padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
 							child: Row(
 								children: [
 									Container(
-										width: 44,
-										height: 44,
+										width: 36,
+										height: 36,
 										decoration: BoxDecoration(
-											color: secondryColor.withOpacity(0.12),
-											borderRadius: BorderRadius.circular(14),
+											color: Colors.white.withOpacity(0.12),
+											borderRadius: BorderRadius.circular(10),
+											border: Border.all(
+												color: Colors.white.withOpacity(0.2),
+												width: 1,
+											),
 										),
-										child: Icon(icon, color: secondryColor, size: 24),
+										child: Icon(icon, color: primaryColor, size: 20),
 									),
-									const SizedBox(width: 16),
+									const SizedBox(width: 12),
 									Expanded(
 										child: Text(
 											text,
-											style: const TextStyle(
-												color: Color(0xFF1A1A1A),
-												fontSize: 16,
+											style: TextStyle(
+												color: Colors.white.withOpacity(0.95),
+												fontSize: 14,
 												fontWeight: FontWeight.w600,
 											),
 										),
@@ -277,8 +282,8 @@ class _SettingPageState extends State<SettingPage> {
 									if (onTap != null)
 										Icon(
 											Icons.arrow_forward_ios_rounded,
-											size: 16,
-											color: secondryColor.withOpacity(0.7),
+											size: 13,
+											color: Colors.white.withOpacity(0.8),
 										),
 								],
 							),

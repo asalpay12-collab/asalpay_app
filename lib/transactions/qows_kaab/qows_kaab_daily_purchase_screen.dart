@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/Constant.dart';
 import '../../services/252pay_api_service.dart';
+import '../252pay/252pay_screen_background.dart';
 
 class QowsKaabDailyPurchaseScreen extends StatefulWidget {
   final int qowsKaabId;
@@ -108,30 +110,35 @@ class _QowsKaabDailyPurchaseScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: secondryColor,
       appBar: AppBar(
-        elevation: 2,
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: pureWhite,
         title: Text(
           'Add Daily Purchase',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w600,
             fontSize: 20,
+            color: pureWhite,
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             Text(
               'Items',
               style: GoogleFonts.poppins(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: primaryColor,
+                color: Colors.white.withOpacity(0.96),
               ),
             ),
             const SizedBox(height: 8),
@@ -181,7 +188,7 @@ class _QowsKaabDailyPurchaseScreenState
               style: GoogleFonts.poppins(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: primaryColor,
+                color: Colors.white.withOpacity(0.96),
               ),
             ),
             const SizedBox(height: 8),
@@ -202,7 +209,7 @@ class _QowsKaabDailyPurchaseScreenState
               style: GoogleFonts.poppins(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: primaryColor,
+                color: Colors.white.withOpacity(0.96),
               ),
             ),
             const SizedBox(height: 8),
@@ -239,6 +246,8 @@ class _QowsKaabDailyPurchaseScreenState
               ),
             ),
           ],
+        ),
+          ),
         ),
       ),
     );

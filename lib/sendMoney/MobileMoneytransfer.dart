@@ -23,16 +23,16 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../TransferReceiptLetter/paymentPage.dart';
 import '../constants/Constant.dart';
+import '../utils/network_utils.dart';
 import 'dart:io' show Platform;
 
 import '../providers/HomeSliderandTransaction.dart';
 import '../providers/auth.dart';
 
-import 'dart:async'; 
+import 'dart:async';
 import 'package:http/http.dart' as http;
 
 class MobileMoneytransfer extends StatefulWidget {
-
   final String wallet_accounts_id;
 
   final String country;
@@ -49,13 +49,9 @@ class MobileMoneytransfer extends StatefulWidget {
 }
 
 class _MobileMoneytransferState extends State<MobileMoneytransfer> {
+  TextEditingController phoneNumberController = TextEditingController();
 
-
-
-TextEditingController phoneNumberController = TextEditingController();
-
-
-    // Create an instance of TokenClass
+  // Create an instance of TokenClass
   TokenClass tokenClass = TokenClass();
 
   List<Map<String, dynamic>> sourceOfFunds = [];
@@ -66,10 +62,9 @@ TextEditingController phoneNumberController = TextEditingController();
 
   bool isLoadingSource = true;
   bool isLoadingPurpose = true;
-  
-// 4/8/24
-StreamSubscription<List<BalanceDisplayModel>>? _balanceSubscription;
 
+// 4/8/24
+  StreamSubscription<List<BalanceDisplayModel>>? _balanceSubscription;
 
   // TextEditingController cardHolderName = TextEditingController();
   final _PhoneNumber = FocusNode();
@@ -89,8 +84,10 @@ StreamSubscription<List<BalanceDisplayModel>>? _balanceSubscription;
   String? partnerTag;
   // String? CFdropdownValue;
   bool _isLoadingDrop_data = false;
+  bool _hasLoadedInitialDropData = false;
   bool _isLoading = false;
   bool _isLoadingExchange = false;
+  bool _isValidatingPhone = false;
 
   String Reciveamount = "0";
   // String Reciveamount1 = "0";
@@ -112,6 +109,9 @@ StreamSubscription<List<BalanceDisplayModel>>? _balanceSubscription;
   String charge = "000";
   String rate = "000";
   double totalPayingAmount = 000;
+
+  Timer? _exchangeDebounce;
+  String _lastFetchedAmount = "";
 
   // String? RecieverAccountNumber;
   String? RecieverNumber;
@@ -138,187 +138,167 @@ StreamSubscription<List<BalanceDisplayModel>>? _balanceSubscription;
     receiverNumber: "",
     accountNumber: "",
     totalpayin: "",
-    
   );
-
 
 // 4/8/24
 
 // again on 6/4/24
 
-@override
+  @override
   void initState() {
     super.initState();
 
-   fetchSourceOfFunds();
-   fetchPurposeOfTransfer();
+    fetchSourceOfFunds();
+    fetchPurposeOfTransfer();
 
-    debugPrint("initState: Initial Source of Funds = ${selectedSourceOfFunds}, Source ID = ${_addSaveReallyTimeData.source_id}");
-    debugPrint("initState: Initial Purpose of Transfer = ${selectedPurposeOfTransfer}, Purpose ID = ${_addSaveReallyTimeData.purpose_id}");
-    
+    debugPrint(
+        "initState: Initial Source of Funds = ${selectedSourceOfFunds}, Source ID = ${_addSaveReallyTimeData.source_id}");
+    debugPrint(
+        "initState: Initial Purpose of Transfer = ${selectedPurposeOfTransfer}, Purpose ID = ${_addSaveReallyTimeData.purpose_id}");
+  }
 
-}
-   
-  
+  @override
+  void didChangeDependencies() async {
+    super.didChangeDependencies();
+    if (_hasLoadedInitialDropData) return;
 
-@override
-void didChangeDependencies() async {
-  super.didChangeDependencies();
-  setState(() {
-    _isLoadingDrop_data = true;
-  });
+    if (!mounted) return;
+    setState(() {
+      _isLoadingDrop_data = true;
+    });
 
-  final String accountId = widget.wallet_accounts_id;
-  
-  await Provider.of<FillRegisterationDropdown>(context, listen: false)
-      .fetchAndSetCusAccountCurrency(accountId);
+    final String accountId = widget.wallet_accounts_id;
 
+    await Provider.of<FillRegisterationDropdown>(context, listen: false)
+        .fetchAndSetCusAccountCurrency(accountId);
 
-  await Provider.of<Walletremit>(context, listen: false)
-    .fetchAndSetRemitChannelTypes(
-  widget.country ?? "", // Country ID
-  widget.type ?? "",    // Tag
-  _addSaveReallyTimeData.source_id ?? "",
-  _addSaveReallyTimeData.purpose_id ?? "",
-  _addSaveReallyTimeData.sourceOfFunds ?? "", 
-  _addSaveReallyTimeData.purposeOfTransfer ?? "", 
-);
+    if (!mounted) return;
+    await Provider.of<Walletremit>(context, listen: false)
+        .fetchAndSetRemitChannelTypes(
+      widget.country ?? "", // Country ID
+      widget.type ?? "", // Tag
+      _addSaveReallyTimeData.source_id ?? "",
+      _addSaveReallyTimeData.purpose_id ?? "",
+      _addSaveReallyTimeData.sourceOfFunds ?? "",
+      _addSaveReallyTimeData.purposeOfTransfer ?? "",
+    );
 
-  
-  _balanceSubscription?.cancel(); 
-  _balanceSubscription = Provider.of<HomeSliderAndTransaction>(context, listen: false)
-      .fetchAndDisplayBalance(accountId)
-      .listen(
-        (balances) {
-          
-         
-        },
-        onError: (error) {
-          print("Error receiving balance data: $error");
-        },
-      );
+    if (!mounted) return;
+    _balanceSubscription?.cancel();
+    _balanceSubscription =
+        Provider.of<HomeSliderAndTransaction>(context, listen: false)
+            .fetchAndDisplayBalance(accountId)
+            .listen(
+      (balances) {},
+      onError: (error) {
+        print("Error receiving balance data: $error");
+      },
+    );
 
-  setState(() {
-    _isLoadingDrop_data = false;
-    
-    final RemitChannelTypes = Provider.of<Walletremit>(context, listen: false);
-    final CusAccountCurrency = Provider.of<FillRegisterationDropdown>(context, listen: false);
-    
-    CurrencyID = _getDefaultSelectedValue(CusAccountCurrency); 
-    RemitChannel = _getDefaultSelectedBeneficiaryBank(RemitChannelTypes);
+    if (!mounted) return;
+    setState(() {
+      _isLoadingDrop_data = false;
+      _hasLoadedInitialDropData = true;
+      final RemitChannelTypes =
+          Provider.of<Walletremit>(context, listen: false);
+      final CusAccountCurrency =
+          Provider.of<FillRegisterationDropdown>(context, listen: false);
+      CurrencyID = _getDefaultSelectedValue(CusAccountCurrency);
+      RemitChannel = _getDefaultSelectedBeneficiaryBank(RemitChannelTypes);
+      print('CusAccountCurrency: $CusAccountCurrency');
+      print("currencyId $CurrencyID");
+    });
+  }
 
-    print('CusAccountCurrency: $CusAccountCurrency');
-    print("currencyId $CurrencyID");
-  });
-}
-
-
-
-
-@override
-void dispose() {
-  _balanceSubscription?.cancel(); 
-  super.dispose();
-
- 
+  @override
+  void dispose() {
+    _balanceSubscription?.cancel();
+    _exchangeDebounce?.cancel();
     super.dispose();
-
-}
-
+  }
 
 //here 4/6/24
 
+  Future<Map<String, dynamic>?> validateAccount(String remitChannel,
+      String destinationNo, String partnerTag, String country_id) async {
+    String token = tokenClass.getToken();
 
-Future<Map<String, dynamic>?> validateAccount(String remitChannel, String destinationNo, String partnerTag, String country_id) async {
+    var url = '${ApiUrls.BASE_URL}Walletremit/validateAccount';
 
+    print('Remit Channel: $remitChannel');
+    print('Destination Number: $destinationNo');
+    print('As of now, the Partner Tag: $partnerTag');
 
-  String token = tokenClass.getToken();
+    Map<String, dynamic> body = {
+      'remit_channel': remitChannel,
+      'destinationNo': destinationNo,
+      'partiner_tag': partiner_tag,
+      'country_id': country_id,
+    };
 
-  var url  = '${ApiUrls.BASE_URL}Walletremit/validateAccount';
-
- 
-  print('Remit Channel: $remitChannel');
-  print('Destination Number: $destinationNo');
-  print('As of now, the Partner Tag: $partnerTag');
-
-  Map<String, dynamic> body = {
-    'remit_channel': remitChannel,
-    'destinationNo': destinationNo,
-    'partiner_tag': partiner_tag,
-    'country_id' : country_id,
-  };
-
-  try {
-    final response = await http.post(
-      Uri.parse(url),
-      headers: {
-        
-        
-      "API-KEY": tokenClass.key,
-      "Authorization": "Bearer $token",
-      "Content-Type": "application/json",
-        
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          "API-KEY": tokenClass.key,
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
         },
-      body: jsonEncode(body),
-    );
+        body: jsonEncode(body),
+      );
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      print('Failed to validate account. Status code: ${response.statusCode}');
-      return null;  
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print(
+            'Failed to validate account. Status code: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Failed to make a request: $e');
+      return null;
     }
-  } catch (e) {
-    print('Failed to make a request: $e');
-    return null;  
   }
-}
-
 
 //to here 4/6
 
 // from here, 10/10/2024
 
-  Future<Map<String, dynamic>?> validateMobileWallet(String receiverNumber, String accountNumber, int countryId) async {
+  Future<Map<String, dynamic>?> validateMobileWallet(
+      String receiverNumber, String accountNumber, int countryId) async {
+    String token = tokenClass.getToken();
 
+    var url = '${ApiUrls.BASE_URL}/Onafriq_controller/ValidateMoblieWallet';
 
-  String token = tokenClass.getToken();
+    Map<String, dynamic> body = {
+      'receiverNumber': receiverNumber,
+      'country_id': countryId,
+      'accountNumber': accountNumber,
+    };
 
-  var url = '${ApiUrls.BASE_URL}/Onafriq_controller/ValidateMoblieWallet';
-
-  Map<String, dynamic> body = {
-    'receiverNumber': receiverNumber,
-    'country_id': countryId,
-    'accountNumber': accountNumber,
-  };
-
-  try {
-    final response = await http.post(
-      Uri.parse(url),
-      headers: {
-        
-        
-      "API-KEY": tokenClass.key,
-      "Authorization": "Bearer $token",
-      "Content-Type": "application/json",
-        
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          "API-KEY": tokenClass.key,
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
         },
-      body: jsonEncode(body),
-    );
+        body: jsonEncode(body),
+      );
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      print('Failed to validate mobile wallet. Status code: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print(
+            'Failed to validate mobile wallet. Status code: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Failed to make a request: $e');
       return null;
     }
-  } catch (e) {
-    print('Failed to make a request: $e');
-    return null;
   }
-}
-
-
 
   String ModelErrorMessage = "";
   String pinNumber = "";
@@ -345,7 +325,6 @@ Future<Map<String, dynamic>?> validateAccount(String remitChannel, String destin
 
   bool isloading1 = false;
   bool _submitted1 = false;
-
 
   Future<void> _CheckPinNumber() async {
     _submitted1 = true;
@@ -410,13 +389,16 @@ Future<Map<String, dynamic>?> validateAccount(String remitChannel, String destin
 //       openSnackbar(context, errorMessage, secondryColor);
       return;
     } catch (error) {
-// _showErrorDialog(error.toString());
       print("ModelErrorMessage");
       setState(() {
         ModelErrorMessage = error.toString();
       });
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+        setState(() => isloading1 = false);
+        return;
+      }
       print(ModelErrorMessage);
-      // openSnackbar(context, error.toString(), secondryColor);
       _showErrorDialog(error.toString());
       setState(() {
         isloading1 = false;
@@ -441,7 +423,7 @@ Future<Map<String, dynamic>?> validateAccount(String remitChannel, String destin
   Future<void> _showMyDialogConfirmPin() async {
     return showDialog<void>(
       context: context,
-      barrierDismissible: true, 
+      barrierDismissible: true,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (BuildContext context, setState) {
@@ -555,98 +537,200 @@ Future<Map<String, dynamic>?> validateAccount(String remitChannel, String destin
   bool _submitted = false;
   final _form = GlobalKey<FormState>();
 
+  Future<void> _fetchExchangeForAmount(String amountStr) async {
+    if (amountStr.trim().isEmpty) return;
+    if (amountStr == _lastFetchedAmount) return;
+    if (!mounted) return;
+    setState(() => _isLoadingExchange = true);
+    try {
+      var CurrencyDataFrom = Provider.of<FillRegisterationDropdown>(context, listen: false)
+          .findByIdTC(CurrencyID.toString());
+      dynamic result;
+      if (partiner_tag == "SHFT") {
+        result = await Provider.of<Walletremit>(context, listen: false).getShiftCurrencyConveret(
+          widget.country.toString(), CurrencyID.toString(), amountStr,
+          RemitChannel.toString(), partiner_id.toString(),
+        );
+      } else if (partiner_tag == "Onafriq") {
+        result = await Provider.of<Walletremit>(context, listen: false).getOnafriqCurrencyConveret(
+          widget.country.toString(), CurrencyID.toString(), amountStr,
+          RemitChannel.toString(), partiner_id.toString(),
+        );
+      } else {
+        result = await Provider.of<Walletremit>(context, listen: false).getAsalExchange(
+          widget.country.toString(), CurrencyID.toString(), amountStr, partiner_id.toString(),
+        );
+      }
+      if (!mounted) return;
+      if (result['status'].toString() == "False") {
+        openSnackbar(context, result['messages'].toString(), secondryColor);
+      } else {
+        _lastFetchedAmount = amountStr;
+        double numericValue = double.parse(amountStr);
+        amount_fro = numericValue.toStringAsFixed(2);
+        double amount = double.parse(result['result']['amount_to'].toString());
+        double truncatedAmount = (amount * 100).truncateToDouble() / 100;
+        Reciveamount = truncatedAmount.toString();
+        charge = result['result']['charge'].toString();
+        currency_name_to = result['result']['currency_name_to'].toString();
+        currency_id_to = result['result']['currency_id_to'].toString();
+        rate = result['result']['rate'].toString();
+        totalPayingAmount = double.parse(amount_fro) + double.parse(charge);
+        AmountReceive = "$currency_name_to $Reciveamount";
+        currency_name_fro = CurrencyDataFrom.name;
+        setState(() {
+          _addSaveReallyTimeData = SaveReallyTimeData(
+            wallet_accounts_id_fro: _addSaveReallyTimeData.wallet_accounts_id_fro,
+            currency_id_fro: CurrencyID!,
+            description: _addSaveReallyTimeData.description,
+            remit_channel: RemitChannel!,
+            currency_to_id: currency_id_to,
+            amount_from: amountStr,
+            beneficiary_name: _addSaveReallyTimeData.beneficiary_name,
+            partiner_id: partiner_id,
+            reciveAmount: Reciveamount,
+            receiverNumber: _addSaveReallyTimeData.receiverNumber,
+            accountNumber: _addSaveReallyTimeData.receiverNumber,
+            totalpayin: totalPayingAmount.toString(),
+            sourceOfFunds: selectedSourceOfFunds,
+            purposeOfTransfer: selectedPurposeOfTransfer,
+          );
+        });
+        _SendAmount.unfocus();
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingExchange = false);
+    }
+  }
 
   Future<void> _saveForm() async {
-  debugPrint("saveForm: Initiating save form process...");
+    debugPrint("saveForm: Initiating save form process...");
 
+    _submitted = true;
+    debugPrint("saveForm: Form submitted.");
 
-  _submitted = true;
-  debugPrint("saveForm: Form submitted.");
+    final isValid = _form.currentState?.validate();
+    debugPrint("saveForm: Form validation result: $isValid");
 
-  final isValid = _form.currentState?.validate();
-  debugPrint("saveForm: Form validation result: $isValid");
+    if (isValid == null || !isValid) {
+      debugPrint("saveForm: Form validation failed. Exiting.");
+      return;
+    }
 
-  if (isValid == null || !isValid) {
-    debugPrint("saveForm: Form validation failed. Exiting.");
-    return;
-  }
+    _form.currentState?.save();
+    debugPrint("saveForm: Form data saved.");
 
-  _form.currentState?.save();
-  debugPrint("saveForm: Form data saved.");
-
-  // Extract IDs for sourceOfFunds and purposeOfTransfer
-  String? sourceId = sourceOfFunds
-      .firstWhere((source) => source['name'] == selectedSourceOfFunds)['id'];
-  String? purposeId = purposeOfTransfer
-      .firstWhere((purpose) => purpose['name'] == selectedPurposeOfTransfer)['id'];
-
-  debugPrint("saveForm: Selected Source of Funds: $selectedSourceOfFunds");
-  debugPrint("saveForm: Source ID: $sourceId");
-  debugPrint("saveForm: Selected Purpose of Transfer: $selectedPurposeOfTransfer");
-  debugPrint("saveForm: Purpose ID: $purposeId");
-
-  // Update _addSaveReallyTimeData with IDs
-  _addSaveReallyTimeData = _addSaveReallyTimeData.copyWith(
-    source_id: sourceId,
-    purpose_id: purposeId,
-    sourceOfFunds: selectedSourceOfFunds,
-    purposeOfTransfer: selectedPurposeOfTransfer,
-    
-  );
-
-  debugPrint("saveForm: Updated SaveReallyTimeData: ${_addSaveReallyTimeData}");
-
-  setState(() {
-    _isLoading = true;
-  });
-
-  try {
-    debugPrint("saveForm: Attempting to save data to Firestore.");
-
-    await Provider.of<Walletremit>(context, listen: false).addSaveReallyTimeData(
-      widget.country,
-      _addSaveReallyTimeData,
-      widget.wallet_accounts_id,
-      widget.type,
+    // Sync amount fields from current form/state so they are never empty when sending (e.g. if onEditingComplete didn't run)
+    final amountFrom = fieldValue.trim().isNotEmpty
+        ? fieldValue.trim()
+        : SendAmount.text.trim();
+    _addSaveReallyTimeData = _addSaveReallyTimeData.copyWith(
+      amountFrom: amountFrom.isNotEmpty
+          ? amountFrom
+          : _addSaveReallyTimeData.amount_from,
+      reciveAmount: Reciveamount.trim().isNotEmpty
+          ? Reciveamount
+          : _addSaveReallyTimeData.reciveAmount,
+      totalpayin: totalPayingAmount > 0
+          ? totalPayingAmount.toString()
+          : _addSaveReallyTimeData.totalpayin,
     );
 
-    debugPrint("saveForm: Data saved successfully.");
-  } on HttpException catch (error) {
-    debugPrint("saveForm: HttpException encountered: $error");
+    // Extract IDs for sourceOfFunds and purposeOfTransfer
+    String? sourceId = sourceOfFunds
+        .firstWhere((source) => source['name'] == selectedSourceOfFunds)['id'];
+    String? purposeId = purposeOfTransfer.firstWhere(
+        (purpose) => purpose['name'] == selectedPurposeOfTransfer)['id'];
 
-    openSnackbar(context, error.toString(), secondryColor);
+    debugPrint("saveForm: Selected Source of Funds: $selectedSourceOfFunds");
+    debugPrint("saveForm: Source ID: $sourceId");
+    debugPrint(
+        "saveForm: Selected Purpose of Transfer: $selectedPurposeOfTransfer");
+    debugPrint("saveForm: Purpose ID: $purposeId");
+
+    // Update _addSaveReallyTimeData with IDs
+    _addSaveReallyTimeData = _addSaveReallyTimeData.copyWith(
+      source_id: sourceId,
+      purpose_id: purposeId,
+      sourceOfFunds: selectedSourceOfFunds,
+      purposeOfTransfer: selectedPurposeOfTransfer,
+    );
+
+    debugPrint(
+        "saveForm: Updated SaveReallyTimeData: ${_addSaveReallyTimeData}");
+
     setState(() {
-      _isLoading = false;
+      _isLoading = true;
     });
-    return;
-  } catch (error) {
-    debugPrint("saveForm: Unknown error encountered: $error");
 
-    setState(() {
-      _isLoading = false;
-    });
-    return;
-  }
+    try {
+      debugPrint("saveForm: Attempting to save data to Firestore.");
 
-  debugPrint("saveForm: Fetching and updating transactions.");
-  await Provider.of<HomeSliderAndTransaction>(context, listen: false)
-      .fetchAndSetAllTr();
+      await Provider.of<Walletremit>(context, listen: false)
+          .addSaveReallyTimeData(
+        widget.country,
+        _addSaveReallyTimeData,
+        widget.wallet_accounts_id,
+        widget.type,
+      );
 
-  _submitted = false;
+      debugPrint("saveForm: Data saved successfully.");
+      // Stop spinner as soon as transfer succeeds (so UI never hangs if fetchAndSetAllTr fails)
+      if (mounted) setState(() => _isLoading = false);
+    } on HttpException catch (error) {
+      debugPrint("saveForm: HttpException encountered: $error");
 
-  try {
-    final displayBalance =
-        Provider.of<HomeSliderAndTransaction>(context, listen: false);
-    final balances = await displayBalance
-        .fetchAndDisplayBalance(widget.wallet_accounts_id)
-        .first;
+      openSnackbar(context, error.toString(), secondryColor);
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    } catch (error) {
+      debugPrint("saveForm: Unknown error encountered: $error");
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+      } else {
+        openSnackbar(context, error.toString(), secondryColor);
+      }
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
 
-    if (balances.isEmpty) {
-      debugPrint("saveForm: Balances not received yet.");
-    } else {
-      debugPrint("saveForm: Balances fetched successfully: $balances");
+    _submitted = false;
 
-      debugPrint("saveForm: Navigating to PaymentPage.");
+    try {
+      debugPrint("saveForm: Fetching and updating transactions.");
+      await Provider.of<HomeSliderAndTransaction>(context, listen: false)
+          .fetchAndSetAllTr();
+    } catch (e) {
+      debugPrint("saveForm: fetchAndSetAllTr failed (non-blocking): $e");
+      // Spinner already stopped; continue to balance/navigation
+    }
+
+    try {
+      final displayBalance =
+          Provider.of<HomeSliderAndTransaction>(context, listen: false);
+      final balances = await displayBalance
+          .fetchAndDisplayBalance(widget.wallet_accounts_id)
+          .first
+          .timeout(const Duration(seconds: 15),
+              onTimeout: () => <BalanceDisplayModel>[]);
+
+      if (!mounted) return;
+      final String senderName = balances.isNotEmpty
+          ? "${balances[0].f_name} ${balances[0].m_name}"
+          : "";
+      if (balances.isEmpty) {
+        debugPrint(
+            "saveForm: Balances not received; showing success with placeholder sender.");
+      } else {
+        debugPrint("saveForm: Balances fetched successfully: $balances");
+      }
+
+      debugPrint(
+          "saveForm: Navigating to PaymentPage (transaction completed).");
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -658,219 +742,234 @@ Future<Map<String, dynamic>?> validateAccount(String remitChannel, String destin
             ReceiverName: FullName.toString(),
             senderAccount: widget.wallet_accounts_id,
             senderAmount: currency_name_fro + amount_fro,
-            senderName: "${balances[0].f_name} ${balances[0].m_name}",
+            senderName: senderName,
+            sourceOfFunds: selectedSourceOfFunds,
+            purposeOfTransfer: selectedPurposeOfTransfer,
+          ),
+        ),
+      );
+    } catch (error) {
+      debugPrint('saveForm: Error fetching balance data: $error');
+      if (!mounted) return;
+      // Still show success screen so user sees transaction was completed
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PaymentPage(
+            RecieverNumber.toString(),
+            "Phone",
+            ReceiverLabelRec: "Acc",
+            ReceiverAmount: currency_name_to + Reciveamount,
+            ReceiverName: FullName.toString(),
+            senderAccount: widget.wallet_accounts_id,
+            senderAmount: currency_name_fro + amount_fro,
+            senderName: "",
             sourceOfFunds: selectedSourceOfFunds,
             purposeOfTransfer: selectedPurposeOfTransfer,
           ),
         ),
       );
     }
-  } catch (error) {
-    debugPrint('saveForm: Error fetching balance data: $error');
-  } finally {
-    setState(() {
-      _isLoading = false;
-    });
+
+    debugPrint("saveForm: Completed process.");
   }
 
-  debugPrint("saveForm: Completed process.");
-}
+  Future<void> requestContactPermission(BuildContext context,
+      ValueNotifier<TextEditingValue> phoneNumberController) async {
+    // Request permission using FlutterContacts
+    final bool permissionGranted = await FlutterContacts.requestPermission();
 
-Future<void> requestContactPermission(
-    BuildContext context, ValueNotifier<TextEditingValue> phoneNumberController) async {
-  // Request permission using FlutterContacts
-  final bool permissionGranted = await FlutterContacts.requestPermission();
-
-  if (permissionGranted) {
-    debugPrint('Permission granted. Proceeding to fetch contacts...');
-    fetchContacts(context, phoneNumberController);
-  } else {
-    debugPrint('Permission denied. Showing explanation dialog.');
-    showPermissionDeniedDialog(context);
-  }
-}
-
-Future<void> fetchContacts(
-    BuildContext context, ValueNotifier<TextEditingValue> phoneNumberController) async {
-  try {
-    // Fetch contacts
-    final contacts = await FlutterContacts.getContacts(withProperties: true);
-    debugPrint('Contacts fetched: ${contacts.length}');
-
-    if (contacts.isNotEmpty) {
-      // Show the contact picker dialog
-      showContactPickerDialog(context, contacts, phoneNumberController);
+    if (permissionGranted) {
+      debugPrint('Permission granted. Proceeding to fetch contacts...');
+      fetchContacts(context, phoneNumberController);
     } else {
-      debugPrint('No contacts found.');
+      debugPrint('Permission denied. Showing explanation dialog.');
+      showPermissionDeniedDialog(context);
+    }
+  }
+
+  Future<void> fetchContacts(BuildContext context,
+      ValueNotifier<TextEditingValue> phoneNumberController) async {
+    try {
+      // Fetch contacts
+      final contacts = await FlutterContacts.getContacts(withProperties: true);
+      debugPrint('Contacts fetched: ${contacts.length}');
+
+      if (contacts.isNotEmpty) {
+        // Show the contact picker dialog
+        showContactPickerDialog(context, contacts, phoneNumberController);
+      } else {
+        debugPrint('No contacts found.');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No contacts found on this device.')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error fetching contacts: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No contacts found on this device.')),
+        SnackBar(content: Text('Error fetching contacts: $e')),
       );
     }
-  } catch (e) {
-    debugPrint('Error fetching contacts: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error fetching contacts: $e')),
+  }
+
+  void showContactPickerDialog(BuildContext context, List<Contact> contacts,
+      ValueNotifier<TextEditingValue> phoneNumberController) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select a Contact'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: ListView.builder(
+            itemCount: contacts.length,
+            itemBuilder: (context, index) {
+              final contact = contacts[index];
+              return ListTile(
+                title: Text(contact.displayName),
+                subtitle: contact.phones.isNotEmpty
+                    ? Text(contact.phones.first.number)
+                    : const Text('No phone number'),
+                onTap: () {
+                  if (contact.phones.isNotEmpty) {
+                    String pickedNumber = contact.phones.first.number;
+                    pickedNumber =
+                        pickedNumber.replaceAll(' ', '').replaceAll('+', '');
+
+                    // Update the phone number field
+                    phoneNumberController.value =
+                        phoneNumberController.value.copyWith(
+                      text: pickedNumber,
+                    );
+
+                    // ALSO update your local variable
+                    RecieverNumber = pickedNumber;
+
+                    Navigator.of(context).pop();
+                  }
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
     );
   }
-}
 
-
-void showContactPickerDialog(
-    BuildContext context, List<Contact> contacts, ValueNotifier<TextEditingValue> phoneNumberController) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Select a Contact'),
-      content: SizedBox(
-        width: double.maxFinite,
-        height: 300,
-        child: ListView.builder(
-          itemCount: contacts.length,
-          itemBuilder: (context, index) {
-            final contact = contacts[index];
-            return ListTile(
-              title: Text(contact.displayName),
-              subtitle: contact.phones.isNotEmpty
-                  ? Text(contact.phones.first.number)
-                  : const Text('No phone number'),
-              onTap: () {
-              if (contact.phones.isNotEmpty) {
-                String pickedNumber = contact.phones.first.number;
-                pickedNumber = pickedNumber.replaceAll(' ', '').replaceAll('+', '');
-
-                // Update the phone number field
-                phoneNumberController.value = phoneNumberController.value.copyWith(
-                  text: pickedNumber,
-                );
-
-                // ALSO update your local variable
-                RecieverNumber = pickedNumber;
-
-                Navigator.of(context).pop();
-              }
-            },
-            );
-          },
-        ),
+  void showPermissionDeniedDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Permission Denied"),
+        content: const Text("We need access to your contacts to proceed."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("OK"),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-      ],
-    ),
-  );
-}
-
-void showPermissionDeniedDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text("Permission Denied"),
-      content: const Text("We need access to your contacts to proceed."),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text("OK"),
-        ),
-      ],
-    ),
-  );
-}
-
-Future<void> fetchSourceOfFunds() async {
-  String token = tokenClass.getToken();
-  print("Token: $token");
-
-  var url = "${ApiUrls.BASE_URL}/Walletremit/get_remit_sourceOfFunds";
-  var headers = {
-    "API-KEY": tokenClass.key,
-    "Authorization": "Bearer $token",
-    "Content-Type": "application/json",
-  };
-
-  try {
-    final response = await http.get(Uri.parse(url), headers: headers);
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data['status'] == 'True') {
-        setState(() {
-          sourceOfFunds = (data['result'] as List).map((item) {
-            return {
-              'id': item['source_id'].toString(),
-              'name': item['source_name'].toString(),
-            };
-          }).toList();
-
-          // Automatically select the first value
-          if (sourceOfFunds.isNotEmpty) {
-            final firstSource = sourceOfFunds[0];
-            selectedSourceOfFunds = firstSource['name'];
-            _addSaveReallyTimeData = _addSaveReallyTimeData.copyWith(
-              sourceOfFunds: firstSource['name'], // Save name
-              source_id: firstSource['id'].toString(), // Save ID
-            );
-
-            debugPrint("Initial Source of Funds: ${firstSource['name']} (${firstSource['id']})");
-          }
-        });
-      }
-    }
-  } catch (e) {
-    debugPrint('Error fetching Source of Funds: $e');
-  } finally {
-    setState(() {
-      isLoadingSource = false;
-    });
+    );
   }
-}
 
-Future<void> fetchPurposeOfTransfer() async {
-  String token = tokenClass.getToken();
-  print("Token: $token");
+  Future<void> fetchSourceOfFunds() async {
+    String token = tokenClass.getToken();
+    print("Token: $token");
 
-  var url = "${ApiUrls.BASE_URL}/Walletremit/get_remit_purposeOfTransfer";
-  var headers = {
-    "API-KEY": tokenClass.key,
-    "Authorization": "Bearer $token",
-    "Content-Type": "application/json",
-  };
+    var url = "${ApiUrls.BASE_URL}/Walletremit/get_remit_sourceOfFunds";
+    var headers = {
+      "API-KEY": tokenClass.key,
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+    };
 
-  try {
-    final response = await http.get(Uri.parse(url), headers: headers);
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data['status'] == 'True') {
-        setState(() {
-          purposeOfTransfer = (data['result'] as List).map((item) {
-            return {
-              'id': item['purpose_id'].toString(),
-              'name': item['purpose_name'].toString(),
-            };
-          }).toList();
+    try {
+      final response = await http.get(Uri.parse(url), headers: headers);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'True') {
+          setState(() {
+            sourceOfFunds = (data['result'] as List).map((item) {
+              return {
+                'id': item['source_id'].toString(),
+                'name': item['source_name'].toString(),
+              };
+            }).toList();
 
-          // Automatically select the first value
-          if (purposeOfTransfer.isNotEmpty) {
-            final firstPurpose = purposeOfTransfer[0];
-            selectedPurposeOfTransfer = firstPurpose['name'];
-            _addSaveReallyTimeData = _addSaveReallyTimeData.copyWith(
-              purposeOfTransfer: firstPurpose['name'], // Save name
-              purpose_id: firstPurpose['id'].toString(), // Save ID
-            );
-          }
-        });
+            // Automatically select the first value
+            if (sourceOfFunds.isNotEmpty) {
+              final firstSource = sourceOfFunds[0];
+              selectedSourceOfFunds = firstSource['name'];
+              _addSaveReallyTimeData = _addSaveReallyTimeData.copyWith(
+                sourceOfFunds: firstSource['name'], // Save name
+                source_id: firstSource['id'].toString(), // Save ID
+              );
+
+              debugPrint(
+                  "Initial Source of Funds: ${firstSource['name']} (${firstSource['id']})");
+            }
+          });
+        }
       }
+    } catch (e) {
+      debugPrint('Error fetching Source of Funds: $e');
+    } finally {
+      setState(() {
+        isLoadingSource = false;
+      });
     }
-  } catch (e) {
-    debugPrint('Error fetching Purpose of Transfer: $e');
-  } finally {
-    setState(() {
-      isLoadingPurpose = false;
-    });
   }
-}
 
+  Future<void> fetchPurposeOfTransfer() async {
+    String token = tokenClass.getToken();
+    print("Token: $token");
+
+    var url = "${ApiUrls.BASE_URL}/Walletremit/get_remit_purposeOfTransfer";
+    var headers = {
+      "API-KEY": tokenClass.key,
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+    };
+
+    try {
+      final response = await http.get(Uri.parse(url), headers: headers);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'True') {
+          setState(() {
+            purposeOfTransfer = (data['result'] as List).map((item) {
+              return {
+                'id': item['purpose_id'].toString(),
+                'name': item['purpose_name'].toString(),
+              };
+            }).toList();
+
+            // Automatically select the first value
+            if (purposeOfTransfer.isNotEmpty) {
+              final firstPurpose = purposeOfTransfer[0];
+              selectedPurposeOfTransfer = firstPurpose['name'];
+              _addSaveReallyTimeData = _addSaveReallyTimeData.copyWith(
+                purposeOfTransfer: firstPurpose['name'], // Save name
+                purpose_id: firstPurpose['id'].toString(), // Save ID
+              );
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching Purpose of Transfer: $e');
+    } finally {
+      setState(() {
+        isLoadingPurpose = false;
+      });
+    }
+  }
 
   String? _getDefaultSelectedValue(
       FillRegisterationDropdown CusAccountCurrency) {
@@ -885,7 +984,6 @@ Future<void> fetchPurposeOfTransfer() async {
       partiner_id = RemitChannelTypes.FillRemitChannelTypes[0].partiner_id;
       partiner_tag = RemitChannelTypes.FillRemitChannelTypes[0].partiner_tag;
 
-  
       print("partiner_id static! ");
       print(partiner_id);
       print("partiner_tag static! ");
@@ -898,25 +996,23 @@ Future<void> fetchPurposeOfTransfer() async {
     return null;
   }
 
+  Widget _buildLoadingIndicator() {
+    return Positioned.fill(
+      child: Container(
+        // color: Colors.black.withOpacity(0.5), // Semi-transparent overlay
 
-Widget _buildLoadingIndicator() {
-  return Positioned.fill(
-    child: Container(
-     // color: Colors.black.withOpacity(0.5), // Semi-transparent overlay
-     
-      child: const Center(
-        child: LogoandSpinner(
-          imageAssets: 'assets/asalicon01.png', // Specify the correct asset path
-          reverse: true,
+        child: const Center(
+          child: LogoandSpinner(
+            imageAssets:
+                'assets/asalicon01.png', // Specify the correct asset path
+            reverse: true,
             arcColor: primaryColor,
-          spinSpeed: Duration(milliseconds: 500),
+            spinSpeed: Duration(milliseconds: 500),
+          ),
         ),
       ),
-    ),
-  );
-}
-
-
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -925,126 +1021,127 @@ Widget _buildLoadingIndicator() {
     final RemitChannelTypes = Provider.of<Walletremit>(context, listen: false);
     // final  partinerid = Provider.of<Walletremit>(context, listen: false).findById(RemitChannel.toString());
     String? defaultSelectedValue = _getDefaultSelectedValue(CusAccountCurrency);
-   
 
-        return Scaffold(
-          
-          backgroundColor: secondryColor.withOpacity(0.9),
-
-         
-    body: _isLoadingDrop_data
-        ? const Center(
-            child: CircularProgressIndicator(),
-          )
-     
-       : Padding(
-            padding: EdgeInsets.only(
-              top: AppBar().preferredSize.height,
-              left: 15,
-              right: 15,
-            ),
-            
-            child: Column(       
-              children: [
-
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Icon(
-                        Icons.arrow_back_ios_new,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(
-                      width: 15,
-                    ),
-                    const Text(
-                      "Mobile Money transfer",
-                      style: TextStyle(color: Colors.white, fontSize: 20),
-                    ),
-                  ],
-                ),
-                Expanded(
-                  child: ListView(
-                    padding: EdgeInsets.zero,
+    return Scaffold(
+      backgroundColor: secondryColor.withOpacity(0.9),
+      body: _isLoadingDrop_data
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : Padding(
+              padding: EdgeInsets.only(
+                top: AppBar().preferredSize.height,
+                left: 15,
+                right: 15,
+              ),
+              child: Column(
+                children: [
+                  Row(
                     children: [
-                      Form(
-                        // autovalidateMode: AutovalidateMode.onUserInteraction,
-                        key: _form,
-                        child: Column(
-                          children: [
-                            const SizedBox(
-                              height: 20,
-                            ),
-                            //Image;
-                            Container(
-                              height: 200,
-                              decoration: const BoxDecoration(
-                                image: DecorationImage(
-                                  image:
-                                      AssetImage("assets/asalpayscreens.png"),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
+                        child: const Icon(
+                          Icons.arrow_back_ios_new,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(
+                        width: 15,
+                      ),
+                      const Text(
+                        "Mobile Money transfer",
+                        style: TextStyle(color: Colors.white, fontSize: 20),
+                      ),
+                    ],
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).padding.bottom + 32,
+                      ),
+                      children: [
+                        Form(
+                          // autovalidateMode: AutovalidateMode.onUserInteraction,
+                          key: _form,
+                          child: Column(
+                            children: [
+                              const SizedBox(
+                                height: 20,
+                              ),
+                              //Image;
+                              Container(
+                                height: 200,
+                                decoration: const BoxDecoration(
+                                  image: DecorationImage(
+                                    image:
+                                        AssetImage("assets/asalpayscreens.png"),
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(
-                              height: 10,
-                            ),
-                            //all fields of exchange;
-                            Card(
-                              elevation: 4,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
+                              const SizedBox(
+                                height: 10,
                               ),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(20)),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const SizedBox(height: 10),
-                                            const Text(
-                                              "Select mobile wallet",
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: secondryColor,
-                                                fontWeight: FontWeight.bold,
+                              //all fields of exchange;
+                              Card(
+                                elevation: 4,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(20)),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              const SizedBox(height: 10),
+                                              const Text(
+                                                "Select mobile wallet",
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: secondryColor,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                               ),
-                                            ),
-                                            const SizedBox(height: 5),
+                                              const SizedBox(height: 5),
+                                              AllinOneRemitDropdownSearch(
+                                                onChanged: (value) {
+                                                  setState(() {
+                                                    RemitChannel = value;
+                                                    print(
+                                                        'The Remit Channel Value is below: ');
+                                                    print(RemitChannel);
+                                                    var partinerid = Provider
+                                                            .of<Walletremit>(
+                                                                context,
+                                                                listen: false)
+                                                        .findById(RemitChannel
+                                                            .toString());
+                                                    print("RemitChannel");
+                                                    print(RemitChannel);
+                                                    print(
+                                                        "partiner_tag onchange");
+                                                    print(partinerid
+                                                        .partiner_tag);
+                                                    partiner_tag =
+                                                        partinerid.partiner_tag;
 
-                                            
-                                            AllinOneRemitDropdownSearch(
-                                              onChanged: (value) {
-                                                setState(() {
-                                                  RemitChannel = value;
-                                                  print('The Remit Channel Value is below: ');
-                                                  print(RemitChannel);
-                                                  var partinerid =
-                                                      Provider.of<Walletremit>(
-                                                              context,
-                                                              listen: false)
-                                                          .findById(RemitChannel
-                                                              .toString());
-                                                  print("RemitChannel");
-                                                  print(RemitChannel);
-                                                  print("partiner_tag onchange");
-                                                  print(partinerid.partiner_tag);
-                                                  partiner_tag =partinerid.partiner_tag;
-                                                  
-                                                  print("partiner_id onchange");
-                                                  print(partinerid.partiner_id);
-                                                  partiner_id =partinerid.partiner_id;
+                                                    print(
+                                                        "partiner_id onchange");
+                                                    print(
+                                                        partinerid.partiner_id);
+                                                    partiner_id =
+                                                        partinerid.partiner_id;
 
-                                                  _addSaveReallyTimeData = SaveReallyTimeData(
+                                                    _addSaveReallyTimeData =
+                                                        SaveReallyTimeData(
                                                       wallet_accounts_id_fro:
                                                           _addSaveReallyTimeData
                                                               .wallet_accounts_id_fro,
@@ -1076,910 +1173,982 @@ Widget _buildLoadingIndicator() {
                                                       accountNumber:
                                                           _addSaveReallyTimeData
                                                               .receiverNumber,
-                                                    totalpayin: _addSaveReallyTimeData.totalpayin,
-
-                                                    sourceOfFunds: selectedSourceOfFunds,
-                                                    purposeOfTransfer: selectedPurposeOfTransfer,
-                                                  );
-                                                  // print(partiner_id.partiner_id);
-                                                  // partiner_id = partiner_id.partiner_id.toString();
-                                                });
-                                              },
-                                              maintext: "Pick Beneficiary bank",
-                                              hintxt: "Search Beneficiary bank",
-                                              items: RemitChannelTypes
-                                                  .FillRemitChannelTypes,
-                                              dropdownValue: RemitChannel,
-                                              SearchCtr: RemitChannelDSearch,
-                                            ),
-                                            const SizedBox(height: 10),
-
-                                            AllformFields(
-                                              // ctr: PhoneNumber,
-                                              ctr: phoneNumberController, // Pass the controller here
-                                              focusNode: _PhoneNumber,
-                                              keyboardType: TextInputType.phone,
-                                              // textInputAction:partiner_tag=='SSP' ? TextInputAction.done:
-                                              //     TextInputAction.next,
-                                              textInputAction: (partiner_tag == 'SSP' || partiner_tag == 'Onafriq') ? TextInputAction.done : TextInputAction.next,
-
-                                              hintxt: "Phone Number",
-                                              icn: Icons.phone_iphone,
-                                              validator: (value) {
-                                                if (_submitted) {
-                                                 
-                                                  if (value == null ||
-                                                      value.isEmpty) {
-                                                    return 'Phone Number Field is Required';
-                                                  }
-                                                  
-                                                  if (value.length < 5) {
-                                                    return 'Enter at least 5 digits';
-                                                  }
-                                                }
-                                                return null;
-                                              },
-
-
-                                          onEditingComplete: () async {
-                                            String textWithoutSpacesAndPlus = fieldValuePhone.replaceAll(' ', '').replaceAll('+', '');
-                                            PhoneNumber.value = PhoneNumber.value.copyWith(
-                                              text: textWithoutSpacesAndPlus,
-                                            );
-
-                                            String partnerTag = partiner_tag ?? '';
-
-                                            print('Current partner_tag is: $partnerTag');
-
-                                            if (partnerTag == "SSP" || partnerTag == "Onafriq") {
-                                              setState(() {
-                                                _isLoadingDrop_data = true; 
-                                              });
-
-                                              if (partnerTag == "SSP") {
-                                                var accountData = await validateAccount(RemitChannel!, textWithoutSpacesAndPlus, partnerTag, widget.country);
-
-                                                if (accountData != null && accountData['status']) {
-                                                  BeneficiaryName.text = accountData['account_name'];
-                                                  _addSaveReallyTimeData = _addSaveReallyTimeData.copyWith(beneficiaryName: accountData['account_name']);
-                                                  FullName = accountData['account_name'];
-                                                } else {
-                                                  BeneficiaryName.text = '';
-                                                  FullName = '';
-                                                }
-                                              } else if (partnerTag == "Onafriq") {
-                                                var walletData = await validateMobileWallet(textWithoutSpacesAndPlus, '808080', 43); // You can dynamically pass the accountNumber and country_id
-
-                                                if (walletData != null && walletData['status']) {
-                                                  if (walletData['message'].contains('number is active')) {
-                                                    
-                                                    showDialog(
-                                                      context: context,
-                                                      builder: (BuildContext context) {
-                                                        return AlertDialog(
-                                                          title: const Text('Mobile Wallet Status'),
-                                                          content: const Text('The phone number is active.'),
-                                                          actions: [
-                                                            TextButton(
-                                                              child: const Text('OK'),
-                                                              onPressed: () {
-                                                                Navigator.of(context).pop();
-                                                              },
-                                                            ),
-                                                          ],
-                                                        );
-                                                      },
+                                                      totalpayin:
+                                                          _addSaveReallyTimeData
+                                                              .totalpayin,
+                                                      sourceOfFunds:
+                                                          selectedSourceOfFunds,
+                                                      purposeOfTransfer:
+                                                          selectedPurposeOfTransfer,
                                                     );
-                                                  } else {
-                                                  
-                                                    showDialog(
-                                                      context: context,
-                                                      builder: (BuildContext context) {
-                                                        return AlertDialog(
-                                                          title: const Text('Mobile Wallet Status'),
-                                                          content: const Text('The phone number is inactive.'),
-                                                          actions: [
-                                                            TextButton(
-                                                              child: const Text('OK'),
-                                                              onPressed: () {
-                                                                Navigator.of(context).pop();
-                                                              },
-                                                            ),
-                                                          ],
-                                                        );
-                                                      },
-                                                    );
-                                                  }
-                                                } else {
-                                                  
-                                                  showDialog(
-                                                    context: context,
-                                                    builder: (BuildContext context) {
-                                                      return AlertDialog(
-                                                        title: const Text('Error'),
-                                                        content: const Text('The phone number is inactive..'),
-                                                        actions: [
-                                                          TextButton(
-                                                            child: const Text('OK'),
-                                                            onPressed: () {
-                                                              Navigator.of(context).pop();
-                                                            },
-                                                          ),
-                                                        ],
-                                                      );
-                                                    },
-                                                  );
-                                                }
-                                              }
-
-                                              setState(() {
-                                                _isLoadingDrop_data = false;
-                                              });
-                                            }
-                                          },
-                                          
-                                          onTap: () async {
-                                          try {
-                                            await requestContactPermission(context, phoneNumberController);
-                                          } catch (e) {
-                                            print('Error in onTap: $e'); // Debug log
-                                          }
-                                        },
-
-                                              //to here
-                                  
-                                              onChanged: (value) async {
-                                                // Remove spaces and "+" and update the text field
-
-                                                fieldValuePhone = value;
-
-                                                print('The value as of now');
-
-                                                print(value);
-
-                                                String
-                                                    textWithoutSpacesAndPlus =
-                                                    value
-                                                        .replaceAll(' ', '')
-                                                        .replaceAll('+', '');
-                                                PhoneNumber.value =
-                                                    PhoneNumber.value.copyWith(
-                                                  text:
-                                                      textWithoutSpacesAndPlus,
-
-                                                      
-                                                  // selection: TextSelection.collapsed(
-                                                  //     offset: textWithoutSpacesAndPlus.length),
-                                                );
-                                                print('As of now textWithoutSpacesAndPlus ');
-
-                                                print(textWithoutSpacesAndPlus );
-                                                // Access the text without spaces
-                                                RecieverNumber =
-                                                    PhoneNumber.text;
-                                                
-                                                print('As of now RecieverNumber ');
-
-                                                print(RecieverNumber );
-
-                                                print(
-                                                    "Removed Number $RecieverNumber");
-                                                print("Removed Number $value");
-                                                // Check if the phone number length is greater than 4
-                                                if (PhoneNumber.text.length >
-                                                    4 ) {
-              
-
-                                                  await Provider.of<
-                                                      FillRegisterationDropdown>(
-                                                    context,
-                                                    listen: false,
-                                                  ).fetchAndSetCusAccountCurrencyRC(
-                                                      RecieverNumber
-                                                          .toString());
-
-                                                  
-                                                  // 6/4/24
-                                               
-
-                                                 // String remitChannel = _addSaveReallyTimeData.remit_channel;
-                                                   
-                                                 
-                                                  //6/4/24
-
-                                                  setState(() {
-                                                    _isLoadingDrop_data = false;
-                                                    print(
-                                                        "RecieverAccountNumber");
-                                                    print(RecieverNumber);
+                                                    // print(partiner_id.partiner_id);
+                                                    // partiner_id = partiner_id.partiner_id.toString();
                                                   });
-
-                                                  ReciverAccount = value;
-                                                  _addSaveReallyTimeData =
-                                                      SaveReallyTimeData(
-                                                    wallet_accounts_id_fro:
-                                                        _addSaveReallyTimeData
-                                                            .wallet_accounts_id_fro,
-                                                    currency_id_fro:
-                                                        _addSaveReallyTimeData
-                                                            .currency_id_fro,
-                                                    description:
-                                                        _addSaveReallyTimeData
-                                                            .description,
-                                                    remit_channel:
-                                                        _addSaveReallyTimeData
-                                                            .remit_channel,
-                                                    currency_to_id:
-                                                        _addSaveReallyTimeData
-                                                            .currency_to_id,
-                                                    amount_from:
-                                                        _addSaveReallyTimeData
-                                                            .amount_from,
-                                                    beneficiary_name:
-                                                        _addSaveReallyTimeData
-                                                            .beneficiary_name,
-                                                    partiner_id:
-                                                        _addSaveReallyTimeData
-                                                            .partiner_id,
-                                                    reciveAmount:
-                                                        _addSaveReallyTimeData
-                                                            .reciveAmount,
-                                                    receiverNumber:
-                                                        RecieverNumber
-                                                            .toString(),
-                                                    accountNumber:
-                                                        RecieverNumber
-                                                            .toString(),
-                                                    totalpayin: _addSaveReallyTimeData.totalpayin,
-                                                    sourceOfFunds: selectedSourceOfFunds,
-                                                    purposeOfTransfer: selectedPurposeOfTransfer,
-                                                  );
-                                                }
-                                                    
-                                              },
-                                            ),
-
-                                           
-                                            const SizedBox(height: 10),
-                                            
-                                            AllformFields(
-                                              ctr: BeneficiaryName,
-                                              focusNode: _BeneficiaryName,
-                                              keyboardType: TextInputType.name,
-                                              textInputAction:
-                                                  TextInputAction.next,
-                                              hintxt: "Beneficiary Full Name",
-                                              icn: Icons.person,
-
-                                                              
-                                              validator: (value) {
-                                                if (_submitted &&
-                                                    value!.isEmpty) {
-                                                  return 'Beneficiary Full Name Field is Required';
-                                                }
-                                                return null;
-                                              },
-                                              onChanged: (value) {
-                                                FullName = value;
-                                                _addSaveReallyTimeData = SaveReallyTimeData(
-                                                    wallet_accounts_id_fro:
-                                                        _addSaveReallyTimeData
-                                                            .wallet_accounts_id_fro,
-                                                    currency_id_fro:
-                                                        _addSaveReallyTimeData
-                                                            .currency_id_fro,
-                                                    description:
-                                                        _addSaveReallyTimeData
-                                                            .description,
-                                                    remit_channel:
-                                                        _addSaveReallyTimeData
-                                                            .remit_channel,
-                                                    currency_to_id:
-                                                        _addSaveReallyTimeData
-                                                            .currency_to_id,
-                                                    amount_from:
-                                                        _addSaveReallyTimeData
-                                                            .amount_from,
-                                                    beneficiary_name: value,
-                                                    partiner_id:
-                                                        _addSaveReallyTimeData
-                                                            .partiner_id,
-                                                    reciveAmount:
-                                                        _addSaveReallyTimeData
-                                                            .reciveAmount,
-                                                    receiverNumber:
-                                                        _addSaveReallyTimeData
-                                                            .receiverNumber,
-                                                    accountNumber:
-                                                        _addSaveReallyTimeData
-                                                            .receiverNumber);
-                                                    
-                                                    sourceOfFunds: selectedSourceOfFunds;
-                                                    purposeOfTransfer: selectedPurposeOfTransfer;
-
-                                              },
-                                
-                                            ),
-
-
-                                             const SizedBox(height: 10),
-
-                                            Container(
-  padding: const EdgeInsets.only(left: 8),
-  decoration: BoxDecoration(
-    borderRadius: BorderRadius.circular(14),
-    border: Border.all(color: Colors.grey, width: 1.5),
-  ),
-  child: DropdownButtonHideUnderline(
-    child: DropdownButton2<String>(
-      isExpanded: true,
-      hint: Text(
-        "Pick Source of Funds",
-        style: TextStyle(
-          fontSize: 14,
-          color: Theme.of(context).hintColor,
-        ),
-      ),
-      items: sourceOfFunds.map((source) {
-        return DropdownMenuItem<String>(
-          value: source['name'],
-          child: Text(
-            source['name'] ?? "Unknown Source",
-            style: const TextStyle(
-              fontSize: 14,
-            ),
-          ),
-        );
-      }).toList(),
-      value: selectedSourceOfFunds,
-      onChanged: (value) {
-        setState(() {
-          selectedSourceOfFunds = value;
-
-          final selectedSource = sourceOfFunds.firstWhere(
-            (source) => source['name'] == value,
-            orElse: () => {'id': 'unknown', 'name': 'unknown'},
-          );
-
-          _addSaveReallyTimeData = _addSaveReallyTimeData.copyWith(
-            sourceOfFunds: selectedSource['name'],
-            source_id: selectedSource['id'],
-          );
-        });
-
-        debugPrint("Dropdown changed: Source of Funds = ${selectedSourceOfFunds}, Source ID = ${_addSaveReallyTimeData.source_id}");
-      },
-      buttonStyleData: const ButtonStyleData(
-        height: 45,
-        width: 350,
-      ),
-      dropdownStyleData: const DropdownStyleData(
-        maxHeight: 200,
-      ),
-      menuItemStyleData: const MenuItemStyleData(
-        height: 40,
-      ),
-      iconStyleData: const IconStyleData(
-        iconSize: 30,
-        iconEnabledColor: primaryColor,
-        icon: Icon(
-          Icons.arrow_drop_down_circle,
-        ),
-      ),
-    ),
-  ),
-),
-
-const SizedBox(height: 10),
-
-/// Purpose of Transfer Dropdown
-Container(
-  padding: const EdgeInsets.only(left: 8),
-  decoration: BoxDecoration(
-    borderRadius: BorderRadius.circular(14),
-    border: Border.all(color: Colors.grey, width: 1.5),
-  ),
-  child: DropdownButtonHideUnderline(
-    child: DropdownButton2<String>(
-      isExpanded: true,
-      hint: Text(
-        "Pick Purpose of Transfer",
-        style: TextStyle(
-          fontSize: 14,
-          color: Theme.of(context).hintColor,
-        ),
-      ),
-      items: purposeOfTransfer.map((purpose) {
-        return DropdownMenuItem<String>(
-          value: purpose['name'],
-          child: Text(
-            purpose['name'] ?? "Unknown Purpose",
-            style: const TextStyle(
-              fontSize: 14,
-            ),
-          ),
-        );
-      }).toList(),
-      value: selectedPurposeOfTransfer,
-      onChanged: (value) {
-        setState(() {
-          selectedPurposeOfTransfer = value;
-
-          final selectedPurpose = purposeOfTransfer.firstWhere(
-            (purpose) => purpose['name'] == value,
-            orElse: () => {'id': 'unknown', 'name': 'unknown'},
-          );
-
-          _addSaveReallyTimeData = _addSaveReallyTimeData.copyWith(
-            purposeOfTransfer: selectedPurpose['name'],
-            purpose_id: selectedPurpose['id'],
-          );
-        });
-
-        debugPrint("Dropdown changed: Purpose of Transfer = ${selectedPurposeOfTransfer}, Purpose ID = ${_addSaveReallyTimeData.purpose_id}");
-      },
-      buttonStyleData: const ButtonStyleData(
-        height: 45,
-        width: 350,
-      ),
-      dropdownStyleData: const DropdownStyleData(
-        maxHeight: 200,
-      ),
-      menuItemStyleData: const MenuItemStyleData(
-        height: 40,
-      ),
-      iconStyleData: const IconStyleData(
-        iconSize: 30,
-        iconEnabledColor: primaryColor,
-        icon: Icon(
-          Icons.arrow_drop_down_circle,
-        ),
-      ),
-    ),
-  ),
-),
-                                            
-                                            const SizedBox(height: 10),
-                                            const Text(
-                                              "Amount",
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: secondryColor,
-                                                fontWeight: FontWeight.bold,
+                                                },
+                                                maintext:
+                                                    "Pick Beneficiary bank",
+                                                hintxt:
+                                                    "Search Beneficiary bank",
+                                                items: RemitChannelTypes
+                                                    .FillRemitChannelTypes,
+                                                dropdownValue: RemitChannel,
+                                                SearchCtr: RemitChannelDSearch,
                                               ),
-                                            ),
-                                            
-                                            const SizedBox(height: 10),
-                                            AllformFields(
-                                              ctr: SendAmount,
-                                              focusNode: _SendAmount,
-                                              // keyboardType:
-                                              //     TextInputType.number,
-                                              keyboardType: Platform.isIOS
-                                                  ? const TextInputType
-                                                      .numberWithOptions(
-                                                          signed: true,
-                                                          decimal: true)
-                                                  : TextInputType.number,
-                                              
-                                              inputFormatters: [
-                                                FilteringTextInputFormatter
-                                                    .allow(RegExp('[0-9]'))
-                                              ],
-                                              textInputAction:
-                                                  TextInputAction.done,
-                                              validator: (value) {
-                                                if (_submitted &&
-                                                    value!.isEmpty) {
-                                                  return 'SendAmount  Field is Required';
-                                                }
-                                                return null;
-                                              },
-                                              onEditingComplete: () async {
-                                                if (fieldValue.isNotEmpty) {
-                                                  setState(() {
-                                                    _isLoadingExchange = true;
-                                                  });
-                                                  var CurrencyDataFrom = Provider
-                                                          .of<FillRegisterationDropdown>(
-                                                              context,
-                                                              listen: false)
-                                                      .findByIdTC(CurrencyID
-                                                          .toString());
-
-                                                  if (partiner_tag == "SHFT") {
-                                                     result = await Provider.of<
-                                                                Walletremit>(
-                                                            context,
-                                                            listen: false)
-                                                        .getShiftCurrencyConveret(
-                                                      widget.country.toString(),
-                                                      CurrencyID.toString(),
-                                                      fieldValue.toString(),
-                                                      RemitChannel.toString(),
-                                                      partiner_id.toString(),
-                                                    );
-                                                  }
-                                                  else if(partiner_tag == "Onafriq")
-                                                  {
-                                                      result = await Provider.of<
-                                                                Walletremit>(
-                                                            context,
-                                                            listen: false)
-                                                        .getOnafriqCurrencyConveret(
-                                                      widget.country.toString(),
-                                                      CurrencyID.toString(),
-                                                      fieldValue.toString(),
-                                                      RemitChannel.toString(),
-                                                      partiner_id.toString(),
-                                                    );
-                                                  }
-                                                   else {
-                                                     result = await Provider.of<
-                                                                Walletremit>(
-                                                            context,
-                                                            listen: false)
-                                                        .getAsalExchange(
-                                                            widget.country
-                                                                .toString(),
-                                                            CurrencyID
-                                                                .toString(),
-                                                            fieldValue
-                                                                .toString(),
-                                                      partiner_id.toString(),
-                                                    );
-                                                  
-                                                  }
-
-                                                  if (result['status']
-                                                          .toString() ==
-                                                      "False") {
-                                                    openSnackbar(
-                                                        context,
-                                                        result['messages']
-                                                            .toString(),
-                                                        secondryColor);
-                                                    setState(() {
-                                                      _isLoadingExchange =
-                                                          false;
-                                                    });
-                                                  } else {
-                                                    setState(() {
-                                                      currency_name_fro =
-                                                          CurrencyDataFrom.name;
-                                                      double numericValue =
-                                                          double.parse(
-                                                              fieldValue);
-                                                      amount_fro = numericValue
-                                                          .toStringAsFixed(2);
-                                                      // amount_fro = value;
-                                                      print(amount_fro);
-                                                      print('amount');
-                                                      print(result);
-                                                      print(result['result']
-                                                              ['amount_to']
-                                                          .toString());
-                                                      double amount =
-                                                          double.parse(result[
-                                                                      'result']
-                                                                  ['amount_to']
-                                                              .toString());
-                                                      double truncatedAmount =
-                                                          (amount * 100)
-                                                                  .truncateToDouble() /
-                                                              100;
-                                                      Reciveamount =
-                                                          truncatedAmount
-                                                              .toString();
-                                                      print(
-                                                          "truncatedAmountString:  $Reciveamount");
-                                                      charge = result['result']
-                                                              ['charge']
-                                                          .toString();
-                                                      currency_name_to = result[
-                                                                  'result'][
-                                                              'currency_name_to']
-                                                          .toString();
-                                                      currency_id_to = result[
-                                                                  'result']
-                                                              ['currency_id_to']
-                                                          .toString();
-
-                                                      rate = result['result']
-                                                              ['rate']
-                                                          .toString();
-
-                                                      totalPayingAmount = double
-                                                              .parse(
-                                                                  amount_fro) +
-                                                          double.parse(charge);
-                                                      AmountReceive =
-                                                          "$currency_name_to $Reciveamount";
-
-                                                      setState(() {
-                                                        _isLoadingExchange =
-                                                            false;
-                                                      });
-                                                    });
-                                                  }
-                                                }
-                                                if (fieldValue.isEmpty) {
-                                                  setState(() {
-                                                    print("Reciveamount");
-                                                    print(Reciveamount);
-                                                    print("AmountReceive.text");
-                                                    print("AmountReceive");
-                                                    print(AmountReceive);
-                                                    AmountReceive = '0000';
-                                                    // AmountReceive.text = "000";
-                                                  });
-                                                }
-                                                _addSaveReallyTimeData = SaveReallyTimeData(
-                                                    wallet_accounts_id_fro:
-                                                        _addSaveReallyTimeData
-                                                            .wallet_accounts_id_fro,
-                                                    currency_id_fro:
-                                                        CurrencyID!,
-                                                    description:
-                                                        _addSaveReallyTimeData
-                                                            .description,
-                                                    remit_channel:
-                                                        RemitChannel!,
-                                                    currency_to_id:
-                                                        currency_id_to,
-                                                    amount_from: fieldValue,
-                                                    beneficiary_name:
-                                                        _addSaveReallyTimeData
-                                                            .beneficiary_name,
-                                                    partiner_id: partiner_id,
-                                                    reciveAmount: Reciveamount,
-                                                    receiverNumber:
-                                                        _addSaveReallyTimeData
-                                                            .receiverNumber,
-                                                    accountNumber:
-                                                        _addSaveReallyTimeData
-                                                            .receiverNumber,
-                                                    totalpayin: totalPayingAmount.toString(),
-
-                                                    sourceOfFunds: selectedSourceOfFunds,
-                                                    purposeOfTransfer: selectedPurposeOfTransfer,
-                                                );
-                                                _SendAmount.unfocus();
-
-                                              },
-                                              onChanged: (value) {
-                                                
-                                                fieldValue = value;
-                                              },
-                                              hintxt: "Amount",
-                                              // icn: Icons.attach_money_sharp,
-                                            ),
-                                            const SizedBox(height: 10),
-
-                                          
-                                            Card(
-                                              elevation: 5,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(15),
-                                                side: BorderSide(
-                                                    color: Colors.grey
-                                                        .withOpacity(0.5),
-                                                    width: 1),
+                                              const SizedBox(height: 10),
+                                              const Text(
+                                                "Phone Number",
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: secondryColor,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                               ),
-                                              child: Column(
+                                              const SizedBox(height: 5),
+                                              Stack(
+                                                alignment:
+                                                    Alignment.centerRight,
                                                 children: [
-                                                  ListTile(
-                                                    contentPadding:
-                                                        const EdgeInsets.symmetric(
-                                                            horizontal: 16,
-                                                            vertical: 0),
-                                                    title: const Text(
-                                                      "Transaction Fee",
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: secondryColor,
-                                                        fontWeight:
-                                                            FontWeight.bold,
+                                                  AllformFields(
+                                                    // ctr: PhoneNumber,
+                                                    ctr:
+                                                        phoneNumberController, // Pass the controller here
+                                                    focusNode: _PhoneNumber,
+                                                    keyboardType:
+                                                        TextInputType.phone,
+                                                    // textInputAction:partiner_tag=='SSP' ? TextInputAction.done:
+                                                    //     TextInputAction.next,
+                                                    textInputAction:
+                                                        (partiner_tag ==
+                                                                    'SSP' ||
+                                                                partiner_tag ==
+                                                                    'Onafriq')
+                                                            ? TextInputAction
+                                                                .done
+                                                            : TextInputAction
+                                                                .next,
+
+                                                    hintxt:
+                                                        "Enter phone number",
+                                                    icn: Icons.phone_iphone,
+                                                    validator: (value) {
+                                                      if (_submitted) {
+                                                        if (value == null ||
+                                                            value.isEmpty) {
+                                                          return 'Phone Number Field is Required';
+                                                        }
+
+                                                        if (value.length < 5) {
+                                                          return 'Enter at least 5 digits';
+                                                        }
+                                                      }
+                                                      return null;
+                                                    },
+
+                                                    onEditingComplete:
+                                                        () async {
+                                                      String
+                                                          textWithoutSpacesAndPlus =
+                                                          fieldValuePhone
+                                                              .replaceAll(
+                                                                  ' ', '')
+                                                              .replaceAll(
+                                                                  '+', '');
+                                                      PhoneNumber.value =
+                                                          PhoneNumber.value
+                                                              .copyWith(
+                                                        text:
+                                                            textWithoutSpacesAndPlus,
+                                                      );
+
+                                                      String partnerTag =
+                                                          partiner_tag ?? '';
+
+                                                      print(
+                                                          'Current partner_tag is: $partnerTag');
+
+                                                      if (partnerTag == "SSP" ||
+                                                          partnerTag ==
+                                                              "Onafriq") {
+                                                        if (mounted)
+                                                          setState(() {
+                                                            _isValidatingPhone =
+                                                                true;
+                                                          });
+
+                                                        if (partnerTag ==
+                                                            "SSP") {
+                                                          var accountData =
+                                                              await validateAccount(
+                                                                  RemitChannel!,
+                                                                  textWithoutSpacesAndPlus,
+                                                                  partnerTag,
+                                                                  widget
+                                                                      .country);
+
+                                                          if (accountData !=
+                                                                  null &&
+                                                              accountData[
+                                                                  'status']) {
+                                                            BeneficiaryName
+                                                                    .text =
+                                                                accountData[
+                                                                    'account_name'];
+                                                            _addSaveReallyTimeData =
+                                                                _addSaveReallyTimeData.copyWith(
+                                                                    beneficiaryName:
+                                                                        accountData[
+                                                                            'account_name']);
+                                                            FullName = accountData[
+                                                                'account_name'];
+                                                          } else {
+                                                            BeneficiaryName
+                                                                .text = '';
+                                                            FullName = '';
+                                                          }
+                                                        } else if (partnerTag ==
+                                                            "Onafriq") {
+                                                          var walletData =
+                                                              await validateMobileWallet(
+                                                                  textWithoutSpacesAndPlus,
+                                                                  '808080',
+                                                                  43); // You can dynamically pass the accountNumber and country_id
+
+                                                          if (walletData !=
+                                                                  null &&
+                                                              walletData[
+                                                                  'status']) {
+                                                            if (walletData[
+                                                                    'message']
+                                                                .contains(
+                                                                    'number is active')) {
+                                                              showDialog(
+                                                                context:
+                                                                    context,
+                                                                builder:
+                                                                    (BuildContext
+                                                                        context) {
+                                                                  return AlertDialog(
+                                                                    title: const Text(
+                                                                        'Mobile Wallet Status'),
+                                                                    content:
+                                                                        const Text(
+                                                                            'The phone number is active.'),
+                                                                    actions: [
+                                                                      TextButton(
+                                                                        child: const Text(
+                                                                            'OK'),
+                                                                        onPressed:
+                                                                            () {
+                                                                          Navigator.of(context)
+                                                                              .pop();
+                                                                        },
+                                                                      ),
+                                                                    ],
+                                                                  );
+                                                                },
+                                                              );
+                                                            } else {
+                                                              showDialog(
+                                                                context:
+                                                                    context,
+                                                                builder:
+                                                                    (BuildContext
+                                                                        context) {
+                                                                  return AlertDialog(
+                                                                    title: const Text(
+                                                                        'Mobile Wallet Status'),
+                                                                    content:
+                                                                        const Text(
+                                                                            'The phone number is inactive.'),
+                                                                    actions: [
+                                                                      TextButton(
+                                                                        child: const Text(
+                                                                            'OK'),
+                                                                        onPressed:
+                                                                            () {
+                                                                          Navigator.of(context)
+                                                                              .pop();
+                                                                        },
+                                                                      ),
+                                                                    ],
+                                                                  );
+                                                                },
+                                                              );
+                                                            }
+                                                          } else {
+                                                            showDialog(
+                                                              context: context,
+                                                              builder:
+                                                                  (BuildContext
+                                                                      context) {
+                                                                return AlertDialog(
+                                                                  title: const Text(
+                                                                      'Error'),
+                                                                  content:
+                                                                      const Text(
+                                                                          'The phone number is inactive..'),
+                                                                  actions: [
+                                                                    TextButton(
+                                                                      child: const Text(
+                                                                          'OK'),
+                                                                      onPressed:
+                                                                          () {
+                                                                        Navigator.of(context)
+                                                                            .pop();
+                                                                      },
+                                                                    ),
+                                                                  ],
+                                                                );
+                                                              },
+                                                            );
+                                                          }
+                                                        }
+
+                                                        if (mounted)
+                                                          setState(() {
+                                                            _isValidatingPhone =
+                                                                false;
+                                                          });
+                                                      }
+                                                    },
+
+                                                    onTap: () async {
+                                                      try {
+                                                        await requestContactPermission(
+                                                            context,
+                                                            phoneNumberController);
+                                                      } catch (e) {
+                                                        print(
+                                                            'Error in onTap: $e'); // Debug log
+                                                      }
+                                                    },
+
+                                                    //to here
+
+                                                    onChanged: (value) async {
+                                                      // Remove spaces and "+" and update the text field
+
+                                                      fieldValuePhone = value;
+
+                                                      print(
+                                                          'The value as of now');
+
+                                                      print(value);
+
+                                                      String
+                                                          textWithoutSpacesAndPlus =
+                                                          value
+                                                              .replaceAll(
+                                                                  ' ', '')
+                                                              .replaceAll(
+                                                                  '+', '');
+                                                      PhoneNumber.value =
+                                                          PhoneNumber.value
+                                                              .copyWith(
+                                                        text:
+                                                            textWithoutSpacesAndPlus,
+
+                                                        // selection: TextSelection.collapsed(
+                                                        //     offset: textWithoutSpacesAndPlus.length),
+                                                      );
+                                                      print(
+                                                          'As of now textWithoutSpacesAndPlus ');
+
+                                                      print(
+                                                          textWithoutSpacesAndPlus);
+                                                      // Access the text without spaces
+                                                      RecieverNumber =
+                                                          PhoneNumber.text;
+
+                                                      print(
+                                                          'As of now RecieverNumber ');
+
+                                                      print(RecieverNumber);
+
+                                                      print(
+                                                          "Removed Number $RecieverNumber");
+                                                      print(
+                                                          "Removed Number $value");
+                                                      // Check if the phone number length is greater than 4
+                                                      if (PhoneNumber
+                                                              .text.length >
+                                                          4) {
+                                                        await Provider.of<
+                                                            FillRegisterationDropdown>(
+                                                          context,
+                                                          listen: false,
+                                                        ).fetchAndSetCusAccountCurrencyRC(
+                                                            RecieverNumber
+                                                                .toString());
+
+                                                        // 6/4/24
+
+                                                        // String remitChannel = _addSaveReallyTimeData.remit_channel;
+
+                                                        //6/4/24
+
+                                                        if (mounted)
+                                                          setState(() {
+                                                            _isValidatingPhone =
+                                                                false;
+                                                            print(
+                                                                "RecieverAccountNumber");
+                                                            print(
+                                                                RecieverNumber);
+                                                          });
+
+                                                        ReciverAccount = value;
+                                                        _addSaveReallyTimeData =
+                                                            SaveReallyTimeData(
+                                                          wallet_accounts_id_fro:
+                                                              _addSaveReallyTimeData
+                                                                  .wallet_accounts_id_fro,
+                                                          currency_id_fro:
+                                                              _addSaveReallyTimeData
+                                                                  .currency_id_fro,
+                                                          description:
+                                                              _addSaveReallyTimeData
+                                                                  .description,
+                                                          remit_channel:
+                                                              _addSaveReallyTimeData
+                                                                  .remit_channel,
+                                                          currency_to_id:
+                                                              _addSaveReallyTimeData
+                                                                  .currency_to_id,
+                                                          amount_from:
+                                                              _addSaveReallyTimeData
+                                                                  .amount_from,
+                                                          beneficiary_name:
+                                                              _addSaveReallyTimeData
+                                                                  .beneficiary_name,
+                                                          partiner_id:
+                                                              _addSaveReallyTimeData
+                                                                  .partiner_id,
+                                                          reciveAmount:
+                                                              _addSaveReallyTimeData
+                                                                  .reciveAmount,
+                                                          receiverNumber:
+                                                              RecieverNumber
+                                                                  .toString(),
+                                                          accountNumber:
+                                                              RecieverNumber
+                                                                  .toString(),
+                                                          totalpayin:
+                                                              _addSaveReallyTimeData
+                                                                  .totalpayin,
+                                                          sourceOfFunds:
+                                                              selectedSourceOfFunds,
+                                                          purposeOfTransfer:
+                                                              selectedPurposeOfTransfer,
+                                                        );
+                                                      }
+                                                    },
+                                                  ),
+                                                  if (_isValidatingPhone)
+                                                    const Padding(
+                                                      padding: EdgeInsets.only(
+                                                          right: 12),
+                                                      child: SizedBox(
+                                                        width: 24,
+                                                        height: 24,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                                strokeWidth: 2),
                                                       ),
                                                     ),
-                                                    trailing: Text(
-                                                      "$currency_name_fro $charge",
-                                                      style: const TextStyle(
-                                                        fontSize: 14,
-                                                        color: primaryColor,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  Divider(
-                                                    color: Colors.grey
-                                                        .withOpacity(0.5),
-                                                    thickness: 1,
-                                                    height: 0,
-                                                    indent: 16,
-                                                    endIndent: 16,
-                                                  ),
-                                                  _isLoadingExchange
-                                                      ? const Center(
-                                                          child: LogoandSpinner(
-                                                            imageAssets:
-                                                                'assets/asalicon.png',
-                                                            reverse: true,
-                                                            arcColor:
-                                                                primaryColor,
-                                                            spinSpeed: Duration(
-                                                                milliseconds:
-                                                                    500),
-                                                          ),
-                                                        )
-                                                      : ListTile(
-                                                          contentPadding:
-                                                              const EdgeInsets
-                                                                  .symmetric(
-                                                                      horizontal:
-                                                                          16,
-                                                                      vertical:
-                                                                          0),
-                                                          title: const Text(
-                                                            "Received Amount",
-                                                            style: TextStyle(
-                                                              fontSize: 14,
-                                                              color:
-                                                                  secondryColor,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                            ),
-                                                          ),
-                                                          trailing: Text(
-                                                            AmountReceive,
-                                                            style: const TextStyle(
-                                                              fontSize: 14,
-                                                              color:
-                                                                  primaryColor,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                  Divider(
-                                                    color: Colors.grey
-                                                        .withOpacity(0.5),
-                                                    thickness: 1,
-                                                    height: 0,
-                                                    indent: 16,
-                                                    endIndent: 16,
-                                                  ),
-                                                  ListTile(
-                                                    contentPadding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 16,
-                                                        vertical: 0),
-                                                    title: const Text(
-                                                      "Forex Rate",
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: secondryColor,
-                                                        fontWeight:
-                                                        FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                    trailing: Text(
-                                                      "$currency_name_to $rate ",
-                                                      style: const TextStyle(
-                                                        fontSize: 14,
-                                                        color: primaryColor,
-                                                        fontWeight:
-                                                        FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  Divider(
-                                                    color: Colors.grey
-                                                        .withOpacity(0.5),
-                                                    thickness: 1,
-                                                    height: 0,
-                                                    indent: 16,
-                                                    endIndent: 16,
-                                                  ),
-                                                  ListTile(
-                                                    contentPadding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 16,
-                                                        vertical: 0),
-                                                    title: const Text(
-                                                      "Total Amount ",
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: secondryColor,
-                                                        fontWeight:
-                                                        FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                    trailing: Text(
-                                                      " $currency_name_fro $totalPayingAmount",
-                                                      style: const TextStyle(
-                                                        fontSize: 14,
-                                                        color: primaryColor,
-                                                        fontWeight:
-                                                        FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ),
                                                 ],
                                               ),
-                                            ),
-                                            !_isLoadingExchange
-                                                ? isConnected
-                                                    ? _isLoading
+                                              const SizedBox(height: 10),
+                                              const Text(
+                                                "Beneficiary Full Name",
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: secondryColor,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 5),
+                                              AllformFields(
+                                                ctr: BeneficiaryName,
+                                                focusNode: _BeneficiaryName,
+                                                keyboardType:
+                                                    TextInputType.name,
+                                                textInputAction:
+                                                    TextInputAction.next,
+                                                hintxt:
+                                                    "Enter beneficiary name",
+                                                icn: Icons.person,
+                                                validator: (value) {
+                                                  if (_submitted &&
+                                                      value!.isEmpty) {
+                                                    return 'Beneficiary Full Name Field is Required';
+                                                  }
+                                                  return null;
+                                                },
+                                                onChanged: (value) {
+                                                  FullName = value;
+                                                  _addSaveReallyTimeData = SaveReallyTimeData(
+                                                      wallet_accounts_id_fro:
+                                                          _addSaveReallyTimeData
+                                                              .wallet_accounts_id_fro,
+                                                      currency_id_fro:
+                                                          _addSaveReallyTimeData
+                                                              .currency_id_fro,
+                                                      description:
+                                                          _addSaveReallyTimeData
+                                                              .description,
+                                                      remit_channel:
+                                                          _addSaveReallyTimeData
+                                                              .remit_channel,
+                                                      currency_to_id:
+                                                          _addSaveReallyTimeData
+                                                              .currency_to_id,
+                                                      amount_from:
+                                                          _addSaveReallyTimeData
+                                                              .amount_from,
+                                                      beneficiary_name: value,
+                                                      partiner_id:
+                                                          _addSaveReallyTimeData
+                                                              .partiner_id,
+                                                      reciveAmount:
+                                                          _addSaveReallyTimeData
+                                                              .reciveAmount,
+                                                      receiverNumber:
+                                                          _addSaveReallyTimeData
+                                                              .receiverNumber,
+                                                      accountNumber:
+                                                          _addSaveReallyTimeData
+                                                              .receiverNumber);
+
+                                                  sourceOfFunds:
+                                                  selectedSourceOfFunds;
+                                                  purposeOfTransfer:
+                                                  selectedPurposeOfTransfer;
+                                                },
+                                              ),
+                                              const SizedBox(height: 10),
+                                              const Text(
+                                                "Source of Funds",
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: secondryColor,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 5),
+                                              Container(
+                                                padding: const EdgeInsets.only(
+                                                    left: 8),
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                  border: Border.all(
+                                                      color: Colors.grey,
+                                                      width: 1.5),
+                                                ),
+                                                child:
+                                                    DropdownButtonHideUnderline(
+                                                  child:
+                                                      DropdownButton2<String>(
+                                                    isExpanded: true,
+                                                    hint: Text(
+                                                      "Pick Source of Funds",
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: Theme.of(context)
+                                                            .hintColor,
+                                                      ),
+                                                    ),
+                                                    items: sourceOfFunds
+                                                        .map((source) {
+                                                      return DropdownMenuItem<
+                                                          String>(
+                                                        value: source['name'],
+                                                        child: Text(
+                                                          source['name'] ??
+                                                              "Unknown Source",
+                                                          style:
+                                                              const TextStyle(
+                                                            fontSize: 14,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }).toList(),
+                                                    value:
+                                                        selectedSourceOfFunds,
+                                                    onChanged: (value) {
+                                                      setState(() {
+                                                        selectedSourceOfFunds =
+                                                            value;
+
+                                                        final selectedSource =
+                                                            sourceOfFunds
+                                                                .firstWhere(
+                                                          (source) =>
+                                                              source['name'] ==
+                                                              value,
+                                                          orElse: () => {
+                                                            'id': 'unknown',
+                                                            'name': 'unknown'
+                                                          },
+                                                        );
+
+                                                        _addSaveReallyTimeData =
+                                                            _addSaveReallyTimeData
+                                                                .copyWith(
+                                                          sourceOfFunds:
+                                                              selectedSource[
+                                                                  'name'],
+                                                          source_id:
+                                                              selectedSource[
+                                                                  'id'],
+                                                        );
+                                                      });
+
+                                                      debugPrint(
+                                                          "Dropdown changed: Source of Funds = ${selectedSourceOfFunds}, Source ID = ${_addSaveReallyTimeData.source_id}");
+                                                    },
+                                                    buttonStyleData:
+                                                        const ButtonStyleData(
+                                                      height: 45,
+                                                      width: 350,
+                                                    ),
+                                                    dropdownStyleData:
+                                                        const DropdownStyleData(
+                                                      maxHeight: 200,
+                                                    ),
+                                                    menuItemStyleData:
+                                                        const MenuItemStyleData(
+                                                      height: 40,
+                                                    ),
+                                                    iconStyleData:
+                                                        const IconStyleData(
+                                                      iconSize: 30,
+                                                      iconEnabledColor:
+                                                          primaryColor,
+                                                      icon: Icon(
+                                                        Icons
+                                                            .arrow_drop_down_circle,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 10),
+                                              const Text(
+                                                "Purpose of Transfer",
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: secondryColor,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 5),
+                                              Container(
+                                                padding: const EdgeInsets.only(
+                                                    left: 8),
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                  border: Border.all(
+                                                      color: Colors.grey,
+                                                      width: 1.5),
+                                                ),
+                                                child:
+                                                    DropdownButtonHideUnderline(
+                                                  child:
+                                                      DropdownButton2<String>(
+                                                    isExpanded: true,
+                                                    hint: Text(
+                                                      "Pick Purpose of Transfer",
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: Theme.of(context)
+                                                            .hintColor,
+                                                      ),
+                                                    ),
+                                                    items: purposeOfTransfer
+                                                        .map((purpose) {
+                                                      return DropdownMenuItem<
+                                                          String>(
+                                                        value: purpose['name'],
+                                                        child: Text(
+                                                          purpose['name'] ??
+                                                              "Unknown Purpose",
+                                                          style:
+                                                              const TextStyle(
+                                                            fontSize: 14,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }).toList(),
+                                                    value:
+                                                        selectedPurposeOfTransfer,
+                                                    onChanged: (value) {
+                                                      setState(() {
+                                                        selectedPurposeOfTransfer =
+                                                            value;
+
+                                                        final selectedPurpose =
+                                                            purposeOfTransfer
+                                                                .firstWhere(
+                                                          (purpose) =>
+                                                              purpose['name'] ==
+                                                              value,
+                                                          orElse: () => {
+                                                            'id': 'unknown',
+                                                            'name': 'unknown'
+                                                          },
+                                                        );
+
+                                                        _addSaveReallyTimeData =
+                                                            _addSaveReallyTimeData
+                                                                .copyWith(
+                                                          purposeOfTransfer:
+                                                              selectedPurpose[
+                                                                  'name'],
+                                                          purpose_id:
+                                                              selectedPurpose[
+                                                                  'id'],
+                                                        );
+                                                      });
+
+                                                      debugPrint(
+                                                          "Dropdown changed: Purpose of Transfer = ${selectedPurposeOfTransfer}, Purpose ID = ${_addSaveReallyTimeData.purpose_id}");
+                                                    },
+                                                    buttonStyleData:
+                                                        const ButtonStyleData(
+                                                      height: 45,
+                                                      width: 350,
+                                                    ),
+                                                    dropdownStyleData:
+                                                        const DropdownStyleData(
+                                                      maxHeight: 200,
+                                                    ),
+                                                    menuItemStyleData:
+                                                        const MenuItemStyleData(
+                                                      height: 40,
+                                                    ),
+                                                    iconStyleData:
+                                                        const IconStyleData(
+                                                      iconSize: 30,
+                                                      iconEnabledColor:
+                                                          primaryColor,
+                                                      icon: Icon(
+                                                        Icons
+                                                            .arrow_drop_down_circle,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 10),
+                                              const Text(
+                                                "Amount",
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: secondryColor,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 5),
+                                              AllformFields(
+                                                ctr: SendAmount,
+                                                focusNode: _SendAmount,
+                                                // keyboardType:
+                                                //     TextInputType.number,
+                                                keyboardType: Platform.isIOS
+                                                    ? const TextInputType
+                                                        .numberWithOptions(
+                                                        signed: true,
+                                                        decimal: true)
+                                                    : TextInputType.number,
+
+                                                inputFormatters: [
+                                                  FilteringTextInputFormatter
+                                                      .allow(RegExp('[0-9]'))
+                                                ],
+                                                textInputAction:
+                                                    TextInputAction.done,
+                                                validator: (value) {
+                                                  if (_submitted &&
+                                                      value!.isEmpty) {
+                                                    return 'SendAmount  Field is Required';
+                                                  }
+                                                  return null;
+                                                },
+                                                onEditingComplete: () {
+                                                  fieldValue = SendAmount.text.trim();
+                                                  _addSaveReallyTimeData = SaveReallyTimeData(
+                                                    wallet_accounts_id_fro: _addSaveReallyTimeData.wallet_accounts_id_fro,
+                                                    currency_id_fro: CurrencyID!,
+                                                    description: _addSaveReallyTimeData.description,
+                                                    remit_channel: RemitChannel!,
+                                                    currency_to_id: currency_id_to,
+                                                    amount_from: fieldValue,
+                                                    beneficiary_name: _addSaveReallyTimeData.beneficiary_name,
+                                                    partiner_id: partiner_id,
+                                                    reciveAmount: Reciveamount,
+                                                    receiverNumber: _addSaveReallyTimeData.receiverNumber,
+                                                    accountNumber: _addSaveReallyTimeData.receiverNumber,
+                                                    totalpayin: totalPayingAmount.toString(),
+                                                    sourceOfFunds: selectedSourceOfFunds,
+                                                    purposeOfTransfer: selectedPurposeOfTransfer,
+                                                  );
+                                                  _SendAmount.unfocus();
+                                                },
+                                                onChanged: (value) {
+                                                  fieldValue = value;
+                                                  _exchangeDebounce?.cancel();
+                                                  if (value.trim().isEmpty) {
+                                                    setState(() {
+                                                      AmountReceive = '0000';
+                                                      _lastFetchedAmount = '';
+                                                    });
+                                                    return;
+                                                  }
+                                                  _exchangeDebounce = Timer(const Duration(milliseconds: 1000), () {
+                                                    if (!mounted) return;
+                                                    final amt = SendAmount.text.trim();
+                                                    if (amt.isEmpty) return;
+                                                    _fetchExchangeForAmount(amt);
+                                                  });
+                                                },
+                                                hintxt: "Enter amount",
+                                                // icn: Icons.attach_money_sharp,
+                                              ),
+                                              const SizedBox(height: 10),
+                                              Card(
+                                                elevation: 5,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(15),
+                                                  side: BorderSide(
+                                                      color: Colors.grey
+                                                          .withOpacity(0.5),
+                                                      width: 1),
+                                                ),
+                                                child: Column(
+                                                  children: [
+                                                    ListTile(
+                                                      contentPadding:
+                                                          const EdgeInsets
+                                                              .symmetric(
+                                                              horizontal: 16,
+                                                              vertical: 0),
+                                                      title: const Text(
+                                                        "Transaction Fee",
+                                                        style: TextStyle(
+                                                          fontSize: 14,
+                                                          color: secondryColor,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                      trailing: Text(
+                                                        "$currency_name_fro $charge",
+                                                        style: const TextStyle(
+                                                          fontSize: 14,
+                                                          color: primaryColor,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Divider(
+                                                      color: Colors.grey
+                                                          .withOpacity(0.5),
+                                                      thickness: 1,
+                                                      height: 0,
+                                                      indent: 16,
+                                                      endIndent: 16,
+                                                    ),
+                                                    _isLoadingExchange
                                                         ? const Center(
                                                             child:
-                                                                // CircularProgressIndicator(),
                                                                 LogoandSpinner(
-                                                            imageAssets:
-                                                                'assets/asalicon.png',
-                                                            reverse: true,
-                                                            arcColor:
-                                                                primaryColor,
-                                                            spinSpeed: Duration(
-                                                                milliseconds:
-                                                                    500),
-                                                          ))
-                                                        : InkWell(
-                                                            onTap: () {
-                                                              // _showSheet();
-                                                              // _saveForm();
-                                                              _submitted = true;
-                                                              final isValid = _form
-                                                                  .currentState
-                                                                  ?.validate();
-                                                              if (!isValid!) {
-                                                                print("valid");
-                                                                return;
-                                                              }
-                                                              _form.currentState
-                                                                  ?.save();
-                                                              print(
-                                                                  "Reciveamount Before $Reciveamount");
-                                                              // if(Reciveamount.isEmpty){
-                                                              _showMyDialogConfirmPin();
-                                                              // print("Reciveamount After $Reciveamount");
-                                                              // }
-                                                            },
-                                                            child: const CommonBtn(
-                                                              txt: "Send",
+                                                              imageAssets:
+                                                                  'assets/asalicon.png',
+                                                              reverse: true,
+                                                              arcColor:
+                                                                  primaryColor,
+                                                              spinSpeed: Duration(
+                                                                  milliseconds:
+                                                                      500),
                                                             ),
                                                           )
-                                                    : Center(
-                                                        child: Text(
-                                                            'Network Status: $statusText'),
-                                                      )
-                                                : Container(),
-                                            const SizedBox(
-                                              height: 30,
-                                            ),
-                                          ],
+                                                        : ListTile(
+                                                            contentPadding:
+                                                                const EdgeInsets
+                                                                    .symmetric(
+                                                                    horizontal:
+                                                                        16,
+                                                                    vertical:
+                                                                        0),
+                                                            title: const Text(
+                                                              "Received Amount",
+                                                              style: TextStyle(
+                                                                fontSize: 14,
+                                                                color:
+                                                                    secondryColor,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
+                                                            ),
+                                                            trailing: Text(
+                                                              AmountReceive,
+                                                              style:
+                                                                  const TextStyle(
+                                                                fontSize: 14,
+                                                                color:
+                                                                    primaryColor,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                    Divider(
+                                                      color: Colors.grey
+                                                          .withOpacity(0.5),
+                                                      thickness: 1,
+                                                      height: 0,
+                                                      indent: 16,
+                                                      endIndent: 16,
+                                                    ),
+                                                    ListTile(
+                                                      contentPadding:
+                                                          const EdgeInsets
+                                                              .symmetric(
+                                                              horizontal: 16,
+                                                              vertical: 0),
+                                                      title: const Text(
+                                                        "Forex Rate",
+                                                        style: TextStyle(
+                                                          fontSize: 14,
+                                                          color: secondryColor,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                      trailing: Text(
+                                                        "$currency_name_to $rate ",
+                                                        style: const TextStyle(
+                                                          fontSize: 14,
+                                                          color: primaryColor,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Divider(
+                                                      color: Colors.grey
+                                                          .withOpacity(0.5),
+                                                      thickness: 1,
+                                                      height: 0,
+                                                      indent: 16,
+                                                      endIndent: 16,
+                                                    ),
+                                                    ListTile(
+                                                      contentPadding:
+                                                          const EdgeInsets
+                                                              .symmetric(
+                                                              horizontal: 16,
+                                                              vertical: 0),
+                                                      title: const Text(
+                                                        "Total Amount ",
+                                                        style: TextStyle(
+                                                          fontSize: 14,
+                                                          color: secondryColor,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                      trailing: Text(
+                                                        " $currency_name_fro $totalPayingAmount",
+                                                        style: const TextStyle(
+                                                          fontSize: 14,
+                                                          color: primaryColor,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              !_isLoadingExchange
+                                                  ? isConnected
+                                                      ? _isLoading
+                                                          ? const Center(
+                                                              child:
+                                                                  // CircularProgressIndicator(),
+                                                                  LogoandSpinner(
+                                                              imageAssets:
+                                                                  'assets/asalicon.png',
+                                                              reverse: true,
+                                                              arcColor:
+                                                                  primaryColor,
+                                                              spinSpeed: Duration(
+                                                                  milliseconds:
+                                                                      500),
+                                                            ))
+                                                          : InkWell(
+                                                              onTap: () {
+                                                                // _showSheet();
+                                                                // _saveForm();
+                                                                _submitted =
+                                                                    true;
+                                                                final isValid = _form
+                                                                    .currentState
+                                                                    ?.validate();
+                                                                if (!isValid!) {
+                                                                  print(
+                                                                      "valid");
+                                                                  return;
+                                                                }
+                                                                _form
+                                                                    .currentState
+                                                                    ?.save();
+                                                                print(
+                                                                    "Reciveamount Before $Reciveamount");
+                                                                // if(Reciveamount.isEmpty){
+                                                                _showMyDialogConfirmPin();
+                                                                // print("Reciveamount After $Reciveamount");
+                                                                // }
+                                                              },
+                                                              child:
+                                                                  const CommonBtn(
+                                                                txt: "Send",
+                                                              ),
+                                                            )
+                                                      : Center(
+                                                          child: Text(
+                                                              'Network Status: $statusText'),
+                                                        )
+                                                  : Container(),
+                                              const SizedBox(
+                                                height: 30,
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            )
-                          ],
+                              )
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                )
-              ],
+                      ],
+                    ),
+                  )
+                ],
+              ),
             ),
-          ),
-        );
-    
+    );
   }
 
   void launchDataSettings() async {
@@ -2075,10 +2244,8 @@ Container(
                       borderRadius: BorderRadius.circular(20.0),
                     ),
                   ),
-                  backgroundColor:
-                      WidgetStateProperty.all<Color>(primaryColor),
-                  foregroundColor:
-                      WidgetStateProperty.all<Color>(Colors.white),
+                  backgroundColor: WidgetStateProperty.all<Color>(primaryColor),
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
                   padding: WidgetStateProperty.all<EdgeInsets>(
                     const EdgeInsets.symmetric(
                       vertical: 12.0,
@@ -2107,10 +2274,8 @@ Container(
                       borderRadius: BorderRadius.circular(20.0),
                     ),
                   ),
-                  backgroundColor:
-                      WidgetStateProperty.all<Color>(primaryColor),
-                  foregroundColor:
-                      WidgetStateProperty.all<Color>(Colors.white),
+                  backgroundColor: WidgetStateProperty.all<Color>(primaryColor),
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
                   padding: WidgetStateProperty.all<EdgeInsets>(
                     const EdgeInsets.symmetric(
                       vertical: 12.0,

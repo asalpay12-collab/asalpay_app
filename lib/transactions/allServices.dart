@@ -9,7 +9,6 @@ import 'package:asalpay/transfer/Transfer1.dart' as T1;
 import 'package:asalpay/transactions/ProductPurchaseScreen.dart';
 import 'package:asalpay/transactions/SeeAllTransactions.dart';
 import 'package:asalpay/transactions/qows_kaab/qows_kaab_products_screen.dart';
-import 'package:asalpay/ewareeji/ewareeji_main_screen.dart';
 import 'package:flutter/material.dart';
 
 class AllServices extends StatefulWidget {
@@ -20,6 +19,28 @@ class AllServices extends StatefulWidget {
 }
 
 class _AllServicesState extends State<AllServices> {
+  static const List<Color> _iconColors = [
+    Color(0xFF02DF7E),
+    Color(0xFF4DD0E1),
+    Color(0xFFFFB74D),
+    Color(0xFF81C784),
+    Color(0xFFE57373),
+    Color(0xFF9575CD),
+    Color(0xFF4FC3F7),
+    Color(0xFFFF8A65),
+  ];
+
+  void _showComingSoon() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Coming soon'),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -94,26 +115,39 @@ class _AllServicesState extends State<AllServices> {
   }
 
   Widget _buildSectionLabel(String title, String subtitle) {
-    return Row(
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 18,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          subtitle,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.75),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+          const SizedBox(width: 10),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -147,20 +181,31 @@ class _AllServicesState extends State<AllServices> {
         () => FundMoving(wallet_accounts_id: widget.wallet_accounts_id)
       ),
     ];
+    const sectionBg = 0.12;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.12), width: 1),
+        color: Colors.white.withOpacity(sectionBg),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(12),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
           childAspectRatio: 1.05,
         ),
         itemCount: items.length,
@@ -169,6 +214,7 @@ class _AllServicesState extends State<AllServices> {
           return _serviceCard(
             item.$1,
             item.$2,
+            _iconColors[index % _iconColors.length],
             () => Navigator.push(
                 context, MaterialPageRoute(builder: (_) => item.$3())),
           );
@@ -181,7 +227,7 @@ class _AllServicesState extends State<AllServices> {
     final items = [
       (
         Icons.devices_other_rounded,
-        '252Pay',
+        C.kEasyShopServiceName,
         () =>
             ProductPurchaseScreen(wallet_accounts_id: widget.wallet_accounts_id)
       ),
@@ -205,93 +251,111 @@ class _AllServicesState extends State<AllServices> {
       (
         Icons.currency_bitcoin,
         'E-Wareeji',
-        () => EwareejiMainScreen(wallet_accounts_id: widget.wallet_accounts_id)
+        () => const SizedBox.shrink()
+        // () => EwareejiMainScreen(
+        //       wallet_accounts_id: widget.wallet_accounts_id,
+        //     )
       ),
     ];
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 1.05,
+    const sectionBg = 0.12;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(sectionBg),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return _serviceCard(
-          item.$1,
-          item.$2,
-          () => Navigator.push(
-              context, MaterialPageRoute(builder: (_) => item.$3())),
-        );
-      },
+      padding: const EdgeInsets.all(12),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1.05,
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return _serviceCard(
+            item.$1,
+            item.$2,
+            _iconColors[index % _iconColors.length],
+            () {
+              if (item.$2 == 'E-Wareeji') {
+                _showComingSoon();
+                // Navigator.push(
+                //   context,
+                //   MaterialPageRoute(
+                //     builder: (_) => EwareejiMainScreen(
+                //       wallet_accounts_id: widget.wallet_accounts_id,
+                //     ),
+                //   ),
+                // );
+                return;
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => item.$3()),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
-  Widget _serviceCard(IconData icon, String label, VoidCallback onTap) {
+  Widget _serviceCard(
+      IconData icon, String label, Color iconColor, VoidCallback onTap) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
+        splashColor: Colors.white.withOpacity(0.15),
+        highlightColor: Colors.white.withOpacity(0.08),
         child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                const Color(0xFFF8FAFC),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: C.secondryColor.withOpacity(0.08),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
+          decoration: const BoxDecoration(),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        C.secondryColor.withOpacity(0.18),
-                        C.secondryColor.withOpacity(0.08),
-                      ],
+                    color: iconColor.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: iconColor.withOpacity(0.4),
+                      width: 1,
                     ),
-                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, size: 21, color: C.secondryColor),
+                  child: Icon(icon, size: 22, color: iconColor),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Flexible(
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
                       label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1A2E),
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white.withOpacity(0.95),
+                        letterSpacing: -0.1,
                       ),
                       textAlign: TextAlign.center,
                       maxLines: 2,

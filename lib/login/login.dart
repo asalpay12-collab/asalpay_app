@@ -34,6 +34,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:asalpay/firebase/fcm_token_manager.dart';
 import 'package:asalpay/firebase/device_registration_service.dart';
+import 'package:asalpay/utils/network_utils.dart';
 // Biometric disabled: users could not log in with session
 // import 'package:asalpay/services/biometric_service.dart';
 
@@ -306,8 +307,7 @@ class _LoginState extends State<Login> {
   // }
 
   Future<void> _checkNetworkStatus() async {
-    var connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult == ConnectivityResult.none) {
+    if (await checkConnectivityIndicatesOffline() && mounted) {
       await _showNetworkMessage(context);
     }
   }
@@ -348,12 +348,13 @@ class _LoginState extends State<Login> {
         ),
         content: const Text('You are currently disconnected from the network.'),
         actions: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: isSmallScreen ? 8 : 16,
+            runSpacing: 10,
             children: [
               ElevatedButton(
                 onPressed: () {
-                  // Function to open Wi-Fi settings
                   launchWifiSettings();
                 },
                 style: ButtonStyle(
@@ -365,9 +366,9 @@ class _LoginState extends State<Login> {
                   backgroundColor: WidgetStateProperty.all<Color>(primaryColor),
                   foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
                   padding: WidgetStateProperty.all<EdgeInsets>(
-                    const EdgeInsets.symmetric(
+                    EdgeInsets.symmetric(
                       vertical: 12.0,
-                      horizontal: 24.0,
+                      horizontal: isSmallScreen ? 16.0 : 24.0,
                     ),
                   ),
                 ),
@@ -378,9 +379,6 @@ class _LoginState extends State<Login> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
-              SizedBox(
-                width: isSmallScreen ? 10 : 20,
               ),
               ElevatedButton(
                 onPressed: () {
@@ -395,13 +393,19 @@ class _LoginState extends State<Login> {
                   backgroundColor: WidgetStateProperty.all<Color>(primaryColor),
                   foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
                   padding: WidgetStateProperty.all<EdgeInsets>(
-                    const EdgeInsets.symmetric(
+                    EdgeInsets.symmetric(
                       vertical: 12.0,
-                      horizontal: 24.0,
+                      horizontal: isSmallScreen ? 16.0 : 24.0,
                     ),
                   ),
                 ),
-                child: const Text('Open Data'),
+                child: Text(
+                  'Open Data',
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 14.0 : 16.0,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
@@ -533,8 +537,9 @@ class _LoginState extends State<Login> {
         if (snapshot.hasData && snapshot.data != null) {
           List<ConnectivityResult> results = snapshot.data!;
 
-          // Check if connected
-          isConnected = !results.contains(ConnectivityResult.none);
+          // Any real interface (wifi/mobile/…) counts as connected; do not use
+          // contains(none) — [wifi, none] is still online.
+          isConnected = connectivityResultsIndicateOnline(results);
 
           // Debug prints
           print('Connectivity Results: $results');
@@ -1085,9 +1090,8 @@ class _LoginState extends State<Login> {
     }
     _formkey.currentState!.save();
 
-    // Check for network connectivity
-    var connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult == ConnectivityResult.none) {
+    // Check for network connectivity (connectivity_plus returns a List)
+    if (await checkConnectivityIndicatesOffline()) {
       print("No network connection");
       await _showNetworkMessage(context);
       return;
@@ -1289,6 +1293,10 @@ class _LoginState extends State<Login> {
     } catch (error) {
       print("Error during operations: $error");
       if (!mounted) return;
+      if (isNetworkError(error)) {
+        await _showNetworkMessage(context);
+        return;
+      }
       final isLoggedIn = Provider.of<Auth>(context, listen: false).isAuth;
       if (isLoggedIn) {
         final walletAccountsId = _authData['phone']?.replaceAll('+', '') ?? '';
@@ -1322,112 +1330,7 @@ class _LoginState extends State<Login> {
   }
 
   Future<void> _NetworkMessage(BuildContext context) async {
-    final screenSize = MediaQuery.of(context).size;
-    final bool isSmallScreen = screenSize.width < 600;
-
-    return showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Image.asset("assets/WD5.png", width: screenSize.width * 0.07),
-            const SizedBox(width: 08),
-            Expanded(
-              child: Text(
-                'No Connection',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: screenSize.width * 0.145),
-              ),
-            ),
-            GestureDetector(
-              onTap: () {
-                Navigator.pop(context);
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey.withOpacity(0.3),
-                ),
-                padding: EdgeInsets.all(screenSize.width * 0.015),
-                child: Icon(
-                  Icons.close,
-                  color: primaryColor,
-                  size: screenSize.width * 0.05,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          'You are currently disconnected from the network.',
-          style: TextStyle(fontSize: screenSize.width * 0.04),
-        ),
-        actions: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ElevatedButton(
-                onPressed: () {
-                  launchWifiSettings();
-                },
-                style: ButtonStyle(
-                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                    RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20.0),
-                    ),
-                  ),
-                  backgroundColor: WidgetStateProperty.all<Color>(primaryColor),
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                  padding: WidgetStateProperty.all<EdgeInsets>(
-                    EdgeInsets.symmetric(
-                      vertical: screenSize.height * 0.02,
-                      horizontal: screenSize.width * 0.06,
-                    ),
-                  ),
-                ),
-                child: Text(
-                  'Open Wi-Fi',
-                  style: TextStyle(
-                    fontSize: screenSize.width * 0.04,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              SizedBox(width: screenSize.width * 0.05),
-              ElevatedButton(
-                onPressed: () {
-                  launchDataSettings();
-                },
-                style: ButtonStyle(
-                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                    RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20.0),
-                    ),
-                  ),
-                  backgroundColor: WidgetStateProperty.all<Color>(primaryColor),
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                  padding: WidgetStateProperty.all<EdgeInsets>(
-                    EdgeInsets.symmetric(
-                      vertical: screenSize.height * 0.02,
-                      horizontal: screenSize.width * 0.06,
-                    ),
-                  ),
-                ),
-                child: Text(
-                  'Open Data',
-                  style: TextStyle(
-                    fontSize: screenSize.width * 0.04,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+    return showNoConnectionDialog(context);
   }
 
 // //todo:Network Message;

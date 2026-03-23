@@ -2,7 +2,7 @@ name: asalpay
 description: "AsalPay."
 publish_to: 'none' 
 
-version: 1.3.4
+version: 1.3.4+44
 
 environment:
   sdk: ^3.6.1

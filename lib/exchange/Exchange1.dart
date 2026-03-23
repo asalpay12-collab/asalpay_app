@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:logo_n_spinner/logo_n_spinner.dart';
 import 'package:provider/provider.dart';
 import '../constants/Constant.dart';
+import '../utils/network_utils.dart';
 class Exchange1 extends StatefulWidget {
   final String? wallet_accounts_id;
   const Exchange1({
@@ -128,11 +129,14 @@ class _Exchange1State extends State<Exchange1> {
 // _showErrorDialog(error.toString());
       openSnackbar(context, error.toString(), secondryColor);
     } catch (error) {
-// _showErrorDialog(error.toString());
       _submitted = false;
       RecieveAccount.text = "";
       Amount_Send.text = "";
-      openSnackbar(context, error.toString(), secondryColor);
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+      } else {
+        openSnackbar(context, error.toString(), secondryColor);
+      }
     }
     setState(() {
       _isLoading = false;

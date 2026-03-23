@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../constants/Constant.dart';
 import '../../services/qows_kaab_api_service.dart';
+import '../252pay/252pay_screen_background.dart';
 
 class QowsKaabPaymentScreen extends StatefulWidget {
   final String? walletAccountId;
@@ -136,15 +137,36 @@ class _QowsKaabPaymentScreenState extends State<QowsKaabPaymentScreen> {
     return Scaffold(
       backgroundColor: secondryColor,
       appBar: AppBar(
-        title: const Text('QOYS KAAB Payment'),
-        backgroundColor: primaryColor,
+        elevation: 0,
+        backgroundColor: secondryColor,
+        surfaceTintColor: Colors.transparent,
+        title: Text(
+          'QOYS KAAB Payment',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+            color: pureWhite,
+          ),
+        ),
         foregroundColor: pureWhite,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _paymentDue == null
-              ? const Center(child: Text('No payment information available'))
-              : SingleChildScrollView(
+      body: Pay252ScreenBackground(
+        child: SafeArea(
+          top: false,
+          child: _isLoading
+              ? Center(child: CircularProgressIndicator(color: pureWhite))
+              : _paymentDue == null
+                  ? Center(
+                      child: Text(
+                        'No payment information available',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,6 +289,8 @@ class _QowsKaabPaymentScreenState extends State<QowsKaabPaymentScreen> {
                     ],
                   ),
                 ),
+                ),
+              ),
     );
   }
 

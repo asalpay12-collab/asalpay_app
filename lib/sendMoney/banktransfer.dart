@@ -13,7 +13,6 @@ import 'package:asalpay/widgets/AllRemitDropDown.dart';
 import 'package:asalpay/widgets/AllinOneDropdownSearch.dart';
 import 'package:asalpay/widgets/commonBtn.dart';
 // import 'package:connectivity/connectivity.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -27,6 +26,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../TransferReceiptLetter/Button.dart';
 import '../TransferReceiptLetter/paymentPage.dart';
 import '../constants/Constant.dart';
+import '../utils/network_utils.dart';
 import 'dart:io' show File, Platform;
 
 import '../providers/HomeSliderandTransaction.dart';
@@ -571,8 +571,12 @@ void didChangeDependencies() async {
       setState(() {
         ModelErrorMessage = error.toString();
       });
+      if (isNetworkError(error)) {
+        showNoConnectionDialog(context);
+        setState(() => isloading1 = false);
+        return;
+      }
       print(ModelErrorMessage);
-      // openSnackbar(context, error.toString(), secondryColor);
       _showErrorDialog(error.toString());
       setState(() {
         isloading1 = false;
@@ -734,12 +738,11 @@ Future<void> _saveForm() async {
 
   var errorMessage = 'Successfully Created';
 
-  final connectivityResult = await Connectivity().checkConnectivity();
-  if (connectivityResult == ConnectivityResult.none) {
+  if (await checkConnectivityIndicatesOffline()) {
     setState(() {
       _isLoading = false;
     });
-    openSnackbar(context, 'No Internet Connection', secondryColor);
+    showNoConnectionDialog(context);
     return; 
   }
 
