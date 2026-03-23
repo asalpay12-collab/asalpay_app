@@ -1492,8 +1492,9 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       const SizedBox(height: 8),
       TextField(
         controller: fullNameController,
+        readOnly: true,
         decoration: InputDecoration(
-          hintText: 'Enter your full name',
+          hintText: 'Auto-filled from wallet',
           prefixIcon: const Icon(Icons.person_outline),
           border: OutlineInputBorder(borderRadius: br12),
           filled: true,
@@ -1513,8 +1514,9 @@ class _QowsKaabApplicationScreenState extends State<QowsKaabApplicationScreen> {
       TextField(
         controller: phoneNumberController,
         keyboardType: TextInputType.phone,
+        readOnly: true,
         decoration: InputDecoration(
-          hintText: 'Enter phone number',
+          hintText: 'Auto-filled from wallet',
           prefixIcon: const Icon(Icons.phone_outlined),
           border: OutlineInputBorder(borderRadius: br12),
           filled: true,
