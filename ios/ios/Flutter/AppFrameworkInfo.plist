@@ -22,9 +22,13 @@
   <string>1.0</string>
   <key>MinimumOSVersion</key>
 <<<<<<< HEAD
+<<<<<<< HEAD
   <string>13.0</string>
 =======
   <string>15.0</string>
 >>>>>>> 770fb864dd7920901673d72db70e3cbef7e86e03
+=======
+  <string>15.5</string>
+>>>>>>> 8a2dfc6dc8cb4a7fe8acf4b7dd7b8056a1a0b019
 </dict>
 </plist>
