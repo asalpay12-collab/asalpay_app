@@ -43,7 +43,7 @@ dependencies:
   # gallery_saver: ^2.5.3
 
   # KEPT: Chinese OCR for bank transfer (banktransfer.dart, banktransferChina.dart)
-  google_mlkit_text_recognition: ^0.11.0
+  google_mlkit_text_recognition: ^0.15.1
   # REMOVED: face_detection - not used anywhere. See docs/APK_SIZE_REDUCTION.md to restore if needed.
   # google_mlkit_face_detection: ^0.9.0
 
@@ -87,7 +87,7 @@ dependencies:
   firebase_core: ^2.24.0
   firebase_messaging: ^14.7.10
 
-  mobile_scanner: ^3.5.7  
+  mobile_scanner: ^7.2.0  
 
 
   device_info_plus: ^9.1.2
